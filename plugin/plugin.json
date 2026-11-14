@@ -1,0 +1,35 @@
+{
+  "id": "wood-joinery",
+  "name": "Wood joinery",
+  "version": "0.1.0",
+  "description": "Mortise and tenon joints between two boards: adds the tenon to the rail and cuts the mortise in the stile.",
+  "capabilities": ["commands@0.1"],
+  "runtime": {
+    "module": "plugin.wasm",
+    "entries": [
+      {
+        "name": "mortise_tenon",
+        "effect": "edit",
+        "input_schema": {
+          "type": "object",
+          "required": ["rail", "stile"],
+          "properties": {
+            "rail": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 1, "description": "The body that gets the tenon. Its end touches the stile." },
+            "stile": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 1, "description": "The body that gets the mortise." },
+            "variant": { "type": "string", "enum": ["classic", "haunched", "through", "bridle"], "description": "Default: classic, a blind mortise." },
+            "thickness": { "type": "number", "description": "Tenon thickness in mm. Default: a third of the rail thickness." },
+            "length": { "type": "number", "description": "Tenon length in mm. Default: two thirds of the stile, to the nearest 5 mm; the whole stile for through and bridle." },
+            "shoulder": { "type": "number", "description": "Shoulder on each edge of the rail width, in mm." },
+            "haunch_width": { "type": "number", "description": "Haunched only: width of the haunch in mm." },
+            "haunch_depth": { "type": "number", "description": "Haunched only: depth of the haunch in mm." },
+            "glue_relief": { "type": "number", "description": "Extra depth under a blind tenon, in mm. Default: 2." },
+            "clearance": { "type": "number", "description": "Gap around the tenon in the mortise, in mm. Default: 0." },
+            "offset": { "type": "number", "description": "Shift of the tenon across the rail thickness, in mm. Default: 0, centred." }
+          }
+        }
+      }
+    ],
+    "commands": ["inspect.measure", "solid.box"],
+    "limits": { "fuel": 50000000, "memory_mib": 16, "deadline_ms": 10000 }
+  }
+}
