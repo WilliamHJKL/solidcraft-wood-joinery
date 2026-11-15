@@ -62,12 +62,14 @@ includes its tenons, so a cut list reads the true length of the blank.
 The end of the rail must touch a face of the stile before you run the command, unless you
 tick **Align the boards first**.
 
+The list in the form shows these values as a script takes them.
+
 | Joint | What it makes |
 |---|---|
-| Classic (default) | A blind mortise. The tenon has a shoulder on each edge. |
-| Haunched | A blind mortise with a short haunch, on the rail edge nearest the end of the stile. |
-| Through | A tenon through the whole stile. |
-| Bridle | An open slot at the end of the stile. The tongue runs the full width of the rail. |
+| `classic` (default) | A blind mortise. The tenon has a shoulder on each edge. |
+| `haunched` | A blind mortise with a short haunch, on the rail edge nearest the end of the stile. |
+| `through` | A tenon through the whole stile. |
+| `bridle` | An open slot at the end of the stile. The tongue runs the full width of the rail. |
 
 Every size is optional, in millimetres. An empty field follows common cabinetmaking practice:
 

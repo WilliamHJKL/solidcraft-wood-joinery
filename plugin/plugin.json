@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
   "capabilities": [
     "commands@0.1"
@@ -29,28 +29,13 @@
               "type": "string",
               "title": "Joint",
               "default": "classic",
-              "oneOf": [
-                {
-                  "const": "classic",
-                  "title": "Classic",
-                  "description": "A blind mortise. The tenon has a shoulder on each edge."
-                },
-                {
-                  "const": "haunched",
-                  "title": "Haunched",
-                  "description": "A blind mortise with a short haunch near the end of the stile."
-                },
-                {
-                  "const": "through",
-                  "title": "Through",
-                  "description": "The tenon goes through the whole stile."
-                },
-                {
-                  "const": "bridle",
-                  "title": "Bridle",
-                  "description": "An open slot at the end of the stile."
-                }
-              ]
+              "enum": [
+                "classic",
+                "haunched",
+                "through",
+                "bridle"
+              ],
+              "description": "classic: blind, a shoulder on each edge. haunched: blind, with a short haunch. through: right through the stile. bridle: an open slot at the end of the stile. Empty: classic."
             },
             "thickness": {
               "type": "number",
@@ -142,32 +127,14 @@
             "face": {
               "type": "string",
               "title": "Face (empty = selection)",
-              "description": "The face to cut into. The groove runs along its longer side. Empty: the selected face.",
-              "oneOf": [
-                {
-                  "const": "+x",
-                  "title": "Right (+X)"
-                },
-                {
-                  "const": "-x",
-                  "title": "Left (-X)"
-                },
-                {
-                  "const": "+y",
-                  "title": "Back (+Y)"
-                },
-                {
-                  "const": "-y",
-                  "title": "Front (-Y)"
-                },
-                {
-                  "const": "+z",
-                  "title": "Top (+Z)"
-                },
-                {
-                  "const": "-z",
-                  "title": "Bottom (-Z)"
-                }
+              "description": "The face to cut into: +x right, -x left, +y back, -y front, +z top, -z bottom. The groove runs along its longer side. Empty: the selected face.",
+              "enum": [
+                "+x",
+                "-x",
+                "+y",
+                "-y",
+                "+z",
+                "-z"
               ]
             },
             "width": {

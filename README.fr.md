@@ -67,12 +67,14 @@ vraie longueur de la pièce brute.
 Le bout de la traverse doit toucher une face du montant avant de lancer la commande, sauf si
 vous cochez **Aligner d'abord les pièces**.
 
+La liste du formulaire affiche les valeurs en anglais, les mêmes que dans un script.
+
 | Assemblage | Ce qu'il réalise |
 |---|---|
-| Classique (par défaut) | Une mortaise borgne. Le tenon a un épaulement sur chaque chant. |
-| À renfort | Une mortaise borgne avec un renfort court, sur le chant de la traverse le plus proche du bout du montant. |
-| Traversant | Un tenon qui traverse tout le montant. |
-| Enfourchement | Une fente ouverte au bout du montant. La languette fait toute la largeur de la traverse. |
+| `classic` : classique (par défaut) | Une mortaise borgne. Le tenon a un épaulement sur chaque chant. |
+| `haunched` : à renfort | Une mortaise borgne avec un renfort court, sur le chant de la traverse le plus proche du bout du montant. |
+| `through` : traversant | Un tenon qui traverse tout le montant. |
+| `bridle` : enfourchement | Une fente ouverte au bout du montant. La languette fait toute la largeur de la traverse. |
 
 Toutes les cotes sont facultatives, en millimètres. Un champ vide suit les usages de la
 menuiserie :

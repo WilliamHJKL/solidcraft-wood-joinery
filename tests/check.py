@@ -139,6 +139,18 @@ def main():
         dry = c.cli("install", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / "wood-joinery.zip"), "dry_run": True}}])
         c.report(dry[0]["id"] == "wood-joinery" and dry[0]["installed"] is False, "plugin.install accepts the .zip in a dry run")
 
+        # Every form must be one SolidCraft 0.42.0 can draw: its dialog knows numbers, whole numbers,
+        # checkboxes, text and `enum` lists, and refuses the whole entry for any other keyword.
+        notes = {"type", "title", "description", "default", "unit"}
+        allowed = {"number": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"},
+                   "integer": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"}, "boolean": set(), "string": {"minLength", "maxLength", "enum"}}
+        for package in [PLUGIN, *sorted((ROOT / "dist").glob("*/wood-joinery"))]:
+            manifest = json.loads((package / "plugin.json").read_text())
+            bad = [f"{e['name']}.{k}" for e in manifest["runtime"]["entries"] for k, prop in e["input_schema"]["properties"].items()
+                   if prop.get("type") not in allowed or set(prop) - notes - allowed[prop["type"]]]
+            bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - {"type", "properties", "required"}]
+            c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by SolidCraft 0.42.0" + (f": not {bad}" if bad else ""))
+
         both = {"rail": "Rail", "stile": "Stile"}
         mid = boards([35, 0, 400])
 
@@ -181,7 +193,7 @@ def main():
         c.refuse("too_long", "blind tenon as long as the stile", mid, {**both, "length": 34}, "come through")
         c.refuse("bridle_mid", "bridle away from the stile end", mid, {**both, "variant": "bridle"}, "flush with the end")
         c.refuse("same", "the same body twice", mid, {"rail": "Rail", "stile": "Rail"}, "two different bodies")
-        c.refuse("unknown", "unknown body", mid, {"rail": "Nope", "stile": "Stile"}, "unknown body name")
+        c.refuse("unknown", "unknown body", mid, {"rail": "Nope", "stile": "Stile"}, "unknown body name `Nope`. The bodies of this design are: `Stile`, `Rail`")
         c.refuse("variant", "unknown variant", mid, {**both, "variant": "dovetail"}, "classic, haunched, through or bridle")
 
         # Grooves in the stile. Default: 6 wide, 8 deep, the whole 830 mm.

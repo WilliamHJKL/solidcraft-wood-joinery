@@ -194,10 +194,32 @@ fn grown(body: &Aabb, blocks: &[Block]) -> Aabb {
     all
 }
 
+/// Checks that each name is a body of the design, and names the bodies when one is not: the
+/// name may be mistyped, or a cut may have split the board in two bodies with new names.
+fn known(names: &[(&str, &str)]) -> Result<(), PluginError> {
+    let listed = run("inspect.measure", json!({ "names_only": true }))?;
+    let bodies: Vec<&str> = listed
+        .get("bodies")
+        .and_then(Value::as_array)
+        .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str)).collect())
+        .unwrap_or_default();
+    for (field, name) in names {
+        if !bodies.contains(name) {
+            let mut shown = bodies.iter().take(12).map(|b| format!("`{b}`")).collect::<Vec<_>>().join(", ");
+            if bodies.len() > 12 {
+                shown.push_str(&format!(" and {} more", bodies.len() - 12));
+            }
+            return Err(invalid(field, format!("unknown body name `{name}`. The bodies of this design are: {shown}")));
+        }
+    }
+    Ok(())
+}
+
 /// The two boards of a joint. With `align` on, the first board is moved by what `shift` returns
 /// before anything is cut.
 fn pair(p: &Value, names: (&str, &str), shift: fn(&Aabb, &Aabb) -> Result<[f64; 3], String>) -> Result<Pair, PluginError> {
     let (first, second) = two(p, names.0, names.1)?;
+    known(&[(names.0, &first), (names.1, &second)])?;
     let measured = run("inspect.measure", json!({ "bodies": [first, second] }))?;
     let (mut a, b) = (bbox(&measured, &first)?, bbox(&measured, &second)?);
     let (volume_a, volume_b) = (volume(&measured, &first)?, volume(&measured, &second)?);
@@ -364,6 +386,7 @@ fn groove(params: &str) -> Result<String, PluginError> {
         stop_start: length(&p, "stop_start")?,
         stop_end: length(&p, "stop_end")?,
     };
+    known(&[("body", &board)])?;
     let measured = run("inspect.measure", json!({ "bodies": [board] }))?;
     let plan = groove::plan(bbox(&measured, &board)?, face, &options).map_err(|reason| invalid("body", reason))?;
     add(&plan.cut, "cut", &board, "Groove")?;
