@@ -11,9 +11,13 @@ d'annulation. Un fichier créé avec le plugin s'ouvre et se reconstruit sans lu
 
 ## Installer
 
-1. Construisez le plugin (voir [Construire](#construire)).
-2. Dans SolidCraft, ouvrez Preferences › Plugins › Install plugin… et choisissez
-   `dist/wood-joinery-fr.zip`. Pour les textes en anglais, choisissez `dist/wood-joinery.zip`.
+1. Téléchargez `wood-joinery-fr.zip` depuis la
+   [dernière version publiée](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest).
+   Pour les textes en anglais, téléchargez `wood-joinery.zip`.
+   Ne prenez pas les archives « Source code » : SolidCraft ne peut pas les installer.
+   Vous pouvez aussi construire les paquets vous-même (voir [Construire](#construire)) ; ils sont
+   alors dans `dist/`.
+2. Dans SolidCraft, ouvrez Preferences › Plugins › Install plugin… et choisissez le fichier.
 3. Les deux commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
 
 Le plugin appelle deux commandes de SolidCraft, `inspect.measure` et `solid.box`. Il ne demande

@@ -11,9 +11,12 @@ the plugin opens and rebuilds without it.
 
 ## Install
 
-1. Build the plugin (see [Build](#build)).
-2. In SolidCraft, open Preferences › Plugins › Install plugin… and choose `dist/wood-joinery.zip`.
-   For the French texts, choose `dist/wood-joinery-fr.zip` instead.
+1. Download `wood-joinery.zip` from the
+   [latest release](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest).
+   For the French texts, download `wood-joinery-fr.zip` instead.
+   Do not take the "Source code" archives: SolidCraft cannot install those.
+   You can also build the packages yourself (see [Build](#build)); they are then in `dist/`.
+2. In SolidCraft, open Preferences › Plugins › Install plugin… and choose the file.
 3. The two commands are now in the Plugins menu, and in the Plugins group of the Model tab.
 
 The plugin calls two SolidCraft commands, `inspect.measure` and `solid.box`. It asks for no
