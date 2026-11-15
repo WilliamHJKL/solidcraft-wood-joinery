@@ -80,11 +80,6 @@ par exemple « à renfort (haunched) ».
 Le formulaire affiche chaque règle dans le titre du champ, et les valeurs fixes dans les
 champs : 2 mm de réserve de colle, pas de jeu, pas de décalage.
 
-Pour voir les cotes calculées pour deux pièces avant d'usiner, lancez **Tenon et mortaise :
-voir les cotes** (`mortise-tenon-sizes` dans un script). La commande reçoit la traverse, le
-montant et l'assemblage, ne modifie rien, et liste l'épaisseur, la longueur, la largeur,
-l'épaulement, le renfort et la profondeur de mortaise.
-
 Toutes les cotes sont facultatives, en millimètres. Un champ vide suit les usages de la
 menuiserie :
 
@@ -204,7 +199,7 @@ première pièce.
 ## Lancer depuis un script
 
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
-`plugin.run`. Les entrées sont `mortise-tenon`, `mortise-tenon-sizes`, `groove`, `half-lap`,
+`plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
 `dowels` et `box-joint`. Les trois dernières reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 

@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
   "capabilities": [
     "commands@0.1"
@@ -109,43 +109,6 @@
             "name": "Mortise and tenon"
           }
         ]
-      },
-      {
-        "name": "mortise-tenon-sizes",
-        "effect": "read",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Mortise and tenon: show the sizes"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "rail": {
-              "type": "string",
-              "title": "Rail (empty = selection)",
-              "description": "Name of the body that gets the tenon. Its end touches the stile. Empty: the selection, in the order picked."
-            },
-            "stile": {
-              "type": "string",
-              "title": "Stile (empty = selection)",
-              "description": "Name of the body that gets the mortise. Empty: the selection, in the order picked."
-            },
-            "variant": {
-              "type": "string",
-              "title": "Joint",
-              "default": "classic",
-              "enum": [
-                "classic",
-                "haunched",
-                "through",
-                "bridle"
-              ],
-              "description": "classic: blind, a shoulder on each edge. haunched: blind, with a short haunch. through: right through the stile. bridle: an open slot at the end of the stile. Empty: classic."
-            }
-          }
-        }
       },
       {
         "name": "groove",

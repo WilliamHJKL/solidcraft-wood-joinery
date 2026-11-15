@@ -75,10 +75,6 @@ Every size is optional, in millimetres. An empty field follows common cabinetmak
 The form shows each rule in the field's title, and the fixed defaults in the fields: 2 mm of
 glue relief, no clearance, no offset.
 
-To see the sizes worked out for two boards before you cut, run **Mortise and tenon: show the
-sizes** (`mortise-tenon-sizes` in a script). It takes the rail, the stile and the joint, changes
-nothing, and lists the thickness, length, width, shoulder, haunch and mortise depth.
-
 | Field | Script name | Empty means |
 |---|---|---|
 | Tenon thickness | `thickness` | A third of the rail thickness |
@@ -187,7 +183,7 @@ Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on
 ## Run from a script
 
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
-`plugin.run`. The entries are `mortise-tenon`, `mortise-tenon-sizes`, `groove`, `half-lap`,
+`plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
 `dowels` and `box-joint`. The last three take the two bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 

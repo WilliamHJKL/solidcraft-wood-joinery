@@ -21,8 +21,7 @@ export!(Plugin);
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
         match entry.as_str() {
-            "mortise-tenon" => mortise_tenon(&params, false),
-            "mortise-tenon-sizes" => mortise_tenon(&params, true),
+            "mortise-tenon" => mortise_tenon(&params),
             "groove" => groove(&params),
             "half-lap" => half_lap(&params),
             "dowels" => dowels(&params),
@@ -318,9 +317,7 @@ fn bore(b: &Bore, operation: Value, name: &str) -> Result<(), PluginError> {
     run("solid.cylinder", args).map(|_| ())
 }
 
-/// Makes the joint, or with `sizes_only` works it out and changes nothing: the reply then gives
-/// the sizes the joint would have, the defaults included.
-fn mortise_tenon(params: &str, sizes_only: bool) -> Result<String, PluginError> {
+fn mortise_tenon(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first: rail, second: stile, a: rail_box, b: stile_box, volume_b: stile_volume, moved, .. } =
         pair(&p, ("rail", "stile"), boards::align_end)?;
@@ -360,9 +357,6 @@ fn mortise_tenon(params: &str, sizes_only: bool) -> Result<String, PluginError> 
     if let Some((width, depth)) = plan.haunch {
         sizes["haunch_width_mm"] = json!(width);
         sizes["haunch_depth_mm"] = json!(depth);
-    }
-    if sizes_only {
-        return Ok(sizes.to_string());
     }
     for (i, block) in plan.tenon.iter().enumerate() {
         add(block, "join", &rail, if i == 0 { "Tenon" } else { "Haunch" })?;

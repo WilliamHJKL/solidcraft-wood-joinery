@@ -175,12 +175,10 @@ def main():
         custom = {**both, "thickness": 8, "length": 20, "shoulder": 5, "glue_relief": 3, "clearance": 0.25}
         c.expect("custom", "sizes set by hand", mid, custom, 8 * 35 * 20, 8.5 * 35.5 * 23)
 
-        # The read entry gives the sizes a joint would have, the defaults included, and changes nothing.
-        shown = c.cli("sizes", [*mid, c.run("mortise-tenon-sizes", {**both, "variant": "haunched"}), MEASURE])
-        sizes, after = shown[-2]["result"], shown[-1]["total"]["volume_mm3"]
+        # The reply lists the sizes that were used, the defaults included.
+        made = c.cli("sizes", [*mid, c.joint({**both, "variant": "haunched"})])[-1]["result"]
         want = {"tenon_thickness_mm": 6, "tenon_length_mm": 25, "tenon_width_mm": 30, "shoulder_mm": 6, "glue_relief_mm": 2, "mortise_depth_mm": 27, "haunch_width_mm": 9, "haunch_depth_mm": 6}
-        ok = all(abs(sizes.get(k, -1) - v) < 1e-9 for k, v in want.items()) and abs(after - (STILE + RAIL)) < 0.5
-        c.report(ok, f"the sizes entry shows the default sizes and cuts nothing: {{k: sizes.get(k) for k in want}}".replace("{k: sizes.get(k) for k in want}", str({k: sizes.get(k) for k in want})))
+        c.report(all(abs(made.get(k, -1) - v) < 1e-9 for k, v in want.items()), f"the reply lists the sizes used: {({k: made.get(k) for k in want})}")
         # The form sends its shown defaults (glue relief 2, clearance 0, offset 0): same joint.
         c.expect("form_defaults", "the defaults the form shows", mid, {**both, "variant": "classic", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("form_through", "a through tenon with the form defaults", mid, {**both, "variant": "through", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 35, 6 * 33 * 35)
