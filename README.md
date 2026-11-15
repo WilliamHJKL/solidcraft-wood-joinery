@@ -76,7 +76,7 @@ returns to `plugin.run`.
 [{"command": "plugin.run", "params": {
   "path": "dist/wood-joinery",
   "approval": "THE_APPROVAL_FROM_INSPECT",
-  "entry": "mortise_tenon",
+  "entry": "mortise-tenon",
   "params": {"rail": ["Rail"], "stile": ["Stile"], "variant": "haunched"}
 }}]
 ```

@@ -16,7 +16,7 @@ export!(Plugin);
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
         match entry.as_str() {
-            "mortise_tenon" => mortise_tenon(&params),
+            "mortise-tenon" => mortise_tenon(&params),
             other => Err(invalid("entry", format!("unknown entry `{other}`"))),
         }
     }

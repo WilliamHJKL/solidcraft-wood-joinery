@@ -8,7 +8,7 @@
     "module": "plugin.wasm",
     "entries": [
       {
-        "name": "mortise_tenon",
+        "name": "mortise-tenon",
         "effect": "edit",
         "input_schema": {
           "type": "object",
