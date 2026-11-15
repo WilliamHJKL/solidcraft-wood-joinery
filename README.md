@@ -3,10 +3,10 @@
 *[Version française](README.fr.md)*
 
 A plugin for [SolidCraft](https://github.com/tangency-labs/solidcraft) that makes woodworking
-joints. It has two commands: **Mortise and tenon**, between two boards, and **Groove**, for a
-groove, dado or rabbet in one board.
+joints. It has five commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
+**Half lap**, **Dowels** and **Box joint**.
 
-Each command adds ordinary box features to the timeline, in one undo step. A design made with
+Each command adds ordinary box and cylinder features to the timeline, in one undo step. A design made with
 the plugin opens and rebuilds without it.
 
 ## Install
@@ -17,10 +17,10 @@ the plugin opens and rebuilds without it.
    Do not take the "Source code" archives: SolidCraft cannot install those.
    You can also build the packages yourself (see [Build](#build)); they are then in `dist/`.
 2. In SolidCraft, open Preferences › Plugins › Install plugin… and choose the file.
-3. The two commands are now in the Plugins menu, and in the Plugins group of the Model tab.
+3. The five commands are now in the Plugins menu, and in the Plugins group of the Model tab.
 
-The plugin calls two SolidCraft commands, `inspect.measure` and `solid.box`. It asks for no
-file, clock or network access.
+The plugin calls three SolidCraft commands, `inspect.measure`, `solid.box` and
+`solid.cylinder`. It asks for no file, clock or network access.
 
 Install one language only: both packages are the same plugin.
 
@@ -79,6 +79,55 @@ face, from end to end.
 
 On a face that is wider than it is long, the same command makes a dado.
 
+## Half lap
+
+![Two boards crossing in a half lap, one drawn see-through](docs/half-lap.png)
+
+Type the names of two boards that cross. Each loses half its thickness where they overlap, so
+they end up in one plane. The same command makes a cross lap, a T lap and a corner lap.
+
+The two bodies must overlap in the model before you run the command: draw each board at its
+full size, one through the other.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Depth in the first board | `depth` | Half the thickness. The second board loses the rest |
+| Swap sides | `flip` | Off: the first board is cut on its side away from the origin |
+
+## Dowels
+
+![Two dowels between a rail and a leg, both drawn see-through](docs/dowels.png)
+
+Type the names of two boards that touch. The plugin drills matching holes in both, in a row
+along the longer side of the contact, and adds each dowel as a new body named `Dowel 1`,
+`Dowel 2` and so on.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Diameter | `diameter` | 6, 8, 10 or 12 mm: the largest that is at most half the thinner side of the contact |
+| Dowel length | `length` | Five diameters. Half goes in each board. A thin board keeps 3 mm under the hole, and the other board takes the rest |
+| Number of dowels | `count` | Two when there is room, then one every 96 mm or so |
+| Glue relief | `glue_relief` | 1 mm at the bottom of each hole |
+| Add the dowels | `dowel_bodies` | On. Off drills the holes only |
+
+Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets two 8 x 40 mm dowels, 20 mm in each
+board, in holes 21 mm deep.
+
+## Box joint
+
+![A box joint at a corner, the front drawn see-through](docs/box-joint.png)
+
+Type the name of the board whose end touches the other board, then the name of that other
+board. The first board gets square fingers that go through the second one, and the second one
+gets the matching sockets. As with a tenon, the first board then measures its true length.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Number of divisions | `count` | Fingers and gaps across the width: the odd number that makes them nearest to square, at least 3 |
+| Start with a finger | `swap` | Off: the first board starts with a gap at the edge nearest the origin |
+
+Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on the first board.
+
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
@@ -89,12 +138,16 @@ On a face that is wider than it is long, the same command makes a dado.
   command again. A joint that rebuilds by itself needs the parametric plugin features that
   SolidCraft's plugin RFC plans for a later phase.
 - A tenon does not yet adjust itself to a groove already cut in the rail or the stile.
+- A joint does not see the other joints. Dowels from two rails on opposite faces of a thin
+  stile can meet in the middle: give a shorter length in that case.
+- Dovetails and miters are not there yet. They need cuts at an angle.
 - The plugin's error messages are in English in every package.
 
 ## Run from a script
 
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
-`plugin.run`. The entries are `mortise-tenon` and `groove`.
+`plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
+`dowels` and `box-joint`. The last three take the two bodies as `first` and `second`.
 
 ```json
 [{"command": "plugin.inspect", "params": {"path": "dist/wood-joinery"}}]
@@ -118,6 +171,15 @@ With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it ret
 }}]
 ```
 
+```json
+[{"command": "plugin.run", "params": {
+  "path": "dist/wood-joinery",
+  "approval": "THE_APPROVAL_FROM_INSPECT",
+  "entry": "dowels",
+  "params": {"first": "Rail", "second": "Stile", "diameter": 8, "count": 2}
+}}]
+```
+
 ## Build
 
 Needs Rust with the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`)
@@ -137,7 +199,7 @@ cargo test                                   # the arithmetic of each cut
 tests/check.py /path/to/solidcraft-cli       # the packed plugin in a real SolidCraft
 ```
 
-`tests/check.py` runs every joint and groove, compares the measured volumes with values worked
+`tests/check.py` runs every command, compares the measured volumes with values worked
 out by hand, and checks undo, refusals, a saved design reopened without the plugin, and each
 translated package.
 

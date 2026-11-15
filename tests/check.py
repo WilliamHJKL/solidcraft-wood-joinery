@@ -3,11 +3,13 @@
 
 Usage: tests/check.py /path/to/solidcraft-cli [--keep DIR]
 
-It builds a 35 x 35 x 830 mm stile and a 360 x 18 x 45 mm rail, runs the joint, and compares the
-measured volumes with values worked out by hand. It also checks undo and redo, refusals, a saved
-design reopened without the plugin, and writes a picture. With --keep, the files stay in DIR.
+It builds a 35 x 35 x 830 mm stile and a 360 x 18 x 45 mm rail, runs each joint, and compares the
+measured volumes with values worked out by hand: mortise and tenon, grooves, half laps, dowels
+and box joints. It also checks undo and redo, refusals, a saved design reopened without the
+plugin, and writes a picture. With --keep, the files stay in DIR.
 """
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -65,6 +67,26 @@ class Check:
 
     def refuse_groove(self, name, text, params, reason):
         code, output = self.cli(name, [box("Stile", [0, 0, 0], (35, 35, 830), first=True), self.run("groove", params)], expect_error=True)
+        self.report(code != 0 and reason in output, f"refused, {text}: {'ok' if reason in output else output.strip()[-300:]}")
+
+    def change(self, name, text, setup, entry, params, expected):
+        """Runs one entry on `setup` and compares each body's change of volume, in mm3, with `expected`.
+
+        `expected` maps a body name to its change; a body the entry creates is named with its volume.
+        """
+        results = self.cli(name, [*setup, MEASURE, self.run(entry, params), MEASURE])
+        before = {b["name"]: b["volume_mm3"] for b in results[len(setup)]["bodies"]}
+        after = {b["name"]: b["volume_mm3"] for b in results[-1]["bodies"]}
+        got = {n: v - before.get(n, 0) for n, v in after.items()}
+        # A body the entry left alone is not listed.
+        got = {n: v for n, v in got.items() if n in expected or abs(v) >= 0.5}
+        ok = got.keys() == expected.keys() and all(abs(got[n] - expected[n]) < 0.5 for n in expected)
+        shown = ", ".join(f"{n} {v:+.1f}" for n, v in got.items())
+        self.report(ok, f"{text}: {shown} mm3" + ("" if ok else f" (expected {expected})"))
+        return results
+
+    def refuse_entry(self, name, text, setup, entry, params, reason):
+        code, output = self.cli(name, [*setup, self.run(entry, params)], expect_error=True)
         self.report(code != 0 and reason in output, f"refused, {text}: {'ok' if reason in output else output.strip()[-300:]}")
 
     def volumes(self, name, setup, params, *extra):
@@ -164,6 +186,39 @@ def main():
         c.groove("dado", "dado across the top", {"body": "Stile", "face": "+z", "width": 12, "depth": 4}, 12 * 4 * 35)
         c.refuse_groove("groove_deep", "groove through the board", {"body": "Stile", "face": "+x", "depth": 35}, "cut through")
         c.refuse_groove("groove_face", "unknown face", {"body": "Stile", "face": "up"}, "+x, -x, +y, -y, +z or -z")
+
+        # Half laps: two 45 x 18 boards that cross flat. Each loses 45 x 45 x 9.
+        two = {"first": "A", "second": "B"}
+        cross = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [100, -100, 0], (45, 300, 18))]
+        c.change("lap", "cross lap", cross, "half-lap", two, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
+        c.change("lap_depth", "lap 6 mm deep, other side", cross, "half-lap", {**two, "depth": 6, "flip": True}, {"A": -45 * 45 * 6, "B": -45 * 45 * 12})
+        corner = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [0, 0, 0], (45, 300, 18))]
+        c.change("lap_corner", "corner lap", corner, "half-lap", two, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
+        c.refuse_entry("lap_apart", "boards that do not overlap", [cross[0], box("B", [100, 45, 0], (45, 300, 18))], "half-lap", two, "do not overlap")
+
+        # Dowels in the rail end: two of 8 x 40, 20 mm in each board, holes 1 mm deeper.
+        rs = {"first": "Rail", "second": "Stile"}
+        hole, peg = math.pi * 16 * 21, math.pi * 16 * 40
+        c.change("dowels", "two dowels", mid, "dowels", rs, {"Rail": -2 * hole, "Stile": -2 * hole, "Dowel 1": peg, "Dowel 2": peg})
+        # A second rail higher up: its dowels are numbered after the first two.
+        three = [*mid, box("Rail 2", [35, 0, 600], (360, 18, 45)), c.run("dowels", rs)]
+        c.change("dowels_again", "dowels in a second rail", three, "dowels", {"first": "Rail 2", "second": "Stile"}, {"Rail 2": -2 * hole, "Stile": -2 * hole, "Dowel 3": peg, "Dowel 4": peg})
+        # One of 6 x 30, holes only.
+        small = {**rs, "diameter": 6, "count": 1, "length": 30, "dowel_bodies": False}
+        c.change("dowel_holes", "one 6 mm hole pair, no dowel body", mid, "dowels", small, {"Rail": -math.pi * 9 * 16, "Stile": -math.pi * 9 * 16})
+        # An 80 mm dowel: 31 mm at most in the 35 mm stile, the other 49 in the rail.
+        long = {**rs, "count": 1, "length": 80, "dowel_bodies": False}
+        c.change("dowel_long", "long dowel, mostly in the rail", mid, "dowels", long, {"Rail": -math.pi * 16 * 50, "Stile": -math.pi * 16 * 32})
+        c.refuse_entry("dowel_apart", "boards that do not touch", boards([45, 0, 400]), "dowels", rs, "do not touch")
+        c.refuse_entry("dowel_fat", "dowel as thick as the rail", mid, "dowels", {**rs, "diameter": 17}, "no wood beside")
+
+        # A box joint at a drawer corner: 18 x 100 boards, five divisions of 20, two fingers on the side.
+        drawer = [box("Side", [18, 0, 0], (300, 18, 100), first=True), box("Front", [0, 0, 0], (18, 300, 100))]
+        sf = {"first": "Side", "second": "Front"}
+        c.change("box", "box joint", drawer, "box-joint", sf, {"Side": 2 * 20 * 18 * 18, "Front": -2 * 20 * 18 * 18})
+        c.change("box_swap", "box joint starting with a finger", drawer, "box-joint", {**sf, "swap": True}, {"Side": 3 * 20 * 18 * 18, "Front": -3 * 20 * 18 * 18})
+        c.change("box_four", "box joint in four divisions", drawer, "box-joint", {**sf, "count": 4}, {"Side": 2 * 25 * 18 * 18, "Front": -2 * 25 * 18 * 18})
+        c.refuse_entry("box_apart", "boards that do not touch", [drawer[0], box("Front", [-20, 0, 0], (18, 300, 100))], "box-joint", sf, "does not lie on a face")
 
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"

@@ -1,8 +1,8 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.2.0",
-  "description": "Woodworking joints between boards: mortise and tenon, and grooves, dados and rabbets.",
+  "version": "0.3.0",
+  "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
   "capabilities": [
     "commands@0.1"
   ],
@@ -212,11 +212,163 @@
             }
           }
         }
+      },
+      {
+        "name": "half-lap",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Half lap"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "first",
+            "second"
+          ],
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board",
+              "minLength": 1,
+              "description": "Name of a body. The two boards must overlap where the joint goes."
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board",
+              "minLength": 1,
+              "description": "Name of the body that crosses the first one."
+            },
+            "depth": {
+              "type": "number",
+              "title": "Depth in the first board",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "Empty: half the thickness. The second board loses the rest."
+            },
+            "flip": {
+              "type": "boolean",
+              "title": "Swap sides",
+              "default": false,
+              "description": "Off: the first board is cut on its side away from the origin. On: on the other side."
+            }
+          }
+        }
+      },
+      {
+        "name": "dowels",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Dowels"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "first",
+            "second"
+          ],
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board",
+              "minLength": 1,
+              "description": "Name of a body. A face of it touches the second board."
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board",
+              "minLength": 1,
+              "description": "Name of the body the first one touches."
+            },
+            "diameter": {
+              "type": "number",
+              "title": "Diameter",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "Empty: 6, 8, 10 or 12 mm, at most half the thinner side of the contact."
+            },
+            "length": {
+              "type": "number",
+              "title": "Dowel length",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "Empty: five diameters. Half goes in each board, less in a thin one."
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of dowels",
+              "minimum": 1,
+              "description": "Empty: two when there is room, then one every 96 mm or so."
+            },
+            "glue_relief": {
+              "type": "number",
+              "title": "Glue relief",
+              "unit": "mm",
+              "minimum": 0,
+              "description": "Extra depth at the bottom of each hole. Empty: 1 mm."
+            },
+            "dowel_bodies": {
+              "type": "boolean",
+              "title": "Add the dowels",
+              "default": true,
+              "description": "On: each dowel is a new body. Off: holes only."
+            }
+          }
+        }
+      },
+      {
+        "name": "box-joint",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Box joint"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "first",
+            "second"
+          ],
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board",
+              "minLength": 1,
+              "description": "Name of the body that gets the fingers. Its end touches the second board."
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board",
+              "minLength": 1,
+              "description": "Name of the body that gets the sockets. The fingers go through it."
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of divisions",
+              "minimum": 2,
+              "description": "Fingers and gaps across the width. Empty: the odd number nearest to square fingers."
+            },
+            "swap": {
+              "type": "boolean",
+              "title": "Start with a finger",
+              "default": false,
+              "description": "Off: the first board starts with a gap at the edge nearest the origin. On: with a finger."
+            }
+          }
+        }
       }
     ],
     "commands": [
       "inspect.measure",
-      "solid.box"
+      "solid.box",
+      "solid.cylinder"
     ],
     "limits": {
       "fuel": 50000000,

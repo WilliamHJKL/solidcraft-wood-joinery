@@ -2,8 +2,11 @@
 
 use serde_json::{json, Value};
 
+use crate::dowel::{self, Bore};
+use crate::finger;
 use crate::groove;
 use crate::joint::{plan, Aabb, Block, Options, Variant};
+use crate::lap;
 
 wit_bindgen::generate!({ world: "command-plugin", path: "wit" });
 
@@ -19,6 +22,9 @@ impl exports::craft::plugin::entry::Guest for Plugin {
         match entry.as_str() {
             "mortise-tenon" => mortise_tenon(&params),
             "groove" => groove(&params),
+            "half-lap" => half_lap(&params),
+            "dowels" => dowels(&params),
+            "box-joint" => box_joint(&params),
             other => Err(invalid("entry", format!("unknown entry `{other}`"))),
         }
     }
@@ -49,6 +55,36 @@ fn length(p: &Value, field: &str) -> Result<Option<f64>, PluginError> {
         None | Some(Value::Null) => Ok(None),
         Some(v) => v.as_f64().map(Some).ok_or_else(|| invalid(field, "expected a number of millimetres")),
     }
+}
+
+fn count(p: &Value, field: &str) -> Result<Option<u32>, PluginError> {
+    match p.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => v
+            .as_u64()
+            .and_then(|k| u32::try_from(k).ok())
+            .map(Some)
+            .ok_or_else(|| invalid(field, "expected a whole number")),
+    }
+}
+
+fn flag(p: &Value, field: &str, default: bool) -> Result<bool, PluginError> {
+    match p.get(field) {
+        None | Some(Value::Null) => Ok(default),
+        Some(v) => v.as_bool().ok_or_else(|| invalid(field, "expected true or false")),
+    }
+}
+
+/// The two boards of a joint, by name, and their bounding boxes.
+fn pair(p: &Value) -> Result<(String, String, Aabb, Aabb), PluginError> {
+    let first = body(p, "first")?;
+    let second = body(p, "second")?;
+    if first == second {
+        return Err(invalid("second", "the joint needs two different bodies"));
+    }
+    let measured = run("inspect.measure", json!({ "bodies": [first, second] }))?;
+    let (a, b) = (bbox(&measured, &first)?, bbox(&measured, &second)?);
+    Ok((first, second, a, b))
 }
 
 fn run(command: &str, args: Value) -> Result<Value, PluginError> {
@@ -88,6 +124,23 @@ fn add(block: &Block, operation: &str, target: &str, name: &str) -> Result<(), P
         }),
     )
     .map(|_| ())
+}
+
+fn bore(b: &Bore, operation: Value, name: &str) -> Result<(), PluginError> {
+    let r = |v: f64| (v * 1e6).round() / 1e6;
+    let mut axis = [0.0; 3];
+    axis[b.axis] = b.dir;
+    let mut args = json!({
+        "base": [r(b.base[0]), r(b.base[1]), r(b.base[2])],
+        "axis": axis,
+        "diameter": r(b.diameter),
+        "height": r(b.height),
+        "name": name,
+    });
+    if let (Some(args), Value::Object(operation)) = (args.as_object_mut(), operation) {
+        args.extend(operation);
+    }
+    run("solid.cylinder", args).map(|_| ())
 }
 
 fn mortise_tenon(params: &str) -> Result<String, PluginError> {
@@ -161,6 +214,95 @@ fn groove(params: &str) -> Result<String, PluginError> {
         "width_mm": plan.width,
         "depth_mm": plan.depth,
         "length_mm": plan.length,
+    })
+    .to_string())
+}
+
+fn half_lap(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let (first, second, a, b) = pair(&p)?;
+    let options = lap::Options { depth: length(&p, "depth")?, flip: flag(&p, "flip", false)? };
+    let plan = lap::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    add(&plan.cut_first, "cut", &first, "Half lap")?;
+    add(&plan.cut_second, "cut", &second, "Half lap")?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "thickness_mm": plan.thickness,
+        "depth_first_mm": plan.depth_first,
+        "depth_second_mm": plan.depth_second,
+    })
+    .to_string())
+}
+
+fn dowels(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let (first, second, a, b) = pair(&p)?;
+    let options = dowel::Options {
+        diameter: length(&p, "diameter")?,
+        length: length(&p, "length")?,
+        count: count(&p, "count")?,
+        glue_relief: length(&p, "glue_relief")?,
+    };
+    let with_bodies = flag(&p, "dowel_bodies", true)?;
+    let plan = dowel::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    for hole in &plan.holes_first {
+        bore(hole, json!({ "operation": "cut", "targets": [first] }), "Dowel hole")?;
+    }
+    for hole in &plan.holes_second {
+        bore(hole, json!({ "operation": "cut", "targets": [second] }), "Dowel hole")?;
+    }
+    if with_bodies {
+        // SolidCraft renames a body whose name is taken, so number the dowels past the ones there.
+        let all = run("inspect.measure", json!({}))?;
+        let taken: Vec<&str> = all
+            .get("bodies")
+            .and_then(Value::as_array)
+            .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str)).collect())
+            .unwrap_or_default();
+        let mut number = 0;
+        for peg in &plan.dowels {
+            let name = loop {
+                number += 1;
+                let name = format!("Dowel {number}");
+                if !taken.contains(&name.as_str()) {
+                    break name;
+                }
+            };
+            bore(peg, json!({ "operation": "new", "body_name": name }), "Dowel")?;
+        }
+    }
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "count": plan.dowels.len(),
+        "diameter_mm": plan.diameter,
+        "length_mm": plan.length,
+        "in_first_mm": plan.in_first,
+        "in_second_mm": plan.in_second,
+        "dowel_bodies": with_bodies,
+    })
+    .to_string())
+}
+
+fn box_joint(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let (first, second, a, b) = pair(&p)?;
+    let options = finger::Options { count: count(&p, "count")?, swap: flag(&p, "swap", false)? };
+    let plan = finger::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    for socket in &plan.sockets {
+        add(socket, "cut", &second, "Finger socket")?;
+    }
+    for finger in &plan.fingers {
+        add(finger, "join", &first, "Finger")?;
+    }
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "count": plan.count,
+        "fingers_on_first": plan.fingers.len(),
+        "finger_width_mm": plan.finger_width,
+        "finger_length_mm": plan.finger_length,
     })
     .to_string())
 }

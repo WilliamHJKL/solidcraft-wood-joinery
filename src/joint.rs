@@ -11,7 +11,7 @@ pub struct Aabb {
 }
 
 impl Aabb {
-    fn size(&self, axis: usize) -> f64 {
+    pub fn size(&self, axis: usize) -> f64 {
         self.max[axis] - self.min[axis]
     }
 }

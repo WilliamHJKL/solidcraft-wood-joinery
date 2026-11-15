@@ -3,10 +3,10 @@
 *[English version](README.md)*
 
 Un plugin pour [SolidCraft](https://github.com/tangency-labs/solidcraft) qui réalise des
-assemblages de menuiserie. Il apporte deux commandes : **Tenon et mortaise**, entre deux pièces,
-et **Rainure**, pour une rainure, une entaille ou une feuillure dans une pièce.
+assemblages de menuiserie. Il apporte cinq commandes : **Tenon et mortaise**, **Rainure** (et
+aussi entaille et feuillure), **Mi-bois**, **Tourillons** et **Queues droites**.
 
-Chaque commande ajoute des fonctions « boîte » ordinaires dans la timeline, en une seule étape
+Chaque commande ajoute des fonctions « boîte » et « cylindre » ordinaires dans la timeline, en une seule étape
 d'annulation. Un fichier créé avec le plugin s'ouvre et se reconstruit sans lui.
 
 ## Installer
@@ -18,10 +18,10 @@ d'annulation. Un fichier créé avec le plugin s'ouvre et se reconstruit sans lu
    Vous pouvez aussi construire les paquets vous-même (voir [Construire](#construire)) ; ils sont
    alors dans `dist/`.
 2. Dans SolidCraft, ouvrez Preferences › Plugins › Install plugin… et choisissez le fichier.
-3. Les deux commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
+3. Les cinq commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
 
-Le plugin appelle deux commandes de SolidCraft, `inspect.measure` et `solid.box`. Il ne demande
-aucun accès aux fichiers, à l'horloge ou au réseau.
+Le plugin appelle trois commandes de SolidCraft, `inspect.measure`, `solid.box` et
+`solid.cylinder`. Il ne demande aucun accès aux fichiers, à l'horloge ou au réseau.
 
 N'installez qu'une seule langue : les deux paquets sont le même plugin.
 
@@ -82,6 +82,58 @@ face, d'un bout à l'autre.
 
 Sur une face plus large que longue, la même commande réalise une entaille en travers.
 
+## Mi-bois
+
+![Deux pièces croisées à mi-bois, l'une dessinée en transparence](docs/half-lap.png)
+
+Saisissez les noms de deux pièces qui se croisent. Chacune perd la moitié de son épaisseur à
+l'endroit du croisement : elles se retrouvent dans le même plan. La même commande réalise un
+mi-bois en croix, en T ou d'angle.
+
+Les deux corps doivent se chevaucher dans le modèle avant de lancer la commande : dessinez
+chaque pièce à sa taille complète, l'une à travers l'autre.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Profondeur dans la première pièce | `depth` | La moitié de l'épaisseur. La deuxième pièce perd le reste |
+| Inverser les côtés | `flip` | Décoché : la première pièce est entaillée du côté opposé à l'origine |
+
+## Tourillons
+
+![Deux tourillons entre une traverse et un pied, dessinés en transparence](docs/dowels.png)
+
+Saisissez les noms de deux pièces qui se touchent. Le plugin perce des trous en vis-à-vis dans
+les deux, alignés sur le grand côté du contact, et ajoute chaque tourillon comme un nouveau
+corps nommé `Dowel 1`, `Dowel 2`, etc.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Diamètre | `diameter` | 6, 8, 10 ou 12 mm : le plus grand qui ne dépasse pas la moitié du petit côté du contact |
+| Longueur du tourillon | `length` | Cinq diamètres. Une moitié dans chaque pièce. Une pièce mince garde 3 mm sous le trou, et l'autre pièce reçoit le reste |
+| Nombre de tourillons | `count` | Deux s'il y a la place, puis un tous les 96 mm environ |
+| Réserve de colle | `glue_relief` | 1 mm au fond de chaque trou |
+| Ajouter les tourillons | `dowel_bodies` | Coché. Décoché, seuls les trous sont percés |
+
+Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit deux tourillons de
+8 × 40 mm, 20 mm dans chaque pièce, dans des trous de 21 mm de profondeur.
+
+## Queues droites
+
+![Des queues droites à un angle, la façade dessinée en transparence](docs/box-joint.png)
+
+Saisissez le nom de la pièce dont le bout touche l'autre pièce, puis le nom de cette autre
+pièce. La première reçoit des queues carrées qui traversent la deuxième, et la deuxième reçoit
+les entailles correspondantes. Comme pour un tenon, la première pièce mesure alors sa vraie
+longueur.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Nombre de divisions | `count` | Queues et vides sur la largeur : le nombre impair qui donne les queues les plus carrées, 3 au minimum |
+| Commencer par une queue | `swap` | Décoché : la première pièce commence par un vide, du côté le plus proche de l'origine |
+
+Exemple : deux pièces de 18 × 100 mm reçoivent cinq divisions de 20 mm, avec deux queues sur la
+première pièce.
+
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
@@ -94,12 +146,18 @@ Sur une face plus large que longue, la même commande réalise une entaille en t
   l'usinage et relancez la commande. Un assemblage qui se reconstruit seul attend les fonctions
   paramétriques par plugin, prévues pour une phase ultérieure du RFC des plugins de SolidCraft.
 - Un tenon ne s'ajuste pas encore à une rainure déjà creusée dans la traverse ou le montant.
+- Un assemblage ne voit pas les autres. Les tourillons de deux traverses posées sur deux faces
+  opposées d'un montant mince peuvent se rejoindre au milieu : donnez alors une longueur plus
+  courte.
+- Les queues d'aronde et les coupes d'onglet manquent encore. Elles demandent des coupes en
+  biais.
 - Les messages d'erreur du plugin sont en anglais dans tous les paquets.
 
 ## Lancer depuis un script
 
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
-`plugin.run`. Les entrées sont `mortise-tenon` et `groove`.
+`plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
+`dowels` et `box-joint`. Les trois dernières reçoivent les deux corps dans `first` et `second`.
 
 ```json
 [{"command": "plugin.inspect", "params": {"path": "dist/wood-joinery"}}]
@@ -120,6 +178,15 @@ Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'
   "approval": "LA_VALEUR_APPROVAL_DE_INSPECT",
   "entry": "groove",
   "params": {"body": "Leg", "face": "+x", "offset": 6, "stop_start": 80}
+}}]
+```
+
+```json
+[{"command": "plugin.run", "params": {
+  "path": "dist/wood-joinery",
+  "approval": "LA_VALEUR_APPROVAL_DE_INSPECT",
+  "entry": "dowels",
+  "params": {"first": "Rail", "second": "Stile", "diameter": 8, "count": 2}
 }}]
 ```
 
@@ -145,7 +212,7 @@ cargo test                                   # le calcul de chaque usinage
 tests/check.py /chemin/vers/solidcraft-cli   # le plugin emballé, dans un vrai SolidCraft
 ```
 
-`tests/check.py` lance chaque assemblage et chaque rainure, compare les volumes mesurés à des
+`tests/check.py` lance chaque commande, compare les volumes mesurés à des
 valeurs calculées à la main, et vérifie l'annulation, les refus, la réouverture d'un fichier
 sans le plugin, et chaque paquet traduit.
 
