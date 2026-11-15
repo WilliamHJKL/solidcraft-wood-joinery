@@ -84,6 +84,10 @@ pub struct Plan {
     pub length: f64,
     pub width: f64,
     pub mortise_depth: f64,
+    pub shoulder: f64,
+    pub glue_relief: f64,
+    /// Width and depth of the haunch, for the haunched variant.
+    pub haunch: Option<(f64, f64)>,
 }
 
 const TOUCH: f64 = 1e-2;
@@ -146,7 +150,10 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     // Across the rail end: `w` is its width (the larger side), `e` its thickness.
     let (p, q) = ((a + 1) % 3, (a + 2) % 3);
     let (w, e) = if rail.size(p) >= rail.size(q) { (p, q) } else { (q, p) };
-    let (w_rail, e_rail) = (rail.size(w), rail.size(e));
+    // The joint is as wide as the two boards share: a rail wider than the stile, or one that
+    // overhangs its end, gets a tenon over the part that lies on the stile.
+    let (c_lo, c_hi) = (rail.min[w].max(stile.min[w]), rail.max[w].min(stile.max[w]));
+    let (w_rail, e_rail) = (c_hi - c_lo, rail.size(e));
     let stile_depth = stile.size(a);
 
     let t = positive("thickness", o.thickness.unwrap_or(e_rail / 3.0))?;
@@ -213,7 +220,7 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     let back = -0.1_f64.min(e_rail * 0.05);
     let mortise_depth = if o.variant.blind() { length + relief } else { length.max(stile_depth) + OVERCUT };
 
-    let (tenon, mortise, width) = if o.variant == Variant::Haunched {
+    let (tenon, mortise, width, haunch) = if o.variant == Variant::Haunched {
         let hw = positive("haunch_width", o.haunch_width.unwrap_or((w_rail * 0.2).max(t)))?;
         let hd = positive("haunch_depth", o.haunch_depth.unwrap_or(t.min(length * 0.4)))?;
         if hd >= length - FIT {
@@ -225,9 +232,9 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         // The haunch is on the rail edge nearest the end of the stile.
         let at_low = gap_lo < gap_hi;
         let (main_lo, main_hi, h_lo, h_hi) = if at_low {
-            (rail.min[w] + hw, rail.max[w] - shoulder, rail.min[w], rail.min[w] + hw)
+            (c_lo + hw, c_hi - shoulder, c_lo, c_lo + hw)
         } else {
-            (rail.min[w] + shoulder, rail.max[w] - hw, rail.max[w] - hw, rail.max[w])
+            (c_lo + shoulder, c_hi - hw, c_hi - hw, c_hi)
         };
         lands(main_lo.min(h_lo), main_hi.max(h_hi))?;
         // The haunch block laps a hair into the main tenon so the join leaves one body.
@@ -240,12 +247,13 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
                 block(-OVERCUT, hd + clr, h_lo - clr, h_hi + clr, e_lo - clr, e_hi + clr),
             ],
             main_hi - main_lo,
+            Some((hw, hd)),
         )
     } else {
         if 2.0 * shoulder >= w_rail - FIT {
             return Err("the two shoulders leave no tenon across the rail".into());
         }
-        let (lo, hi) = (rail.min[w] + shoulder, rail.max[w] - shoulder);
+        let (lo, hi) = (c_lo + shoulder, c_hi - shoulder);
         lands(lo, hi)?;
         let (open_lo, open_hi) = (gap_lo <= FIT, gap_hi <= FIT);
         let bridle = o.variant == Variant::Bridle;
@@ -268,10 +276,21 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
             vec![block(back, length, lo, hi, e_lo, e_hi)],
             vec![block(-OVERCUT, mortise_depth, m_lo, m_hi, e_lo - clr, e_hi + clr)],
             hi - lo,
+            None,
         )
     };
 
-    Ok(Plan { tenon, mortise, thickness: t, length, width, mortise_depth: if o.variant.blind() { length + relief } else { stile_depth } })
+    Ok(Plan {
+        tenon,
+        mortise,
+        thickness: t,
+        length,
+        width,
+        mortise_depth: if o.variant.blind() { length + relief } else { stile_depth },
+        shoulder,
+        glue_relief: if o.variant.blind() { relief } else { 0.0 },
+        haunch,
+    })
 }
 
 #[cfg(test)]
@@ -289,6 +308,20 @@ mod tests {
 
     fn volume(blocks: &[Block]) -> f64 {
         blocks.iter().map(|b| b.size[0] * b.size[1] * b.size[2]).sum()
+    }
+
+    #[test]
+    fn a_rail_wider_than_the_stile_gets_a_tenon_over_what_they_share() {
+        // A 22 x 275 x 250 panel standing on a 350 x 250 x 22 one, overhanging 12.5 mm each side.
+        let rail = bx([0.0, 12.5, 22.0], [22.0, 275.0, 250.0]);
+        let stile = bx([0.0, 25.0, 0.0], [350.0, 250.0, 22.0]);
+        let p = plan(rail, stile, &Options::default()).unwrap();
+        let t = 22.0 / 3.0;
+        assert!((p.thickness - t).abs() < 1e-9 && (p.shoulder - t).abs() < 1e-9);
+        assert_eq!((p.length, p.mortise_depth), (15.0, 17.0));
+        // The tenon runs over the 250 mm of the lower panel, a shoulder in from each of its ends.
+        assert!((p.width - (250.0 - 2.0 * t)).abs() < 1e-9);
+        assert!((p.tenon[0].corner[1] - (25.0 + t)).abs() < 1e-9);
     }
 
     #[test]

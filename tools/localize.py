@@ -6,6 +6,9 @@ Usage: tools/localize.py plugin/plugin.json plugin/locales/fr.json out/plugin.js
 SolidCraft shows a plugin's texts as its manifest gives them, in one language. A locale file
 maps each English text to its translation. Every text a user sees must be in it: a missing one
 is an error, so a translation cannot fall behind the manifest silently.
+
+The values of a choice are texts too. A translated value ends with the script value in brackets,
+as in "classique (classic)": the plugin reads the brackets, so it needs no list of languages.
 """
 import json
 import sys
@@ -44,6 +47,18 @@ def main():
             used.add(english)
         else:
             missing.append(english)
+    for entry in manifest["runtime"]["entries"]:
+        for prop in entry["input_schema"]["properties"].values():
+            for i, value in enumerate(prop.get("enum", [])):
+                if value not in words:
+                    missing.append(value)
+                    continue
+                used.add(value)
+                if words[value] != value and not words[value].endswith(f"({value})"):
+                    raise SystemExit(f"{locale}: the translation of {value!r} must end with ({value})")
+                if prop.get("default") == value:
+                    prop["default"] = words[value]
+                prop["enum"][i] = words[value]
     unused = sorted(set(words) - used)
     if missing or unused:
         for text in missing:
@@ -53,7 +68,8 @@ def main():
         raise SystemExit(1)
     if len(manifest["name"]) > 80 or len(manifest["description"]) > 240:
         raise SystemExit(f"{locale}: name over 80 or description over 240 characters")
-    data = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+    # Compact: SolidCraft refuses a manifest over 16 KiB, and nobody reads the packed copy.
+    data = json.dumps(manifest, ensure_ascii=False, separators=(",", ":")) + "\n"
     if len(data.encode()) > 16 * 1024:
         raise SystemExit(f"{locale}: the manifest is over SolidCraft's 16 KiB limit")
     with open(out, "w", encoding="utf-8") as f:

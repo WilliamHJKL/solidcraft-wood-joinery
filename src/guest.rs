@@ -21,7 +21,8 @@ export!(Plugin);
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
         match entry.as_str() {
-            "mortise-tenon" => mortise_tenon(&params),
+            "mortise-tenon" => mortise_tenon(&params, false),
+            "mortise-tenon-sizes" => mortise_tenon(&params, true),
             "groove" => groove(&params),
             "half-lap" => half_lap(&params),
             "dowels" => dowels(&params),
@@ -48,6 +49,16 @@ fn body(p: &Value, field: &str) -> Result<String, PluginError> {
     match name.map(|n| n.trim()) {
         Some(name) if !name.is_empty() => Ok(name.to_owned()),
         _ => Err(invalid(field, "expected the name of one body")),
+    }
+}
+
+/// The script value of a choice. A translated package shows "classique (classic)": the value is
+/// then the text in the last brackets.
+fn choice(text: &str) -> &str {
+    let text = text.trim();
+    match (text.rfind('('), text.strip_suffix(')')) {
+        (Some(open), Some(inner)) => inner[open + 1..].trim(),
+        _ => text,
     }
 }
 
@@ -307,7 +318,9 @@ fn bore(b: &Bore, operation: Value, name: &str) -> Result<(), PluginError> {
     run("solid.cylinder", args).map(|_| ())
 }
 
-fn mortise_tenon(params: &str) -> Result<String, PluginError> {
+/// Makes the joint, or with `sizes_only` works it out and changes nothing: the reply then gives
+/// the sizes the joint would have, the defaults included.
+fn mortise_tenon(params: &str, sizes_only: bool) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first: rail, second: stile, a: rail_box, b: stile_box, volume_b: stile_volume, moved, .. } =
         pair(&p, ("rail", "stile"), boards::align_end)?;
@@ -315,6 +328,7 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         None | Some(Value::Null) => Variant::Classic,
         Some(v) => v
             .as_str()
+            .map(choice)
             .and_then(Variant::parse)
             .ok_or_else(|| invalid("variant", "expected classic, haunched, through or bridle"))?,
     };
@@ -332,6 +346,24 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
 
     let plan = plan(rail_box, stile_box, &options).map_err(|reason| invalid("rail", reason))?;
 
+    let mut sizes = json!({
+        "variant": variant.name(),
+        "rail": rail,
+        "stile": stile,
+        "tenon_thickness_mm": plan.thickness,
+        "tenon_length_mm": plan.length,
+        "tenon_width_mm": plan.width,
+        "shoulder_mm": plan.shoulder,
+        "glue_relief_mm": plan.glue_relief,
+        "mortise_depth_mm": plan.mortise_depth,
+    });
+    if let Some((width, depth)) = plan.haunch {
+        sizes["haunch_width_mm"] = json!(width);
+        sizes["haunch_depth_mm"] = json!(depth);
+    }
+    if sizes_only {
+        return Ok(sizes.to_string());
+    }
     for (i, block) in plan.tenon.iter().enumerate() {
         add(block, "join", &rail, if i == 0 { "Tenon" } else { "Haunch" })?;
     }
@@ -340,17 +372,8 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
     }
     landed(&[(&rail, Want::Bounds(grown(&rail_box, &plan.tenon))), (&stile, Want::Cut(stile_volume))])?;
 
-    Ok(json!({
-        "variant": variant.name(),
-        "rail": rail,
-        "stile": stile,
-        "tenon_thickness_mm": plan.thickness,
-        "tenon_length_mm": plan.length,
-        "tenon_width_mm": plan.width,
-        "mortise_depth_mm": plan.mortise_depth,
-        "moved_rail_mm": moved,
-    })
-    .to_string())
+    sizes["moved_rail_mm"] = json!(moved);
+    Ok(sizes.to_string())
 }
 
 fn groove(params: &str) -> Result<String, PluginError> {
@@ -360,6 +383,7 @@ fn groove(params: &str) -> Result<String, PluginError> {
         Some(face) => {
             let face = face
                 .as_str()
+                .map(choice)
                 .and_then(groove::Face::parse)
                 .ok_or_else(|| invalid("face", "expected +x, -x, +y, -y, +z or -z"))?;
             let board = match typed {
@@ -385,6 +409,10 @@ fn groove(params: &str) -> Result<String, PluginError> {
         offset: length(&p, "offset")?,
         stop_start: length(&p, "stop_start")?,
         stop_end: length(&p, "stop_end")?,
+        along: match p.get("along").filter(|a| !a.is_null() && a.as_str() != Some("")) {
+            None => None,
+            Some(a) => Some(a.as_str().map(choice).and_then(groove::axis).ok_or_else(|| invalid("along", "expected x, y or z"))?),
+        },
     };
     known(&[("body", &board)])?;
     let measured = run("inspect.measure", json!({ "bodies": [board] }))?;

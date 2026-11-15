@@ -18,7 +18,7 @@ d'annulation. Un fichier créé avec le plugin s'ouvre et se reconstruit sans lu
    Vous pouvez aussi construire les paquets vous-même (voir [Construire](#construire)) ; ils sont
    alors dans `dist/`.
 2. Dans SolidCraft, ouvrez Preferences › Plugins › Install plugin… et choisissez le fichier.
-3. Les cinq commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
+3. Les commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
 
 Le plugin appelle cinq commandes de SolidCraft : `inspect.measure`, `selection.get`, `solid.box`,
 `solid.cylinder` et `solid.move`. Il ne demande aucun accès aux fichiers, à l'horloge ou au réseau.
@@ -67,7 +67,8 @@ vraie longueur de la pièce brute.
 Le bout de la traverse doit toucher une face du montant avant de lancer la commande, sauf si
 vous cochez **Aligner d'abord les pièces**.
 
-La liste du formulaire affiche les valeurs en anglais, les mêmes que dans un script.
+La liste du formulaire affiche le nom français suivi de la valeur d'un script entre parenthèses,
+par exemple « à renfort (haunched) ».
 
 | Assemblage | Ce qu'il réalise |
 |---|---|
@@ -75,6 +76,14 @@ La liste du formulaire affiche les valeurs en anglais, les mêmes que dans un sc
 | `haunched` : à renfort | Une mortaise borgne avec un renfort court, sur le chant de la traverse le plus proche du bout du montant. |
 | `through` : traversant | Un tenon qui traverse tout le montant. |
 | `bridle` : enfourchement | Une fente ouverte au bout du montant. La languette fait toute la largeur de la traverse. |
+
+Le formulaire affiche chaque règle dans le titre du champ, et les valeurs fixes dans les
+champs : 2 mm de réserve de colle, pas de jeu, pas de décalage.
+
+Pour voir les cotes calculées pour deux pièces avant d'usiner, lancez **Tenon et mortaise :
+voir les cotes** (`mortise-tenon-sizes` dans un script). La commande reçoit la traverse, le
+montant et l'assemblage, ne modifie rien, et liste l'épaisseur, la longueur, la largeur,
+l'épaulement, le renfort et la profondeur de mortaise.
 
 Toutes les cotes sont facultatives, en millimètres. Un champ vide suit les usages de la
 menuiserie :
@@ -102,11 +111,12 @@ enfourchement loin du bout du montant.
 ![Un pied avec deux rainures arrêtées](docs/groove.png)
 
 Sélectionnez, ou saisissez le nom de la pièce et choisissez une face. La rainure suit le grand côté de cette
-face, d'un bout à l'autre.
+face, d'un bout à l'autre, sauf si vous choisissez une autre **Direction**.
 
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
-| Face | `face` | Obligatoire : `+x`, `-x`, `+y`, `-y`, `+z` ou `-z` |
+| Face | `face` | La face sélectionnée. Sinon `+x`, `-x`, `+y`, `-y`, `+z` ou `-z` |
+| Direction | `along` | La rainure suit le grand côté de la face. Sinon, l'axe qu'elle suit : `x`, `y` ou `z` |
 | Largeur | `width` | 6 mm |
 | Profondeur | `depth` | 8 mm |
 | Décalage | `offset` | Centrée. Sinon, la distance entre le bord de la face le plus proche de l'origine et la rainure. Zéro donne une feuillure |
@@ -194,7 +204,7 @@ première pièce.
 ## Lancer depuis un script
 
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
-`plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
+`plugin.run`. Les entrées sont `mortise-tenon`, `mortise-tenon-sizes`, `groove`, `half-lap`,
 `dowels` et `box-joint`. Les trois dernières reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 

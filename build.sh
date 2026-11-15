@@ -10,7 +10,14 @@ cargo build --release --target wasm32-unknown-unknown -p wood-joinery
 rm -rf dist
 mkdir -p dist/wood-joinery
 cargo run --release -q -p packager -- target/wasm32-unknown-unknown/release/wood_joinery.wasm dist/wood-joinery/plugin.wasm
-cp plugin/plugin.json dist/wood-joinery/plugin.json
+# The packed manifest is compact: SolidCraft refuses one over 16 KiB.
+python3 -c "
+import json, sys
+data = json.dumps(json.load(open(sys.argv[1], encoding='utf-8')), ensure_ascii=False, separators=(',', ':')) + '\n'
+if len(data.encode()) > 16 * 1024:
+    raise SystemExit('the manifest is over the 16 KiB limit of SolidCraft')
+open(sys.argv[2], 'w', encoding='utf-8').write(data)
+" plugin/plugin.json dist/wood-joinery/plugin.json
 pack() { # pack <folder> <zip>
     python3 -c "
 import sys, zipfile

@@ -175,6 +175,28 @@ def main():
         custom = {**both, "thickness": 8, "length": 20, "shoulder": 5, "glue_relief": 3, "clearance": 0.25}
         c.expect("custom", "sizes set by hand", mid, custom, 8 * 35 * 20, 8.5 * 35.5 * 23)
 
+        # The read entry gives the sizes a joint would have, the defaults included, and changes nothing.
+        shown = c.cli("sizes", [*mid, c.run("mortise-tenon-sizes", {**both, "variant": "haunched"}), MEASURE])
+        sizes, after = shown[-2]["result"], shown[-1]["total"]["volume_mm3"]
+        want = {"tenon_thickness_mm": 6, "tenon_length_mm": 25, "tenon_width_mm": 30, "shoulder_mm": 6, "glue_relief_mm": 2, "mortise_depth_mm": 27, "haunch_width_mm": 9, "haunch_depth_mm": 6}
+        ok = all(abs(sizes.get(k, -1) - v) < 1e-9 for k, v in want.items()) and abs(after - (STILE + RAIL)) < 0.5
+        c.report(ok, f"the sizes entry shows the default sizes and cuts nothing: {{k: sizes.get(k) for k in want}}".replace("{k: sizes.get(k) for k in want}", str({k: sizes.get(k) for k in want})))
+        # The form sends its shown defaults (glue relief 2, clearance 0, offset 0): same joint.
+        c.expect("form_defaults", "the defaults the form shows", mid, {**both, "variant": "classic", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 25, 6 * 33 * 27)
+        c.expect("form_through", "a through tenon with the form defaults", mid, {**both, "variant": "through", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 35, 6 * 33 * 35)
+
+        # A translated package sends the value it shows, with the script value in brackets.
+        c.expect("fr_value", "a translated choice, à renfort (haunched)", boards([35, 0, 765]), {**both, "variant": "à renfort (haunched)"}, 6 * (30 * 25 + 9 * 6), 6 * (30 * 27 + 9 * 6))
+        c.groove("fr_face", "a translated face and direction", {"body": "Stile", "face": "droite (+x)", "along": "y"}, 6 * 8 * 35)
+        french = json.loads((ROOT / "dist" / "fr" / "wood-joinery" / "plugin.json").read_text())["runtime"]["entries"][0]["input_schema"]["properties"]["variant"]
+        c.report(french["enum"][1] == "à renfort (haunched)" and french["default"] == "classique (classic)", f"the fr package lists translated choices: {french['enum']}")
+
+        # A rail wider than the stile: a 275 mm panel standing on a 250 mm one. The tenon runs over
+        # the 250 mm they share, a shoulder (22 / 3) in from each end: 15 long, in a 17 mm mortise.
+        panels = [box("Stile", [0, 25, 0], (350, 250, 22), first=True), box("Rail", [0, 12.5, 22], (22, 275, 250))]
+        third = 22 / 3
+        got = c.change("wide_rail", "a rail wider than the stile", panels, "mortise-tenon", both, {"Rail": third * (250 - 2 * third) * 15, "Stile": -third * (250 - 2 * third) * 17})
+
         # 3. Other directions: the rail on the -X side of the stile, then a rail along Y.
         c.expect("minus_x", "rail on the other side", boards([-360, 0, 400]), both, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("along_y", "rail along Y", boards([0, 35, 400], (18, 360, 45)), both, 6 * 33 * 25, 6 * 33 * 27)
@@ -202,6 +224,10 @@ def main():
         c.groove("groove_stopped", "stopped groove in a low face", {"body": "Stile", "face": "-y", "offset": 6, "stop_start": 80}, 6 * 8 * 750)
         c.groove("rabbet", "rabbet at the edge", {"body": "Stile", "face": "+y", "offset": 0, "width": 10, "depth": 5}, 10 * 5 * 830)
         c.groove("dado", "dado across the top", {"body": "Stile", "face": "+z", "width": 12, "depth": 4}, 12 * 4 * 35)
+        # The direction can be chosen: across the +X face, along Y, the groove is 35 mm long.
+        c.groove("groove_across", "groove across the face, along Y", {"body": "Stile", "face": "+x", "along": "y"}, 6 * 8 * 35)
+        c.groove("groove_along", "groove along Z, as the default", {"body": "Stile", "face": "+x", "along": "z"}, 6 * 8 * 830)
+        c.refuse_groove("groove_into", "groove along the axis that goes into the board", {"body": "Stile", "face": "+x", "along": "x"}, "Choose Y or Z")
         c.refuse_groove("groove_deep", "groove through the board", {"body": "Stile", "face": "+x", "depth": 35}, "cut through")
         c.refuse_groove("groove_face", "unknown face", {"body": "Stile", "face": "up"}, "+x, -x, +y, -y, +z or -z")
 

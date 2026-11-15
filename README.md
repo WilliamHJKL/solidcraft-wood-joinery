@@ -17,7 +17,7 @@ the plugin opens and rebuilds without it.
    Do not take the "Source code" archives: SolidCraft cannot install those.
    You can also build the packages yourself (see [Build](#build)); they are then in `dist/`.
 2. In SolidCraft, open Preferences › Plugins › Install plugin… and choose the file.
-3. The five commands are now in the Plugins menu, and in the Plugins group of the Model tab.
+3. The commands are now in the Plugins menu, and in the Plugins group of the Model tab.
 
 The plugin calls five SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
 `solid.cylinder` and `solid.move`. It asks for no file, clock or network access.
@@ -71,7 +71,13 @@ The list in the form shows these values as a script takes them.
 | `through` | A tenon through the whole stile. |
 | `bridle` | An open slot at the end of the stile. The tongue runs the full width of the rail. |
 
-Every size is optional, in millimetres. An empty field follows common cabinetmaking practice:
+Every size is optional, in millimetres. An empty field follows common cabinetmaking practice.
+The form shows each rule in the field's title, and the fixed defaults in the fields: 2 mm of
+glue relief, no clearance, no offset.
+
+To see the sizes worked out for two boards before you cut, run **Mortise and tenon: show the
+sizes** (`mortise-tenon-sizes` in a script). It takes the rail, the stile and the joint, changes
+nothing, and lists the thickness, length, width, shoulder, haunch and mortise depth.
 
 | Field | Script name | Empty means |
 |---|---|---|
@@ -96,11 +102,12 @@ from the end of the stile.
 ![A leg with two stopped grooves](docs/groove.png)
 
 Select, or type the name of the board and choose a face. The groove runs along the longer side of that
-face, from end to end.
+face, from end to end, unless you choose another **Direction**.
 
 | Field | Script name | Empty means |
 |---|---|---|
-| Face | `face` | Required: `+x`, `-x`, `+y`, `-y`, `+z` or `-z` |
+| Face | `face` | The selected face. Otherwise `+x`, `-x`, `+y`, `-y`, `+z` or `-z` |
+| Direction | `along` | The groove runs along the longer side of the face. Otherwise the axis it runs along: `x`, `y` or `z` |
 | Width | `width` | 6 mm |
 | Depth | `depth` | 8 mm |
 | Offset | `offset` | Centred. Otherwise the distance from the edge of the face nearest the origin to the groove. Zero makes a rabbet |
@@ -180,7 +187,7 @@ Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on
 ## Run from a script
 
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
-`plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
+`plugin.run`. The entries are `mortise-tenon`, `mortise-tenon-sizes`, `groove`, `half-lap`,
 `dowels` and `box-joint`. The last three take the two bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 
@@ -243,6 +250,8 @@ translated package.
 SolidCraft shows a plugin's texts as its manifest gives them, in one language. The English
 texts are in `plugin/plugin.json`. A translation is one file, `plugin/locales/<language>.json`,
 that maps each English text to its translation; `plugin/locales/fr.json` is the model.
+The values of a choice are translated too. A translated value ends with the script value in
+brackets, as in `à renfort (haunched)`: the plugin reads the brackets.
 
 `./build.sh` then writes `dist/wood-joinery-<language>.zip`. The build fails when a text has no
 translation, or when a translation is no longer used, so a language cannot fall behind.

@@ -17,6 +17,18 @@ pub struct Options {
     pub stop_start: Option<f64>,
     /// Wood left uncut at the other end.
     pub stop_end: Option<f64>,
+    /// The axis the groove runs along (0 = X, 1 = Y, 2 = Z). Default: the longer side of the face.
+    pub along: Option<usize>,
+}
+
+/// An axis by its letter, in either case.
+pub fn axis(s: &str) -> Option<usize> {
+    match s {
+        "x" | "X" => Some(0),
+        "y" | "Y" => Some(1),
+        "z" | "Z" => Some(2),
+        _ => None,
+    }
 }
 
 /// A face of the bounding box: its axis (0 = X, 1 = Y, 2 = Z) and whether it is the high side.
@@ -64,7 +76,7 @@ fn size(name: &str, v: f64, zero_ok: bool) -> Result<f64, String> {
     }
 }
 
-/// Plan a groove in `face` of `board`, running along the longer side of that face.
+/// Plan a groove in `face` of `board`. It runs along `along`, or along the longer side of the face.
 pub fn plan(board: Aabb, face: Face, o: &Options) -> Result<Plan, String> {
     let extent = |a: usize| board.max[a] - board.min[a];
     for a in 0..3 {
@@ -75,7 +87,19 @@ pub fn plan(board: Aabb, face: Face, o: &Options) -> Result<Plan, String> {
     let n = face.axis;
     let (p, q) = ((n + 1) % 3, (n + 2) % 3);
     // `along` is the direction the groove runs, `across` the width of the face.
-    let (along, across) = if extent(p) >= extent(q) { (p, q) } else { (q, p) };
+    let (along, across) = match o.along {
+        Some(a) if a == p => (p, q),
+        Some(a) if a == q => (q, p),
+        Some(_) => {
+            let name = ["X", "Y", "Z"];
+            return Err(format!(
+                "a groove in this face cannot run along {}: that axis goes into the board. Choose {} or {}",
+                name[n], name[p.min(q)], name[p.max(q)]
+            ));
+        }
+        None if extent(p) >= extent(q) => (p, q),
+        None => (q, p),
+    };
 
     let width = size("width", o.width.unwrap_or(6.0), false)?;
     let depth = size("depth", o.depth.unwrap_or(8.0), false)?;
@@ -152,6 +176,22 @@ mod tests {
         let p = plan(stile(), Face { axis: 0, high: true }, &o).unwrap();
         assert_eq!(p.cut.corner[1], -0.5);
         assert_eq!(p.cut.size[1], 10.5);
+    }
+
+    #[test]
+    fn the_direction_can_be_chosen() {
+        // Across the +X face of the stile: along Y, 35 mm long, centred on the 830 mm height.
+        let o = Options { along: Some(1), ..Options::default() };
+        let p = plan(stile(), Face { axis: 0, high: true }, &o).unwrap();
+        assert_eq!(p.length, 35.0);
+        assert_eq!(p.cut, Block { corner: [27.0, -0.5, 412.0], size: [8.5, 36.0, 6.0] });
+        // Along Z is what the default gives.
+        let z = plan(stile(), Face { axis: 0, high: true }, &Options { along: Some(2), ..Options::default() }).unwrap();
+        assert_eq!(z, plan(stile(), Face { axis: 0, high: true }, &Options::default()).unwrap());
+        // Along X goes into the board.
+        let err = plan(stile(), Face { axis: 0, high: true }, &Options { along: Some(0), ..Options::default() }).unwrap_err();
+        assert!(err.contains("Choose Y or Z"));
+        assert_eq!((axis("y"), axis("Z"), axis("w")), (Some(1), Some(2), None));
     }
 
     #[test]
