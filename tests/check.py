@@ -84,7 +84,11 @@ def main():
     with tempfile.TemporaryDirectory() as tmp:
         work = keep or Path(tmp)
         work.mkdir(parents=True, exist_ok=True)
-        c = Check(args[0], work)
+        # The CLI runs in the work folder, so a relative path to it must be made absolute first.
+        binary = Path(args[0]).resolve()
+        if not binary.is_file():
+            raise SystemExit(f"no solidcraft-cli at {binary}")
+        c = Check(str(binary), work)
 
         # 1. SolidCraft reads the manifest and the component without running anything.
         inspected = c.cli("inspect", [{"command": "plugin.inspect", "params": {"path": str(PLUGIN)}}])
