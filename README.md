@@ -3,8 +3,9 @@
 *[Version française](README.fr.md)*
 
 A plugin for [SolidCraft](https://github.com/tangency-labs/solidcraft) that makes woodworking
-joints. It has eight commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
-**Half lap**, **Dowels**, **Box joint**, **Loose tenon**, **Housing** and **Miter**.
+joints. It has twelve commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
+**Half lap**, **Dowels**, **Box joint**, **Loose tenon**, **Housing**, **Miter**, **Tongue and
+groove**, **Scarf joint**, **Dovetails** and **Screws**.
 
 Each command adds ordinary features to the timeline (boxes, cylinders, moves and cuts), in one
 undo step. A design made with the plugin opens and rebuilds without it.
@@ -25,8 +26,8 @@ plugins.
 2. **Install it.** In SolidCraft, open *Preferences › Plugins*, click *Install plugin…* and
    choose the file you downloaded.
 3. **Confirm.** SolidCraft shows the plugin's name, its version and what it asks for. The
-   plugin asks to run six SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
-   `solid.cylinder`, `solid.move` and `solid.combine`. It asks for no file, clock or network
+   plugin asks to run seven SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
+   `solid.cylinder`, `solid.cone`, `solid.move` and `solid.combine`. It asks for no file, clock or network
    access. Accept.
 4. **Find the commands.** They are in the *Plugins* menu, next to *File*, and in the *Plugins*
    group of the *Model* tab. Open a design, select two boards, then choose a command.
@@ -72,7 +73,7 @@ the joint are one undo step.
 | Joint | Where the first board goes |
 |---|---|
 | Mortise and tenon, Dowels | Against the second board: along its length when there is a gap that way, otherwise across the gap. Sideways, it moves only as far as it must to land on the second board. A board already in place does not move |
-| Box joint | Its end on the second board, at the nearest end of that board, centred across the width. Each board is read by its thickness, its smallest side, so a panel may be taller than it is long |
+| Box joint, Dovetails, Miter | Its end on the second board, at the nearest end of that board, centred across the width. Each board is read by its thickness, its smallest side, so a panel may be taller than it is long |
 | Half lap | Into the plane of the second board. The boards must already cross when seen from above |
 
 With the box off, the boards must be in place already, and the plugin says so when they are not.
@@ -237,6 +238,73 @@ of a box, and for boards lying flat, as the sides of a picture frame.
 
 Each cut adds three features to the timeline: a tool box, the move that turns it, and the cut.
 
+## Tongue and groove
+
+![Two boards of a panel, one with a tongue and one with a groove, drawn apart](docs/tongue-groove.png)
+
+Select, or type the names of two boards that touch edge to edge. The first board gets a tongue
+along the whole edge, the second one the matching groove.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Tongue thickness | `thickness` | A third of the thickness of the boards. The tongue is centred |
+| Tongue length | `depth` | Half the thickness of the boards, to the nearest millimetre, at most 10 mm |
+| Glue relief | `glue_relief` | 1 mm at the bottom of the groove |
+
+Example: two 18 mm boards get a 6 x 9 mm tongue in a groove 10 mm deep.
+
+## Scarf joint
+
+![Two boards joined end to end by a long slope, drawn slightly apart](docs/scarf.png)
+
+Select, or type the names of two boards that run the same way and overlap, end over end. Each
+is cut along one slope that runs over the whole overlap, from one face to the other. The length
+of the overlap sets the slope: eight thicknesses give 1:8.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Turn the slope over | `flip` | Off: the slope starts on the face away from the origin |
+
+With **Align the boards first**, the first board is moved so that the two overlap by eight
+thicknesses, level across their width and thickness.
+
+## Dovetails
+
+![Two dovetails at a corner, the pin board drawn see-through](docs/dovetail.png)
+
+Select, or type the name of the tail board, whose end touches the other board, then the name of
+the pin board. The tail board gets tails that go through the pin board, and the pin board gets
+the matching sockets, with a half pin at each edge. Give a **Lap** for half-blind dovetails.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Number of tails | `count` | One every two and a half thicknesses or so |
+| Slope 1:N | `slope` | 8, the usual hardwood slope. Use 6 for softwood |
+| Pin width | `pin` | Half the thickness of the tail board, at the narrow end of a pin |
+| Lap | `lap` | 0: through dovetails. Otherwise the wood left in front of the tails, for half-blind dovetails |
+
+Example: two 18 x 100 mm boards get two tails, 41 mm wide at the end and 36.5 mm at the base,
+between pins 9 mm wide at their narrow end.
+
+Each tail adds nine features to the timeline: the tail is first made as a body of its own, its
+two sides are cut at the slope, then it cuts its socket and joins the tail board.
+
+## Screws
+
+Select, or type the name of the board the screw goes through, then the name of the board it
+bites into. The two must touch. The plugin drills a clearance hole through the first board,
+with a countersink for the head, and a pilot hole in the second one. It adds no screw body.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Screw diameter | `diameter` | 4 mm. The clearance hole is 0.5 mm wider, the pilot hole 0.7 of the screw |
+| Screw length | `length` | Two and a half times the first board, to the nearest 5 mm |
+| Number of screws | `count` | One, two from 60 mm, then one every 150 mm or so |
+| Countersink the heads | `countersink` | On: a 90 degree countersink as wide as two diameters |
+
+Example: an 18 mm side on a shelf end gets two 4 x 45 mm screws: 4.5 mm holes countersunk to
+8 mm, and 3 mm pilot holes 27 mm deep.
+
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
@@ -252,16 +320,18 @@ Each cut adds three features to the timeline: a tool box, the move that turns it
 - A tenon does not yet adjust itself to a groove already cut in the rail or the stile.
 - A joint does not see the other joints. Dowels from two rails on opposite faces of a thin
   stile can meet in the middle: give a shorter length in that case.
-- Dovetails and scarf joints are not there yet.
-- A miter has no key or spline yet, and it is cut across the whole board.
+- A scarf is a plain slope, with
+  no key. A miter has no key or spline, and it is cut across the whole board.
+- The cuts at an angle add many features: six for a miter or a scarf, nine for each dovetail.
 - The plugin's error messages are in English in every package.
 
 ## Run from a script
 
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
 `plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
-`dowels`, `box-joint`, `loose-tenon`, `housing` and `miter`. All but the first two take the two
-bodies as `first` and `second`.
+`dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail` and
+`screws`.
+All but the first two take the two bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 
 ```json
@@ -325,6 +395,10 @@ texts are in `plugin/plugin.json`. A translation is one file, `plugin/locales/<l
 that maps each English text to its translation; `plugin/locales/fr.json` is the model.
 The values of a choice are translated too. A translated value ends with the script value in
 brackets, as in `à renfort (haunched)`: the plugin reads the brackets.
+
+SolidCraft refuses a manifest over 16 KiB, so the form texts are kept short: the rule of a
+field goes in its title, as in "Tenon thickness (empty = 1/3 of the rail)", and this README
+holds the longer explanations. The build fails above 13 KiB, to keep room for more joints.
 
 `./build.sh` then writes `dist/wood-joinery-<language>.zip`. The build fails when a text has no
 translation, or when a translation is no longer used, so a language cannot fall behind.

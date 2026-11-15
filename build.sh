@@ -34,4 +34,12 @@ for locale in plugin/locales/*.json; do
     cp dist/wood-joinery/plugin.wasm "dist/$lang/wood-joinery/plugin.wasm"
     pack "dist/$lang/wood-joinery" "dist/wood-joinery-$lang.zip"
 done
+# SolidCraft refuses a manifest over 16 KiB. Keep a fifth of it free for the next joints: a field's
+# rule goes in its title, and the README holds the longer explanations.
+python3 -c "
+import glob, os, sys
+worst = max(os.path.getsize(f) for f in glob.glob('dist/**/plugin.json', recursive=True))
+print(f'largest manifest: {worst} of 16384 bytes ({100 * worst // 16384} %)')
+sys.exit(f'a manifest is over 13 KiB: shorten titles, or move a description to the README' if worst > 13 * 1024 else 0)
+"
 ls -l dist/*.zip

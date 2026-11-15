@@ -1,21 +1,11 @@
 //! A miter: two boards that meet at a corner, each cut along the plane from the outer corner to
 //! the inner one.
 //!
-//! The cut is at an angle, which a box along the axes cannot make. Each board is cut by a tool
-//! box that is first turned about the outer corner.
+//! The cut is at an angle: each board is cut by a tool box turned about the outer corner.
 
-use crate::boards::{measurable, FIT, OVERCUT, TOUCH};
+use crate::boards::{measurable, FIT, TOUCH};
 use crate::joint::{Aabb, Block};
-
-/// The box that cuts one board: built along the axes, then turned by `angle` degrees about the
-/// line through `origin` along `axis`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Tool {
-    pub block: Block,
-    pub origin: [f64; 3],
-    pub axis: [f64; 3],
-    pub angle: f64,
-}
+use crate::slant::{beyond, Tool};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Plan {
@@ -33,14 +23,6 @@ pub struct Plan {
 
 fn thin(b: &Aabb) -> usize {
     (0..3).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(0)
-}
-
-fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
-}
-
-fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
 /// Plan the miter between `first` and `second`.
@@ -71,31 +53,13 @@ pub fn plan(first: Aabb, second: Aabb, _o: &Options) -> Result<Plan, String> {
     (outer[b], inner[b]) = if centre(&first, b) > centre(&second, b) { (second.min[b], second.max[b]) } else { (second.max[b], second.min[b]) };
     let (ta, tb) = (first.size(a), second.size(b));
     let diagonal = (ta * ta + tb * tb).sqrt();
-    let mut u = [0.0; 3];
-    u[l] = 1.0;
     let w = [(inner[0] - outer[0]) / diagonal, (inner[1] - outer[1]) / diagonal, (inner[2] - outer[2]) / diagonal];
-    let side = cross(u, w);
 
     let reach = ta + tb + 1.0;
+    // The tool lies on the side of the cut plane away from the board.
     let tool = |board: &Aabb| {
-        // The tool lies on the side of the cut plane away from the board.
-        let mut away = [centre(board, 0) - outer[0], centre(board, 1) - outer[1], centre(board, 2) - outer[2]];
-        away[l] = 0.0;
-        let d = if dot(side, away) > 0.0 { [-side[0], -side[1], -side[2]] } else { side };
-        // Built with its cutting face square to `a`, then turned so that the face looks along `d`.
-        let mut e = [0.0; 3];
-        e[a] = 1.0;
-        let angle = dot(u, cross(e, d)).atan2(dot(e, d)).to_degrees();
-        let mut corner = outer;
-        let mut size = [0.0; 3];
-        size[a] = reach;
-        corner[b] = outer[b] - reach;
-        size[b] = 2.0 * reach;
-        corner[l] = board.min[l] - OVERCUT;
-        size[l] = board.size(l) + 2.0 * OVERCUT;
-        let mut origin = outer;
-        origin[l] = 0.0;
-        Tool { block: Block { corner, size }, origin, axis: u, angle }
+        let keep = [centre(board, 0), centre(board, 1), centre(board, 2)];
+        beyond(keep, outer, w, l, a, (board.min[l], board.max[l]), reach)
     };
     // A board that stops at the other one is first made to reach the outer corner.
     let extend = |board: &Aabb, across: usize, along: usize| {

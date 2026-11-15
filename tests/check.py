@@ -5,7 +5,7 @@ Usage: tests/check.py /path/to/solidcraft-cli [--keep DIR]
 
 It builds a 35 x 35 x 830 mm stile and a 360 x 18 x 45 mm rail, runs each joint, and compares the
 measured volumes with values worked out by hand: mortise and tenon, grooves, half laps, dowels,
-box joints, loose tenons, housings and miters. It also checks undo and redo, refusals, a saved design reopened without the
+box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails and screws. It also checks undo and redo, refusals, a saved design reopened without the
 plugin, and writes a picture. With --keep, the files stay in DIR.
 """
 import json
@@ -358,6 +358,50 @@ def main():
         undone = c.cli("miter_undo", [*frame, c.run("miter", two), {"command": "edit.undo", "params": {}}, MEASURE])
         back = {b["name"]: round(b["volume_mm3"]) for b in undone[-1]["bodies"]}
         c.report(back == {"A": 540000, "B": 540000}, f"one undo removes the whole miter: {back}")
+
+        # Tongue and groove: two 600 x 100 x 18 boards edge to edge. Tongue 6 x 9, groove 1 mm deeper.
+        planks = [box("A", [0, 0, 0], (600, 100, 18), first=True), box("B", [0, 100, 0], (600, 100, 18))]
+        c.change("tongue", "tongue and groove", planks, "tongue-groove", two, {"A": 6 * 9 * 600, "B": -6 * 10 * 600})
+        c.change("tongue_sizes", "tongue sizes set by hand", planks, "tongue-groove", {**two, "thickness": 8, "depth": 12, "glue_relief": 0}, {"A": 8 * 12 * 600, "B": -8 * 12 * 600})
+        c.refuse_entry("tongue_apart", "boards that do not touch", [planks[0], box("B", [0, 120, 0], (600, 100, 18))], "tongue-groove", two, "do not touch")
+
+        # A scarf: two 400 x 45 x 18 boards overlapping by 144 mm. Each loses half of the overlap.
+        ends = [box("A", [0, 0, 0], (400, 45, 18), first=True), box("B", [256, 0, 0], (400, 45, 18))]
+        slope = 144 * 18 / 2 * 45
+        c.change("scarf", "scarf at 1:8", ends, "scarf", two, {"A": -slope, "B": -slope})
+        c.change("scarf_flip", "scarf turned over", ends, "scarf", {**two, "flip": True}, {"A": -slope, "B": -slope})
+        apart = [box("A", [-194, 10, 5], (400, 45, 18), first=True), ends[1]]
+        got = c.change("scarf_align", "scarf that aligns the boards first", apart, "scarf", {**two, "align": True}, {"A": -slope, "B": -slope})
+        total = max(b["bbox"]["max"][0] for b in got[-1]["bodies"]) - min(b["bbox"]["min"][0] for b in got[-1]["bodies"])
+        c.report(abs(total - 656) < 1e-3, f"the two scarfed boards are {total:.1f} mm long together (expected 656)")
+        c.refuse_entry("scarf_apart", "boards that do not overlap", [ends[0], box("B", [420, 0, 0], (400, 45, 18))], "scarf", two, "do not overlap")
+
+        # Dovetails at a drawer corner: two tails, 41 mm wide at the end and 36.5 at the base.
+        tail = (41 + 36.5) / 2 * 18 * 18
+        got = c.change("dovetail", "two dovetails", drawer, "dovetail", sf, {"Side": 2 * tail, "Front": -2 * tail})
+        c.report(len(got[-1]["bodies"]) == 2, f"no tool or blank body is left: {[b['name'] for b in got[-1]['bodies']]}")
+        one = (91 + 91 - 2 * 18 / 6) / 2 * 18 * 18
+        c.change("dovetail_one", "one tail at 1:6", drawer, "dovetail", {**sf, "count": 1, "slope": 6}, {"Side": one, "Front": -one})
+        c.refuse_entry("dovetail_many", "too many tails", drawer, "dovetail", {**sf, "count": 9}, "under 3 mm")
+        undone = c.cli("dovetail_undo", [*drawer, c.run("dovetail", sf), {"command": "edit.undo", "params": {}}, MEASURE])
+        back = {b["name"]: round(b["volume_mm3"]) for b in undone[-1]["bodies"]}
+        c.report(back == {"Side": 540000, "Front": 540000}, f"one undo removes the dovetails: {back}")
+
+        # Half-blind dovetails: a 5 mm lap leaves the face of the front whole. Tails 13 mm long.
+        blind = (41 + 41 - 2 * 13 / 8) / 2 * 13 * 18
+        got = c.change("dovetail_blind", "half-blind dovetails", drawer, "dovetail", {**sf, "lap": 5}, {"Side": 2 * blind, "Front": -2 * blind})
+        side = next(b for b in got[-1]["bodies"] if b["name"] == "Side")["bbox"]
+        c.report(abs(side["min"][0] - 5) < 1e-3, f"the tails stop 5 mm short of the face: the side starts at X = {side['min'][0]:.3f}")
+
+        # Screws: an 18 mm side screwed onto a shelf end. Two 4 x 45 screws: a 4.5 mm hole through
+        # the side with a 90 degree countersink to 8 mm, and a 3 mm pilot hole 27 mm into the shelf.
+        through = math.pi * 2.25 ** 2 * 18 + math.pi * 1.75 / 3 * (4 ** 2 + 4 * 2.25 + 2.25 ** 2) - math.pi * 2.25 ** 2 * 1.75
+        pilot = math.pi * 1.5 ** 2 * 27
+        fixed = {"first": "Side", "second": "Shelf"}
+        c.change("screws", "two countersunk screws", cabinet, "screws", fixed, {"Side": -2 * through, "Shelf": -2 * pilot})
+        plain = {**fixed, "diameter": 5, "length": 50, "count": 3, "countersink": False}
+        c.change("screws_plain", "three 5 x 50 screws, no countersink", cabinet, "screws", plain, {"Side": -3 * math.pi * 2.75 ** 2 * 18, "Shelf": -3 * math.pi * 1.75 ** 2 * 32})
+        c.refuse_entry("screws_wrong_way", "screws through the long board", cabinet, "screws", {"first": "Shelf", "second": "Side", "length": 45}, "does not reach through")
 
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"

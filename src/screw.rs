@@ -1,0 +1,179 @@
+//! Screws through one board into another: a clearance hole with a countersink in the first
+//! board, a pilot hole in the second.
+
+use crate::boards::{contact, measurable, FIT, OVERCUT};
+use crate::dowel::Bore;
+use crate::joint::Aabb;
+
+/// What the user may set. `None` means the default.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Options {
+    /// Diameter of the screw. Default: 4 mm.
+    pub diameter: Option<f64>,
+    /// Length of the screw. Default: two and a half times the first board, to the nearest 5 mm.
+    pub length: Option<f64>,
+    /// Default: one, two from 60 mm, then one every 150 mm or so.
+    pub count: Option<u32>,
+    /// A countersink for the head. Default: true.
+    pub countersink: Option<bool>,
+}
+
+/// A countersink: a cone that narrows from `diameter` to `top_diameter` over `height`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Sink {
+    pub base: [f64; 3],
+    pub axis: usize,
+    pub dir: f64,
+    pub diameter: f64,
+    pub top_diameter: f64,
+    pub height: f64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Plan {
+    /// Through the first board.
+    pub clearance: Vec<Bore>,
+    pub sinks: Vec<Sink>,
+    /// In the second board.
+    pub pilots: Vec<Bore>,
+    pub diameter: f64,
+    pub length: f64,
+    pub clearance_diameter: f64,
+    pub pilot_diameter: f64,
+    pub pilot_depth: f64,
+    /// Depth of the countersink, 0 without one.
+    pub sink_depth: f64,
+}
+
+/// Plan screws through `first` into `second`, where the two touch.
+pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
+    measurable(&first)?;
+    measurable(&second)?;
+    let c = contact(&first, &second)
+        .ok_or("the two boards do not touch; move one against the other, where the screws go")?;
+    let n = c.axis;
+    let (p, q) = ((n + 1) % 3, (n + 2) % 3);
+    let (l, m) = if c.hi[p] - c.lo[p] >= c.hi[q] - c.lo[q] { (p, q) } else { (q, p) };
+    let (long, short) = (c.hi[l] - c.lo[l], c.hi[m] - c.lo[m]);
+    let through = first.size(n);
+
+    let diameter = o.diameter.unwrap_or(4.0);
+    if !(diameter.is_finite() && diameter > FIT) {
+        return Err("diameter must be a positive length".into());
+    }
+    let clearance_diameter = diameter + 0.5;
+    let head = 2.0 * diameter;
+    let countersink = o.countersink.unwrap_or(true);
+    if (if countersink { head } else { clearance_diameter }) > short - 2.0 + FIT {
+        return Err(format!("a {diameter:.3} mm screw leaves no wood beside it: the boards touch over {short:.3} mm only"));
+    }
+    let length = o.length.unwrap_or((2.5 * through / 5.0).round() * 5.0);
+    if !(length.is_finite() && length > FIT) {
+        return Err("length must be a positive length".into());
+    }
+    let pilot_depth = length - through;
+    if pilot_depth < 5.0 - FIT {
+        return Err(format!(
+            "a {length:.3} mm screw does not reach through the {through:.3} mm first board; \
+             give a longer screw, or take the thinner board as the first one"
+        ));
+    }
+    if pilot_depth > second.size(n) - 3.0 + FIT {
+        return Err(format!(
+            "a {length:.3} mm screw would come through the second board; give a length of at most {:.3} mm",
+            through + second.size(n) - 3.0
+        ));
+    }
+    let count = match o.count {
+        Some(0) => return Err("count must be at least 1".into()),
+        Some(k) => k,
+        None if long < 60.0 => 1,
+        None => (long / 150.0).ceil().max(2.0) as u32,
+    };
+    let pitch = long / f64::from(count);
+    if 0.5 * pitch < head - FIT {
+        return Err(format!("{count} screws of {diameter:.3} mm do not fit in {long:.3} mm; give fewer"));
+    }
+    // 0.7 of the screw, to the nearest half millimetre.
+    let pilot_diameter = ((0.7 * diameter * 2.0).round() / 2.0).max(0.5);
+    // A 90 degree countersink, from the head's diameter down to the clearance hole.
+    let sink_depth = if countersink { 0.5 * (head - clearance_diameter) } else { 0.0 };
+    if sink_depth >= through - FIT {
+        return Err("the first board is too thin for the head of this screw".into());
+    }
+
+    let mut plan = Plan {
+        clearance: Vec::new(),
+        sinks: Vec::new(),
+        pilots: Vec::new(),
+        diameter,
+        length,
+        clearance_diameter,
+        pilot_diameter,
+        pilot_depth,
+        sink_depth,
+    };
+    let plane = c.plane();
+    // The head is on the face of the first board away from the second one.
+    let outside = plane - c.dir * through;
+    for i in 0..count {
+        let mut at = [0.0; 3];
+        at[l] = c.lo[l] + pitch * (f64::from(i) + 0.5);
+        at[m] = 0.5 * (c.lo[m] + c.hi[m]);
+        let mut from_outside = at;
+        from_outside[n] = outside - c.dir * OVERCUT;
+        plan.clearance.push(Bore { base: from_outside, axis: n, dir: c.dir, diameter: clearance_diameter, height: through + 2.0 * OVERCUT });
+        if countersink {
+            // Started just outside the face and that much wider, so the slope stays at 45 degrees.
+            plan.sinks.push(Sink {
+                base: from_outside,
+                axis: n,
+                dir: c.dir,
+                diameter: head + 2.0 * OVERCUT,
+                top_diameter: clearance_diameter,
+                height: sink_depth + OVERCUT,
+            });
+        }
+        let mut from_contact = at;
+        from_contact[n] = plane - c.dir * OVERCUT;
+        plan.pilots.push(Bore { base: from_contact, axis: n, dir: c.dir, diameter: pilot_diameter, height: pilot_depth + OVERCUT });
+    }
+    Ok(plan)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::boards::bx;
+
+    /// An 18 x 250 x 400 side screwed onto the end of a 300 x 250 x 18 shelf.
+    fn side_and_shelf() -> (Aabb, Aabb) {
+        (bx([0.0, 0.0, 0.0], [18.0, 250.0, 400.0]), bx([18.0, 0.0, 200.0], [300.0, 250.0, 18.0]))
+    }
+
+    #[test]
+    fn defaults_for_a_side_on_a_shelf_end() {
+        let (side, shelf) = side_and_shelf();
+        let p = plan(side, shelf, &Options::default()).unwrap();
+        assert_eq!((p.diameter, p.length, p.clearance_diameter, p.pilot_diameter, p.pilot_depth, p.sink_depth), (4.0, 45.0, 4.5, 3.0, 27.0, 1.75));
+        assert_eq!(p.clearance.len(), 2);
+        // Through the side from its outer face, towards +X.
+        assert_eq!(p.clearance[0], Bore { base: [-0.5, 62.5, 209.0], axis: 0, dir: 1.0, diameter: 4.5, height: 19.0 });
+        // The pilot hole starts at the contact and goes 27 mm into the shelf.
+        assert_eq!(p.pilots[1], Bore { base: [17.5, 187.5, 209.0], axis: 0, dir: 1.0, diameter: 3.0, height: 27.5 });
+        assert_eq!(p.sinks[0].diameter, 9.0);
+    }
+
+    #[test]
+    fn bad_screws_are_refused_with_a_reason() {
+        let (side, shelf) = side_and_shelf();
+        let err = |o: Options| plan(side, shelf, &o).unwrap_err();
+        // The other way round, the screw would have to go through the 300 mm shelf.
+        assert!(plan(shelf, side, &Options { length: Some(45.0), ..Options::default() }).unwrap_err().contains("does not reach through"));
+        assert!(err(Options { length: Some(400.0), ..Options::default() }).contains("come through"));
+        assert!(err(Options { diameter: Some(10.0), ..Options::default() }).contains("no wood beside"));
+        assert!(err(Options { count: Some(40), ..Options::default() }).contains("do not fit"));
+        let apart = bx([30.0, 0.0, 200.0], [300.0, 250.0, 18.0]);
+        assert!(plan(side, apart, &Options::default()).unwrap_err().contains("do not touch"));
+    }
+}

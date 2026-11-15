@@ -3,9 +3,10 @@
 *[English version](README.md)*
 
 Un plugin pour [SolidCraft](https://github.com/tangency-labs/solidcraft) qui réalise des
-assemblages de menuiserie. Il apporte huit commandes : **Tenon et mortaise**, **Rainure** (et
+assemblages de menuiserie. Il apporte douze commandes : **Tenon et mortaise**, **Rainure** (et
 aussi entaille et feuillure), **Mi-bois**, **Tourillons**, **Queues droites**, **Faux tenon**,
-**Entaille d'étagère** et **Coupe d'onglet**.
+**Entaille d'étagère**, **Coupe d'onglet**, **Rainure et languette**, **Enture**,
+**Queues d'aronde** et **Vis**.
 
 Chaque commande ajoute des fonctions ordinaires dans la timeline (boîtes, cylindres, déplacements
 et coupes), en une seule étape d'annulation. Un fichier créé avec le plugin s'ouvre et se
@@ -27,8 +28,8 @@ n'exécute aucun plugin.
 2. **L'installer.** Dans SolidCraft, ouvrez *Preferences › Plugins*, cliquez sur
    *Install plugin…* et choisissez le fichier téléchargé.
 3. **Confirmer.** SolidCraft affiche le nom du plugin, sa version et ce qu'il demande. Le plugin
-   demande à lancer six commandes de SolidCraft : `inspect.measure`, `selection.get`,
-   `solid.box`, `solid.cylinder`, `solid.move` et `solid.combine`. Il ne demande aucun accès aux
+   demande à lancer sept commandes de SolidCraft : `inspect.measure`, `selection.get`,
+   `solid.box`, `solid.cylinder`, `solid.cone`, `solid.move` et `solid.combine`. Il ne demande aucun accès aux
    fichiers, à l'horloge ou au réseau. Acceptez.
 4. **Trouver les commandes.** Elles sont dans le menu *Plugins*, à côté de *File*, et dans le
    groupe *Plugins* de l'onglet *Model*. Ouvrez un fichier, sélectionnez deux pièces, puis
@@ -79,7 +80,7 @@ jamais. Le déplacement et l'assemblage font une seule étape d'annulation.
 | Assemblage | Où va la première pièce |
 |---|---|
 | Tenon et mortaise, Tourillons | Contre la deuxième pièce : dans sa longueur s'il y a un écart dans ce sens, sinon en travers de l'écart. Sur les côtés, elle ne bouge que du nécessaire pour porter sur la deuxième pièce. Une pièce déjà en place ne bouge pas |
-| Queues droites | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur. Chaque pièce est lue par son épaisseur, son plus petit côté : un panneau peut être plus haut que long |
+| Queues droites, Queues d'aronde, Coupe d'onglet | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur. Chaque pièce est lue par son épaisseur, son plus petit côté : un panneau peut être plus haut que long |
 | Mi-bois | Dans le plan de la deuxième pièce. Les pièces doivent déjà se croiser, vues de dessus |
 
 Case décochée, les pièces doivent déjà être en place, et le plugin le dit quand elles ne le
@@ -256,6 +257,77 @@ d'un cadre.
 Chaque coupe ajoute trois fonctions dans la timeline : une boîte outil, le déplacement qui la
 fait pivoter, et la coupe.
 
+## Rainure et languette
+
+![Deux lames d'un panneau, l'une avec une languette et l'autre avec une rainure, dessinées écartées](docs/tongue-groove.png)
+
+Sélectionnez, ou saisissez les noms de deux pièces qui se touchent chant contre chant. La
+première reçoit une languette sur tout le chant, la deuxième la rainure correspondante.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Épaisseur de la languette | `thickness` | Un tiers de l'épaisseur des pièces. La languette est centrée |
+| Longueur de la languette | `depth` | La moitié de l'épaisseur des pièces, arrondie au millimètre, 10 mm au plus |
+| Réserve de colle | `glue_relief` | 1 mm au fond de la rainure |
+
+Exemple : deux pièces de 18 mm reçoivent une languette de 6 × 9 mm dans une rainure de 10 mm de
+profondeur.
+
+## Enture
+
+![Deux pièces aboutées par une longue pente, dessinées légèrement écartées](docs/scarf.png)
+
+Sélectionnez, ou saisissez les noms de deux pièces de même direction qui se chevauchent, bout
+sur bout. Chacune est coupée selon une pente qui court sur tout le chevauchement, d'une face à
+l'autre. La longueur du chevauchement fixe la pente : huit épaisseurs donnent 1:8.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Retourner la pente | `flip` | Décoché : la pente part de la face opposée à l'origine |
+
+Avec **Aligner d'abord les pièces**, la première pièce est déplacée pour que les deux se
+chevauchent de huit épaisseurs, alignées en largeur et en épaisseur.
+
+## Queues d'aronde
+
+![Deux queues d'aronde à un angle, la pièce à tenons dessinée en transparence](docs/dovetail.png)
+
+Sélectionnez, ou saisissez le nom de la pièce à queues, dont le bout touche l'autre pièce, puis
+le nom de la pièce à tenons. La première reçoit des queues qui traversent la deuxième, et la
+deuxième reçoit les entailles correspondantes, avec un demi-tenon à chaque bord. Donnez un
+**Recouvrement** pour des queues semi-cachées.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Nombre de queues | `count` | Une toutes les deux épaisseurs et demie environ |
+| Pente 1:N | `slope` | 8, la pente usuelle pour un bois dur. 6 pour un bois tendre |
+| Largeur d'un tenon d'aronde | `pin` | La moitié de l'épaisseur de la pièce à queues, au bout étroit du tenon |
+| Recouvrement | `lap` | 0 : queues traversantes. Sinon, le bois laissé devant les queues, pour des queues semi-cachées |
+
+Exemple : deux pièces de 18 × 100 mm reçoivent deux queues, larges de 41 mm au bout et de
+36,5 mm à la base, entre des tenons de 9 mm à leur bout étroit.
+
+Chaque queue ajoute neuf fonctions dans la timeline : la queue est d'abord réalisée comme un
+corps à part, ses deux flancs sont coupés à la pente, puis elle creuse son entaille et rejoint
+la pièce à queues.
+
+## Vis
+
+Sélectionnez, ou saisissez le nom de la pièce que la vis traverse, puis celui de la pièce où
+elle mord. Les deux doivent se toucher. Le plugin perce un trou de passage dans la première
+pièce, avec une fraisure pour la tête, et un avant-trou dans la deuxième. Il n'ajoute pas de
+corps de vis.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Diamètre de la vis | `diameter` | 4 mm. Le trou de passage fait 0,5 mm de plus, l'avant-trou 0,7 fois la vis |
+| Longueur de la vis | `length` | Deux fois et demie la première pièce, arrondie à 5 mm |
+| Nombre de vis | `count` | Une, deux à partir de 60 mm, puis une tous les 150 mm environ |
+| Fraiser les têtes | `countersink` | Coché : une fraisure à 90 degrés, large de deux diamètres |
+
+Exemple : un côté de 18 mm sur un bout d'étagère reçoit deux vis de 4 × 45 mm : trous de 4,5 mm
+fraisés à 8 mm, et avant-trous de 3 mm profonds de 27 mm.
+
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
@@ -275,16 +347,20 @@ fait pivoter, et la coupe.
 - Un assemblage ne voit pas les autres. Les tourillons de deux traverses posées sur deux faces
   opposées d'un montant mince peuvent se rejoindre au milieu : donnez alors une longueur plus
   courte.
-- Les queues d'aronde et les entures manquent encore.
-- Une coupe d'onglet n'a pas encore de clef ni de languette, et elle traverse toute la pièce.
+- L'enture est
+  une pente simple, sans clef. La coupe d'onglet n'a ni clef ni languette, et elle traverse
+  toute la pièce.
+- Les coupes en biais ajoutent beaucoup de fonctions : six pour un onglet ou une enture, neuf
+  par queue d'aronde.
 - Les messages d'erreur du plugin sont en anglais dans tous les paquets.
 
 ## Lancer depuis un script
 
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
 `plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
-`dowels`, `box-joint`, `loose-tenon`, `housing` et `miter`. Toutes sauf les deux premières
-reçoivent les deux corps dans `first` et `second`.
+`dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail` et
+`screws`.
+Toutes sauf les deux premières reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 
 ```json
@@ -350,6 +426,11 @@ SolidCraft affiche les textes d'un plugin tels que son manifeste les donne, dans
 langue. Les textes anglais sont dans `plugin/plugin.json`. Une traduction tient en un fichier,
 `plugin/locales/<langue>.json`, qui associe chaque texte anglais à sa traduction ;
 `plugin/locales/fr.json` sert de modèle.
+
+SolidCraft refuse un manifeste de plus de 16 Kio : les textes du formulaire restent donc
+courts. La règle d'un champ est dans son titre, comme « Épaisseur du tenon (vide = 1/3 de la
+traverse) », et ce README porte les explications longues. La construction échoue au-delà de
+13 Kio, pour garder de la place aux prochains assemblages.
 
 `./build.sh` écrit alors `dist/wood-joinery-<langue>.zip`. La construction échoue si un texte
 n'a pas de traduction, ou si une traduction ne sert plus : une langue ne peut pas prendre de

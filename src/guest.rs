@@ -3,6 +3,7 @@
 use serde_json::{json, Value};
 
 use crate::boards;
+use crate::dovetail;
 use crate::dowel::{self, Bore};
 use crate::finger;
 use crate::groove;
@@ -11,6 +12,10 @@ use crate::joint::{plan, Aabb, Block, Options, Variant};
 use crate::lap;
 use crate::loose;
 use crate::miter;
+use crate::scarf;
+use crate::screw;
+use crate::slant::Tool;
+use crate::tongue;
 
 wit_bindgen::generate!({ world: "command-plugin", path: "wit" });
 
@@ -32,6 +37,10 @@ impl exports::craft::plugin::entry::Guest for Plugin {
             "loose-tenon" => loose_tenon(&params),
             "housing" => housing(&params),
             "miter" => miter(&params),
+            "tongue-groove" => tongue_groove(&params),
+            "scarf" => scarf(&params),
+            "dovetail" => dovetail(&params),
+            "screws" => screws(&params),
             other => Err(invalid("entry", format!("unknown entry `{other}`"))),
         }
     }
@@ -345,6 +354,18 @@ fn body_from(block: &Block, body_name: &str, name: &str) -> Result<(), PluginErr
     .map(|_| ())
 }
 
+/// A cut at an angle: a tool box along the axes, turned about a line, then cut from `target`.
+/// The cut uses the tool up.
+fn slanted_cut(target: &str, tool: &Tool, tool_name: &str, label: &str) -> Result<(), PluginError> {
+    let r = |v: f64| (v * 1e6).round() / 1e6;
+    body_from(&tool.block, tool_name, &format!("{label} tool"))?;
+    run(
+        "solid.move",
+        json!({ "bodies": [tool_name], "origin": tool.origin.map(r), "axis": tool.axis, "angle": r(tool.angle), "name": format!("{label} tool turn") }),
+    )?;
+    run("solid.combine", json!({ "target": target, "tools": [tool_name], "operation": "cut", "name": label })).map(|_| ())
+}
+
 fn bore(b: &Bore, operation: Value, name: &str) -> Result<(), PluginError> {
     let r = |v: f64| (v * 1e6).round() / 1e6;
     let mut axis = [0.0; 3];
@@ -634,7 +655,6 @@ fn miter(params: &str) -> Result<String, PluginError> {
     let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), finger::align)?;
     let plan = miter::plan(a, b, &miter::Options::default()).map_err(|reason| invalid("first", reason))?;
     let names = free_names("Miter tool", 2)?;
-    let r = |v: f64| (v * 1e6).round() / 1e6;
     let mut grown_by = [0.0; 2];
     let boards = [(&first, plan.extend_first, plan.tool_first), (&second, plan.extend_second, plan.tool_second)];
     for (i, (board, extend, tool)) in boards.into_iter().enumerate() {
@@ -643,13 +663,7 @@ fn miter(params: &str) -> Result<String, PluginError> {
             // The extension laps a hair into the board: only what lies outside it is new wood.
             grown_by[i] = block.size[0] * block.size[1] * block.size[2] * 0.9;
         }
-        // A box along the axes, turned about the outer corner, then cut from the board.
-        body_from(&tool.block, &names[i], "Miter tool")?;
-        run(
-            "solid.move",
-            json!({ "bodies": [names[i]], "origin": tool.origin.map(r), "axis": tool.axis, "angle": r(tool.angle), "name": "Miter tool turn" }),
-        )?;
-        run("solid.combine", json!({ "target": board, "tools": [names[i]], "operation": "cut", "name": "Miter" }))?;
+        slanted_cut(board, &tool, &names[i], "Miter")?;
     }
     landed(&[(&first, Want::Cut(volume_a + grown_by[0])), (&second, Want::Cut(volume_b + grown_by[1]))])?;
     Ok(json!({
@@ -658,6 +672,132 @@ fn miter(params: &str) -> Result<String, PluginError> {
         "angle_deg": plan.angle,
         "extended_first": plan.extend_first.is_some(),
         "extended_second": plan.extend_second.is_some(),
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn tongue_groove(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_b, moved, .. } = pair(&p, ("first", "second"), boards::align_end)?;
+    let options = tongue::Options {
+        thickness: length(&p, "thickness")?,
+        depth: length(&p, "depth")?,
+        glue_relief: length(&p, "glue_relief")?,
+    };
+    let plan = tongue::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    add(&plan.groove, "cut", &second, "Groove")?;
+    add(&plan.tongue, "join", &first, "Tongue")?;
+    landed(&[(&first, Want::Bounds(grown(&a, &[plan.tongue]))), (&second, Want::Cut(volume_b))])?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "thickness_mm": plan.thickness,
+        "depth_mm": plan.depth,
+        "groove_depth_mm": plan.groove_depth,
+        "length_mm": plan.length,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn scarf(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), scarf::align)?;
+    let options = scarf::Options { flip: flag(&p, "flip", false)? };
+    let plan = scarf::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    let names = free_names("Scarf tool", 2)?;
+    slanted_cut(&first, &plan.tool_first, &names[0], "Scarf")?;
+    slanted_cut(&second, &plan.tool_second, &names[1], "Scarf")?;
+    landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "length_mm": plan.length,
+        "slope": plan.slope,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn dovetail(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_b, moved, .. } = pair(&p, ("first", "second"), finger::align)?;
+    let options =
+        dovetail::Options { count: count(&p, "count")?, slope: length(&p, "slope")?, pin: length(&p, "pin")?, lap: length(&p, "lap")? };
+    let plan = dovetail::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    let tools = free_names("Dovetail tool", 2)?;
+    let blanks: Vec<Block> = plan.tails.iter().map(|tail| tail.blank).collect();
+    for (tail, name) in plan.tails.iter().zip(free_names("Dovetail", plan.tails.len())?) {
+        // The tail as a body of its own: a block, with its two sides cut at the slope.
+        body_from(&tail.blank, &name, "Dovetail blank")?;
+        for (side, tool) in tail.sides.iter().zip(&tools) {
+            slanted_cut(&name, side, tool, "Dovetail side")?;
+        }
+        // It cuts its socket in the pin board, then becomes part of the tail board.
+        run("solid.combine", json!({ "target": second, "tools": [name], "operation": "cut", "keep_tools": true, "name": "Dovetail socket" }))?;
+        run("solid.combine", json!({ "target": first, "tools": [name], "operation": "join", "name": "Dovetail" }))?;
+    }
+    landed(&[(&first, Want::Bounds(grown(&a, &blanks))), (&second, Want::Cut(volume_b))])?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "tails": plan.tails.len(),
+        "slope": plan.slope,
+        "pin_mm": plan.pin,
+        "tail_wide_mm": plan.tail_wide,
+        "tail_narrow_mm": plan.tail_narrow,
+        "tail_length_mm": plan.tail_length,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn screws(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    let options = screw::Options {
+        diameter: length(&p, "diameter")?,
+        length: length(&p, "length")?,
+        count: count(&p, "count")?,
+        countersink: Some(flag(&p, "countersink", true)?),
+    };
+    let plan = screw::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    let r = |v: f64| (v * 1e6).round() / 1e6;
+    for hole in &plan.clearance {
+        bore(hole, json!({ "operation": "cut", "targets": [first] }), "Screw clearance hole")?;
+    }
+    for sink in &plan.sinks {
+        let mut axis = [0.0; 3];
+        axis[sink.axis] = sink.dir;
+        run(
+            "solid.cone",
+            json!({
+                "base": sink.base.map(r),
+                "axis": axis,
+                "diameter": r(sink.diameter),
+                "top_diameter": r(sink.top_diameter),
+                "height": r(sink.height),
+                "operation": "cut",
+                "targets": [first],
+                "name": "Countersink",
+            }),
+        )?;
+    }
+    for hole in &plan.pilots {
+        bore(hole, json!({ "operation": "cut", "targets": [second] }), "Screw pilot hole")?;
+    }
+    landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "count": plan.pilots.len(),
+        "diameter_mm": plan.diameter,
+        "length_mm": plan.length,
+        "clearance_diameter_mm": plan.clearance_diameter,
+        "pilot_diameter_mm": plan.pilot_diameter,
+        "pilot_depth_mm": plan.pilot_depth,
+        "countersink_depth_mm": plan.sink_depth,
         "moved_first_mm": moved,
     })
     .to_string())
