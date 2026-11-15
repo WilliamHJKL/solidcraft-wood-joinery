@@ -29,8 +29,10 @@ N'installez qu'une seule langue : les deux paquets sont le même plugin.
 
 Chaque commande reçoit ses pièces de deux façons :
 
-- **Par clic.** Sélectionnez les pièces dans la vue ou dans le navigateur, lancez la commande et
-  laissez vides les champs de nom. Pour un assemblage, la pièce sélectionnée en premier est la
+- **Par clic.** Sélectionnez les pièces dans la vue ou dans le navigateur **avant** d'ouvrir la
+  commande, puis laissez vides les champs de nom et lancez-la. Un clic fait pendant que le
+  formulaire est ouvert ne remplit pas les champs : SolidCraft dessine le formulaire, et un
+  plugin ne peut pas le modifier. Pour un assemblage, la pièce sélectionnée en premier est la
   première pièce (la traverse pour un tenon et mortaise). Une face ou une arête sélectionnée
   compte pour sa pièce.
 - **Par nom.** Saisissez les noms tels que le navigateur les affiche.

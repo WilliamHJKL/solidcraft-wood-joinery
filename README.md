@@ -28,8 +28,9 @@ Install one language only: both packages are the same plugin.
 
 Every command takes its boards in one of two ways:
 
-- **By click.** Select the boards in the view or in the browser, then run the command and leave
-  the name fields empty. For a joint, the board you select first is the first board (the rail
+- **By click.** Select the boards in the view or in the browser **before** you open the command,
+  then leave the name fields empty and run it. A click made while the form is open does not
+  fill the fields: SolidCraft draws the form, and a plugin cannot change it. For a joint, the board you select first is the first board (the rail
   for a mortise and tenon). A selected face or edge counts as its board.
 - **By name.** Type the names as the browser shows them.
 

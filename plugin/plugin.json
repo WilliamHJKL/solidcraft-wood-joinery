@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
   "capabilities": [
     "commands@0.1"
@@ -17,12 +17,12 @@
           "properties": {
             "rail": {
               "type": "string",
-              "title": "Rail",
+              "title": "Rail (empty = selection)",
               "description": "Name of the body that gets the tenon. Its end touches the stile. Empty: the selection, in the order picked."
             },
             "stile": {
               "type": "string",
-              "title": "Stile",
+              "title": "Stile (empty = selection)",
               "description": "Name of the body that gets the mortise. Empty: the selection, in the order picked."
             },
             "variant": {
@@ -136,12 +136,12 @@
           "properties": {
             "body": {
               "type": "string",
-              "title": "Board",
+              "title": "Board (empty = selection)",
               "description": "Name of the body to groove. Empty: the selected board."
             },
             "face": {
               "type": "string",
-              "title": "Face",
+              "title": "Face (empty = selection)",
               "description": "The face to cut into. The groove runs along its longer side. Empty: the selected face.",
               "oneOf": [
                 {
@@ -222,12 +222,12 @@
           "properties": {
             "first": {
               "type": "string",
-              "title": "First board",
+              "title": "First board (empty = selection)",
               "description": "Name of a body. The two boards must overlap where the joint goes. Empty: the selection, in the order picked."
             },
             "second": {
               "type": "string",
-              "title": "Second board",
+              "title": "Second board (empty = selection)",
               "description": "Name of the body that crosses the first one. Empty: the selection, in the order picked."
             },
             "depth": {
@@ -266,12 +266,12 @@
           "properties": {
             "first": {
               "type": "string",
-              "title": "First board",
+              "title": "First board (empty = selection)",
               "description": "Name of a body. A face of it touches the second board. Empty: the selection, in the order picked."
             },
             "second": {
               "type": "string",
-              "title": "Second board",
+              "title": "Second board (empty = selection)",
               "description": "Name of the body the first one touches. Empty: the selection, in the order picked."
             },
             "diameter": {
@@ -330,12 +330,12 @@
           "properties": {
             "first": {
               "type": "string",
-              "title": "First board",
+              "title": "First board (empty = selection)",
               "description": "Name of the body that gets the fingers. Its end touches the second board. Empty: the selection, in the order picked."
             },
             "second": {
               "type": "string",
-              "title": "Second board",
+              "title": "Second board (empty = selection)",
               "description": "Name of the body that gets the sockets. The fingers go through it. Empty: the selection, in the order picked."
             },
             "count": {
