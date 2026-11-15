@@ -45,7 +45,7 @@ the joint are one undo step.
 | Joint | Where the first board goes |
 |---|---|
 | Mortise and tenon, Dowels | Against the second board: along its length when there is a gap that way, otherwise across the gap. Sideways, it moves only as far as it must to land on the second board. A board already in place does not move |
-| Box joint | Its end on the second board, at the nearest end of that board, centred across the width |
+| Box joint | Its end on the second board, at the nearest end of that board, centred across the width. Each board is read by its thickness, its smallest side, so a panel may be taller than it is long |
 | Half lap | Into the plane of the second board. The boards must already cross when seen from above |
 
 With the box off, the boards must be in place already, and the plugin says so when they are not.
@@ -165,6 +165,9 @@ Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on
 - Sizes are numbers. They do not follow a parameter: after a change, undo the cut and run the
   command again. A joint that rebuilds by itself needs the parametric plugin features that
   SolidCraft's plugin RFC plans for a later phase.
+- Work with the top component active. A board in a component that was turned or moved is not
+  supported yet: turn the body itself, not its component. The plugin checks where each joint
+  landed, and when it is not where it was planned it changes nothing and says so.
 - A tenon does not yet adjust itself to a groove already cut in the rail or the stile.
 - A joint does not see the other joints. Dowels from two rails on opposite faces of a thin
   stile can meet in the middle: give a shorter length in that case.

@@ -268,6 +268,20 @@ def main():
         c.refuse_entry("align_lap_off", "the same boards without align", above, "half-lap", two, "do not overlap")
         c.refuse_entry("align_lap_beside", "align on boards that do not cross", [box("A", [0, 300, 30], (300, 45, 18), first=True), cross[1]], "half-lap", {**two, "align": True}, "do not cross")
 
+        # Two cabinet panels, taller than they are long. The side is drawn along X, turned 90 degrees
+        # about Z, and left away from the back: align reads it by its thickness and brings it home.
+        tall = [box("Side", [100, -100, 30], (300, 18, 400), first=True), box("Back", [-18, 0, 0], (350, 18, 400)),
+                {"command": "solid.move", "params": {"bodies": ["Side"], "axis": [0, 0, 1], "angle": 90}}]
+        sb = {"first": "Side", "second": "Back", "align": True, "count": 5}
+        got = c.change("align_tall", "box joint on a panel turned 90 degrees", tall, "box-joint", sb, {"Side": 2 * 80 * 18 * 18, "Back": -2 * 80 * 18 * 18})
+        side = next(b for b in got[-1]["bodies"] if b["name"] == "Side")["bbox"]
+        home = all(abs(g - w) < 1e-3 for g, w in zip(side["min"] + side["max"], [-18, 0, 0, 0, 318, 400]))
+        c.report(home, f"the turned side lies on the end of the back: {[round(v, 3) for v in side['min'] + side['max']]}")
+        # A board in a component that was turned: the plugin cannot place the joint, and says so.
+        turned = [box("Back", [-18, 0, 0], (350, 18, 400), first=True), {"command": "component.create", "params": {"name": "SideC", "grounded": False}},
+                  box("Side", [100, -100, 30], (300, 18, 400)), {"command": "occurrence.move", "params": {"occurrence": 3, "angle": "90 deg", "axis": [0, 0, 1]}}]
+        c.refuse_entry("component", "a board in a turned component", turned, "box-joint", sb, "did not land")
+
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"
         c.volumes("save", mid, both, "--save", str(saved))

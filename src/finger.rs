@@ -26,18 +26,19 @@ pub struct Plan {
 
 /// How far to move `first` so that its end lies on the face of `second`, at the nearest end of
 /// `second`, with the two boards level across their width.
+///
+/// A board is read by its thickness, its smallest side, not by its longest one: a cabinet side
+/// may be taller than it is long.
 pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     measurable(first)?;
     measurable(second)?;
-    let longest = |b: &Aabb, skip: Option<usize>| {
-        (0..3).filter(|a| Some(*a) != skip).max_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(0)
-    };
-    // `n` runs along the first board, `m` along the second, `l` across the width they share.
-    let n = longest(first, None);
-    if longest(second, None) == n {
-        return Err("the two boards run the same way; turn one so they make a corner".into());
+    let thin = |b: &Aabb| (0..3).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(0);
+    // `n` is square to the face of the second board, `m` runs along that board towards its
+    // end, and `l` is the width the two boards share.
+    let (m, n) = (thin(first), thin(second));
+    if m == n {
+        return Err("the two boards lie flat on each other; turn one so they make a corner".into());
     }
-    let m = longest(second, Some(n));
     let l = 3 - n - m;
     let centre = |b: &Aabb, a: usize| 0.5 * (b.min[a] + b.max[a]);
     let mut shift = [0.0; 3];
@@ -134,7 +135,17 @@ mod tests {
         let other = bx([-295.0, 270.0, 0.0], [300.0, 18.0, 100.0]);
         assert_eq!(align(&other, &front).unwrap(), [-5.0, 12.0, 0.0]);
         let parallel = bx([40.0, 0.0, 0.0], [18.0, 300.0, 100.0]);
-        assert!(align(&parallel, &front).unwrap_err().contains("same way"));
+        assert!(align(&parallel, &front).unwrap_err().contains("flat on each other"));
+    }
+
+    #[test]
+    fn align_reads_a_board_by_its_thickness_not_its_longest_side() {
+        // Two cabinet panels, both taller (400) than they are long: a side turned to run along
+        // Y, and a back along X. The side sits 50 mm away and 30 mm too high.
+        let side = bx([-18.0, 68.0, 30.0], [18.0, 300.0, 400.0]);
+        let back = bx([-18.0, 0.0, 0.0], [350.0, 18.0, 400.0]);
+        // The side comes down its length (Y) onto the back, not up onto its top edge.
+        assert_eq!(align(&side, &back).unwrap(), [0.0, -50.0, -30.0]);
     }
 
     #[test]

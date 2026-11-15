@@ -81,8 +81,8 @@ fn cover(first: &Aabb, second: &Aabb, axis: usize) -> f64 {
 
 /// How far to move `first` so that it lies against `second`, face on face.
 ///
-/// It moves along its length when there is a gap that way, or when the boards run into each
-/// other; otherwise across the widest gap. On the two other axes it moves only as far as it must
+/// It moves along its length when there is a gap that way, otherwise across the widest gap.
+/// Boards that run into each other part along the axis where they overlap least. On the two other axes it moves only as far as it must
 /// to land on `second`.
 pub fn align_end(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     measurable(first)?;
@@ -91,7 +91,8 @@ pub fn align_end(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     let by = |a: usize, b: usize, f: &dyn Fn(usize) -> f64| f(a).total_cmp(&f(b));
     let length = (0..3).max_by(|&a, &b| by(a, b, &|x| first.size(x))).unwrap_or(0);
     let widest = (0..3).max_by(|&a, &b| by(a, b, &gap)).unwrap_or(0);
-    let n = if gap(length) > TOUCH || gap(widest) <= TOUCH { length } else { widest };
+    // Boards that run into each other part along the axis where they overlap least.
+    let n = if gap(length) > TOUCH { length } else { widest };
     let mut shift = [0.0; 3];
     for a in 0..3 {
         shift[a] = if a != n {
@@ -140,6 +141,14 @@ mod tests {
         // On the other side, run 4 mm into the stile.
         let into = bx([-356.0, 0.0, 400.0], [360.0, 18.0, 45.0]);
         assert_eq!(align_end(&into, &stile).unwrap(), [-4.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn align_end_does_not_take_the_longest_side_for_the_length() {
+        // A shelf deeper (400) than it is long (300), run 6 mm into an upright panel.
+        let shelf = bx([12.0, 0.0, 200.0], [300.0, 400.0, 18.0]);
+        let upright = bx([0.0, 0.0, 0.0], [18.0, 400.0, 600.0]);
+        assert_eq!(align_end(&shelf, &upright).unwrap(), [6.0, 0.0, 0.0]);
     }
 
     #[test]

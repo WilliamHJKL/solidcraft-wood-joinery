@@ -133,18 +133,74 @@ fn flag(p: &Value, field: &str, default: bool) -> Result<bool, PluginError> {
     }
 }
 
-/// The two boards of a joint, by name, and their bounding boxes.
-///
-/// With `align` on, the first board is moved by what `shift` returns before anything is cut. The
-/// last value is how far it moved.
-fn pair(
-    p: &Value,
-    names: (&str, &str),
-    shift: fn(&Aabb, &Aabb) -> Result<[f64; 3], String>,
-) -> Result<(String, String, Aabb, Aabb, [f64; 3]), PluginError> {
+/// The two boards of a joint: their names, bounding boxes and volumes, and how far the first
+/// one was moved.
+struct Pair {
+    first: String,
+    second: String,
+    a: Aabb,
+    b: Aabb,
+    volume_a: f64,
+    volume_b: f64,
+    moved: [f64; 3],
+}
+
+/// What a body must look like once the entry has run.
+enum Want {
+    /// Smaller than this volume: a cut took wood away.
+    Cut(f64),
+    /// This bounding box: the body was moved, or wood was added to it.
+    Bounds(Aabb),
+}
+
+/// Checks that each body ended up as planned. SolidCraft takes the sizes of a new feature in
+/// the frame of the active component, so a joint planned from world sizes can land beside the
+/// boards. The error undoes the whole entry.
+fn landed(checks: &[(&str, Want)]) -> Result<(), PluginError> {
+    let names: Vec<&str> = checks.iter().map(|(name, _)| *name).collect();
+    let measured = run("inspect.measure", json!({ "bodies": names }))?;
+    for (name, want) in checks {
+        let ok = match want {
+            Want::Cut(before) => volume(&measured, name)? < before - 1e-6,
+            Want::Bounds(want) => {
+                let got = bbox(&measured, name)?;
+                (0..3).all(|i| (got.min[i] - want.min[i]).abs() < 0.01 && (got.max[i] - want.max[i]).abs() < 0.01)
+            }
+        };
+        if !ok {
+            return Err(invalid(
+                "body",
+                format!(
+                    "the joint did not land on `{name}` as planned, so nothing was changed. This happens when a \
+                     component other than the top one is active, or when a board is in a component that was \
+                     turned or moved. Activate the top component, or turn the body itself and not its \
+                     component, then run the command again"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// The box around `body` and the blocks added to it.
+fn grown(body: &Aabb, blocks: &[Block]) -> Aabb {
+    let mut all = *body;
+    for block in blocks {
+        for i in 0..3 {
+            all.min[i] = all.min[i].min(block.corner[i]);
+            all.max[i] = all.max[i].max(block.corner[i] + block.size[i]);
+        }
+    }
+    all
+}
+
+/// The two boards of a joint. With `align` on, the first board is moved by what `shift` returns
+/// before anything is cut.
+fn pair(p: &Value, names: (&str, &str), shift: fn(&Aabb, &Aabb) -> Result<[f64; 3], String>) -> Result<Pair, PluginError> {
     let (first, second) = two(p, names.0, names.1)?;
     let measured = run("inspect.measure", json!({ "bodies": [first, second] }))?;
     let (mut a, b) = (bbox(&measured, &first)?, bbox(&measured, &second)?);
+    let (volume_a, volume_b) = (volume(&measured, &first)?, volume(&measured, &second)?);
     let mut moved = [0.0; 3];
     if flag(p, "align", false)? {
         let r = |v: f64| (v * 1e6).round() / 1e6;
@@ -156,9 +212,10 @@ fn pair(
                 a.max[i] += d;
             }
             moved = by;
+            landed(&[(&first, Want::Bounds(a))])?;
         }
     }
-    Ok((first, second, a, b, moved))
+    Ok(Pair { first, second, a, b, volume_a, volume_b, moved })
 }
 
 fn run(command: &str, args: Value) -> Result<Value, PluginError> {
@@ -166,12 +223,23 @@ fn run(command: &str, args: Value) -> Result<Value, PluginError> {
     serde_json::from_str(&out).map_err(|e| PluginError::Trap(format!("{command} returned invalid JSON: {e}")))
 }
 
-fn bbox(measured: &Value, name: &str) -> Result<Aabb, PluginError> {
-    let found = measured
+fn measured_body<'a>(measured: &'a Value, name: &str) -> Result<&'a Value, PluginError> {
+    measured
         .get("bodies")
         .and_then(Value::as_array)
         .and_then(|bodies| bodies.iter().find(|b| b.get("name").and_then(Value::as_str) == Some(name)))
-        .ok_or_else(|| invalid("body", format!("no body named `{name}`")))?;
+        .ok_or_else(|| invalid("body", format!("no body named `{name}`")))
+}
+
+fn volume(measured: &Value, name: &str) -> Result<f64, PluginError> {
+    measured_body(measured, name)?
+        .get("volume_mm3")
+        .and_then(Value::as_f64)
+        .ok_or_else(|| PluginError::Trap(format!("no volume for `{name}`")))
+}
+
+fn bbox(measured: &Value, name: &str) -> Result<Aabb, PluginError> {
+    let found = measured_body(measured, name)?;
     let corner = |key: &str| -> Option<[f64; 3]> {
         let v = found.get("bbox")?.get(key)?.as_array()?;
         Some([v.first()?.as_f64()?, v.get(1)?.as_f64()?, v.get(2)?.as_f64()?])
@@ -219,7 +287,8 @@ fn bore(b: &Bore, operation: Value, name: &str) -> Result<(), PluginError> {
 
 fn mortise_tenon(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let (rail, stile, rail_box, stile_box, moved) = pair(&p, ("rail", "stile"), boards::align_end)?;
+    let Pair { first: rail, second: stile, a: rail_box, b: stile_box, volume_b: stile_volume, moved, .. } =
+        pair(&p, ("rail", "stile"), boards::align_end)?;
     let variant = match p.get("variant") {
         None | Some(Value::Null) => Variant::Classic,
         Some(v) => v
@@ -247,6 +316,7 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
     for (i, block) in plan.mortise.iter().enumerate() {
         add(block, "cut", &stile, if i == 0 { "Mortise" } else { "Haunch mortise" })?;
     }
+    landed(&[(&rail, Want::Bounds(grown(&rail_box, &plan.tenon))), (&stile, Want::Cut(stile_volume))])?;
 
     Ok(json!({
         "variant": variant.name(),
@@ -297,6 +367,7 @@ fn groove(params: &str) -> Result<String, PluginError> {
     let measured = run("inspect.measure", json!({ "bodies": [board] }))?;
     let plan = groove::plan(bbox(&measured, &board)?, face, &options).map_err(|reason| invalid("body", reason))?;
     add(&plan.cut, "cut", &board, "Groove")?;
+    landed(&[(&board, Want::Cut(volume(&measured, &board)?))])?;
     Ok(json!({
         "body": board,
         "width_mm": plan.width,
@@ -328,11 +399,12 @@ fn picked_face() -> Result<(String, groove::Face), PluginError> {
 
 fn half_lap(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let (first, second, a, b, moved) = pair(&p, ("first", "second"), lap::align)?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), lap::align)?;
     let options = lap::Options { depth: length(&p, "depth")?, flip: flag(&p, "flip", false)? };
     let plan = lap::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
     add(&plan.cut_first, "cut", &first, "Half lap")?;
     add(&plan.cut_second, "cut", &second, "Half lap")?;
+    landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
     Ok(json!({
         "first": first,
         "second": second,
@@ -346,7 +418,7 @@ fn half_lap(params: &str) -> Result<String, PluginError> {
 
 fn dowels(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let (first, second, a, b, moved) = pair(&p, ("first", "second"), boards::align_end)?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
     let options = dowel::Options {
         diameter: length(&p, "diameter")?,
         length: length(&p, "length")?,
@@ -361,6 +433,7 @@ fn dowels(params: &str) -> Result<String, PluginError> {
     for hole in &plan.holes_second {
         bore(hole, json!({ "operation": "cut", "targets": [second] }), "Dowel hole")?;
     }
+    landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
     if with_bodies {
         // SolidCraft renames a body whose name is taken, so number the dowels past the ones there.
         let all = run("inspect.measure", json!({}))?;
@@ -397,7 +470,7 @@ fn dowels(params: &str) -> Result<String, PluginError> {
 
 fn box_joint(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let (first, second, a, b, moved) = pair(&p, ("first", "second"), finger::align)?;
+    let Pair { first, second, a, b, volume_b, moved, .. } = pair(&p, ("first", "second"), finger::align)?;
     let options = finger::Options { count: count(&p, "count")?, swap: flag(&p, "swap", false)? };
     let plan = finger::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
     for socket in &plan.sockets {
@@ -406,6 +479,7 @@ fn box_joint(params: &str) -> Result<String, PluginError> {
     for finger in &plan.fingers {
         add(finger, "join", &first, "Finger")?;
     }
+    landed(&[(&first, Want::Bounds(grown(&a, &plan.fingers))), (&second, Want::Cut(volume_b))])?;
     Ok(json!({
         "first": first,
         "second": second,

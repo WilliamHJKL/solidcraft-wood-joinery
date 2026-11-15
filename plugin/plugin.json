@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
   "capabilities": [
     "commands@0.1"

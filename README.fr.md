@@ -47,7 +47,7 @@ jamais. Le déplacement et l'assemblage font une seule étape d'annulation.
 | Assemblage | Où va la première pièce |
 |---|---|
 | Tenon et mortaise, Tourillons | Contre la deuxième pièce : dans sa longueur s'il y a un écart dans ce sens, sinon en travers de l'écart. Sur les côtés, elle ne bouge que du nécessaire pour porter sur la deuxième pièce. Une pièce déjà en place ne bouge pas |
-| Queues droites | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur |
+| Queues droites | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur. Chaque pièce est lue par son épaisseur, son plus petit côté : un panneau peut être plus haut que long |
 | Mi-bois | Dans le plan de la deuxième pièce. Les pièces doivent déjà se croiser, vues de dessus |
 
 Case décochée, les pièces doivent déjà être en place, et le plugin le dit quand elles ne le
@@ -175,6 +175,10 @@ première pièce.
 - Les cotes sont des nombres. Elles ne suivent pas un paramètre : après un changement, annulez
   l'usinage et relancez la commande. Un assemblage qui se reconstruit seul attend les fonctions
   paramétriques par plugin, prévues pour une phase ultérieure du RFC des plugins de SolidCraft.
+- Travaillez avec le composant racine actif. Une pièce placée dans un composant qui a été
+  tourné ou déplacé n'est pas encore prise en charge : tournez le corps lui-même, pas son
+  composant. Le plugin vérifie où chaque assemblage est arrivé ; s'il n'est pas à l'endroit
+  prévu, il ne modifie rien et le dit.
 - Un tenon ne s'ajuste pas encore à une rainure déjà creusée dans la traverse ou le montant.
 - Un assemblage ne voit pas les autres. Les tourillons de deux traverses posées sur deux faces
   opposées d'un montant mince peuvent se rejoindre au milieu : donnez alors une longueur plus
