@@ -106,6 +106,24 @@ pub fn align_end(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     Ok(shift)
 }
 
+/// How a fastener of `length` is shared between two boards `first_depth` and `second_depth`
+/// thick along it: half in each, unless a board is too thin. 3 mm of wood and the glue relief
+/// stay under each hole. `Err` gives the longest fastener that fits.
+pub fn share(length: f64, relief: f64, first_depth: f64, second_depth: f64) -> Result<(f64, f64), f64> {
+    let most_first = first_depth - 3.0 - relief;
+    let most_second = second_depth - 3.0 - relief;
+    let mut in_first = (0.5 * length).min(most_first);
+    let mut in_second = length - in_first;
+    if in_second > most_second {
+        in_second = most_second;
+        in_first = length - in_second;
+    }
+    if in_first > most_first + FIT || in_first <= FIT || in_second <= FIT {
+        return Err((most_first + most_second).max(0.0));
+    }
+    Ok((in_first, in_second))
+}
+
 /// The block that removes `lo..hi` from `target`. It runs past every face of the target that the
 /// region reaches, so the cut is open there.
 pub fn cut_block(target: &Aabb, lo: [f64; 3], hi: [f64; 3]) -> Block {

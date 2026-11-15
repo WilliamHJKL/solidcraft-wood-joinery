@@ -1,8 +1,8 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.4.5",
-  "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
+  "version": "0.5.0",
+  "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings and miters.",
   "capabilities": [
     "commands@0.1"
   ],
@@ -338,12 +338,170 @@
             }
           }
         }
+      },
+      {
+        "name": "loose-tenon",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Loose tenon"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)",
+              "description": "Name of a body. A face of it touches the second board. Empty: the selection, in the order picked."
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)",
+              "description": "Name of the body the first one touches. Empty: the selection, in the order picked."
+            },
+            "thickness": {
+              "type": "number",
+              "title": "Tenon thickness",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "Empty: 5, 6, 8 or 10 mm, at most a third of the thinner side of the contact."
+            },
+            "width": {
+              "type": "number",
+              "title": "Tenon width",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "Empty: the width of the joint, less a shoulder on each side."
+            },
+            "length": {
+              "type": "number",
+              "title": "Tenon length",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "Empty: five thicknesses, rounded up to 10 mm. Half goes in each board, less in a thin one."
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of tenons",
+              "minimum": 1,
+              "description": "Empty: one, then one every 120 mm or so."
+            },
+            "glue_relief": {
+              "type": "number",
+              "title": "Glue relief",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 1,
+              "description": "Extra depth at the bottom of each mortise."
+            },
+            "tenon_bodies": {
+              "type": "boolean",
+              "title": "Add the tenons",
+              "default": true,
+              "description": "On: each tenon is a new body. Off: mortises only."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the first board against the second one first."
+            }
+          }
+        }
+      },
+      {
+        "name": "housing",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Housing"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)",
+              "description": "Name of the shelf. Its end touches the side. Empty: the selection, in the order picked."
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)",
+              "description": "Name of the side panel that gets the housing. Empty: the selection, in the order picked."
+            },
+            "depth": {
+              "type": "number",
+              "title": "Depth (empty = 1/3 of the side)",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "description": "How far the shelf goes into the side. The shelf is made longer by as much."
+            },
+            "stop_start": {
+              "type": "number",
+              "title": "Stop at start",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0,
+              "description": "Wood left uncut in the side at the end of the housing nearest the origin. Zero: the housing runs out."
+            },
+            "stop_end": {
+              "type": "number",
+              "title": "Stop at end",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0,
+              "description": "Wood left uncut at the other end. Zero: the housing runs out."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the first board against the second one first."
+            }
+          }
+        }
+      },
+      {
+        "name": "miter",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Miter"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)",
+              "description": "Name of a body that meets the second board at a corner. Empty: the selection, in the order picked."
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)",
+              "description": "Name of the other body of the corner. Empty: the selection, in the order picked."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the first board against the nearest corner of the second one."
+            }
+          }
+        }
       }
     ],
     "commands": [
       "inspect.measure",
       "selection.get",
       "solid.box",
+      "solid.combine",
       "solid.cylinder",
       "solid.move"
     ],

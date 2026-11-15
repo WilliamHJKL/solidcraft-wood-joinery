@@ -1,0 +1,201 @@
+//! A miter: two boards that meet at a corner, each cut along the plane from the outer corner to
+//! the inner one.
+//!
+//! The cut is at an angle, which a box along the axes cannot make. Each board is cut by a tool
+//! box that is first turned about the outer corner.
+
+use crate::boards::{measurable, FIT, OVERCUT, TOUCH};
+use crate::joint::{Aabb, Block};
+
+/// The box that cuts one board: built along the axes, then turned by `angle` degrees about the
+/// line through `origin` along `axis`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tool {
+    pub block: Block,
+    pub origin: [f64; 3],
+    pub axis: [f64; 3],
+    pub angle: f64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Plan {
+    /// Wood added first to a board that stops at the other one, so that it reaches the corner.
+    pub extend_first: Option<Block>,
+    pub extend_second: Option<Block>,
+    pub tool_first: Tool,
+    pub tool_second: Tool,
+    /// The angle of the cut across the first board, in degrees: 45 when both are equally thick.
+    pub angle: f64,
+    /// Volume the cut takes from each board, in mm3.
+    pub cut_first: f64,
+    pub cut_second: f64,
+}
+
+fn thin(b: &Aabb) -> usize {
+    (0..3).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(0)
+}
+
+fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
+    [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+}
+
+fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
+    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+}
+
+/// Plan the miter between `first` and `second`.
+pub fn plan(first: Aabb, second: Aabb, _o: &Options) -> Result<Plan, String> {
+    measurable(&first)?;
+    measurable(&second)?;
+    // In the plane of the corner, `a` is the side of the first board that the cut crosses, `b`
+    // that of the second; the corner runs along `l`. Two boards standing on edge are read by
+    // their thickness. Two boards lying flat, as in a picture frame, are equally thin: they are
+    // read by their length, and the cut crosses their width.
+    let long = |x: &Aabb| (0..3).max_by(|&i, &j| x.size(i).total_cmp(&x.size(j))).unwrap_or(0);
+    let (a, b) = match (thin(&first), thin(&second), long(&first), long(&second)) {
+        (ta, tb, _, _) if ta != tb => (ta, tb),
+        (_, _, la, lb) if la != lb => (lb, la),
+        _ => return Err("the two boards run the same way; turn one so they make a corner".into()),
+    };
+    let l = 3 - a - b;
+    let meets = |x: usize| first.min[x].max(second.min[x]) <= first.max[x].min(second.max[x]) + TOUCH;
+    if !(meets(a) && meets(b)) || first.min[l].max(second.min[l]) >= first.max[l].min(second.max[l]) - FIT {
+        return Err("the two boards do not meet at a corner; move one against the end of the other".into());
+    }
+    let centre = |x: &Aabb, i: usize| 0.5 * (x.min[i] + x.max[i]);
+    // The corner square: the thickness of each board. The inner corner is on the side of the
+    // other board.
+    let mut outer = [0.0; 3];
+    let mut inner = [0.0; 3];
+    (outer[a], inner[a]) = if centre(&second, a) > centre(&first, a) { (first.min[a], first.max[a]) } else { (first.max[a], first.min[a]) };
+    (outer[b], inner[b]) = if centre(&first, b) > centre(&second, b) { (second.min[b], second.max[b]) } else { (second.max[b], second.min[b]) };
+    let (ta, tb) = (first.size(a), second.size(b));
+    let diagonal = (ta * ta + tb * tb).sqrt();
+    let mut u = [0.0; 3];
+    u[l] = 1.0;
+    let w = [(inner[0] - outer[0]) / diagonal, (inner[1] - outer[1]) / diagonal, (inner[2] - outer[2]) / diagonal];
+    let side = cross(u, w);
+
+    let reach = ta + tb + 1.0;
+    let tool = |board: &Aabb| {
+        // The tool lies on the side of the cut plane away from the board.
+        let mut away = [centre(board, 0) - outer[0], centre(board, 1) - outer[1], centre(board, 2) - outer[2]];
+        away[l] = 0.0;
+        let d = if dot(side, away) > 0.0 { [-side[0], -side[1], -side[2]] } else { side };
+        // Built with its cutting face square to `a`, then turned so that the face looks along `d`.
+        let mut e = [0.0; 3];
+        e[a] = 1.0;
+        let angle = dot(u, cross(e, d)).atan2(dot(e, d)).to_degrees();
+        let mut corner = outer;
+        let mut size = [0.0; 3];
+        size[a] = reach;
+        corner[b] = outer[b] - reach;
+        size[b] = 2.0 * reach;
+        corner[l] = board.min[l] - OVERCUT;
+        size[l] = board.size(l) + 2.0 * OVERCUT;
+        let mut origin = outer;
+        origin[l] = 0.0;
+        Tool { block: Block { corner, size }, origin, axis: u, angle }
+    };
+    // A board that stops at the other one is first made to reach the outer corner.
+    let extend = |board: &Aabb, across: usize, along: usize| {
+        let (lo, hi) = (outer[along].min(inner[along]), outer[along].max(inner[along]));
+        if board.min[along] <= lo + FIT && board.max[along] >= hi - FIT {
+            return None;
+        }
+        let lap = 0.1_f64.min(board.size(along) * 0.05);
+        let mut corner = [0.0; 3];
+        let mut size = [0.0; 3];
+        corner[across] = board.min[across];
+        size[across] = board.size(across);
+        let (from, to) = if board.min[along] > lo + FIT { (lo, board.min[along] + lap) } else { (board.max[along] - lap, hi) };
+        corner[along] = from;
+        size[along] = to - from;
+        corner[l] = board.min[l];
+        size[l] = board.size(l);
+        Some(Block { corner, size })
+    };
+    Ok(Plan {
+        extend_first: extend(&first, a, b),
+        extend_second: extend(&second, b, a),
+        tool_first: tool(&first),
+        tool_second: tool(&second),
+        angle: tb.atan2(ta).to_degrees(),
+        cut_first: 0.5 * ta * tb * first.size(l),
+        cut_second: 0.5 * ta * tb * second.size(l),
+    })
+}
+
+/// Nothing to set yet: the cut always runs from the outer corner to the inner one.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Options {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::boards::bx;
+
+    /// Two 18 x 100 boards drawn through each other at a corner: one along X, one along Y.
+    fn corner() -> (Aabb, Aabb) {
+        (bx([0.0, 0.0, 0.0], [300.0, 18.0, 100.0]), bx([0.0, 0.0, 0.0], [18.0, 300.0, 100.0]))
+    }
+
+    #[test]
+    fn equal_boards_are_cut_at_45_degrees() {
+        let (x, y) = corner();
+        let p = plan(x, y, &Options::default()).unwrap();
+        assert!((p.angle - 45.0).abs() < 1e-9);
+        assert_eq!((p.extend_first, p.extend_second), (None, None));
+        assert_eq!((p.cut_first, p.cut_second), (16200.0, 16200.0));
+        // Both tools turn about the outer corner, the vertical line through the origin.
+        assert_eq!((p.tool_first.origin, p.tool_first.axis), ([0.0, 0.0, 0.0], [0.0, 0.0, 1.0]));
+        // The board along X loses what lies beyond the plane x = y on the Y side.
+        assert!((p.tool_first.angle - 45.0).abs() < 1e-9);
+        assert!((p.tool_second.angle + 135.0).abs() < 1e-9);
+        assert_eq!(p.tool_first.block, Block { corner: [-37.0, 0.0, -0.5], size: [74.0, 37.0, 101.0] });
+    }
+
+    #[test]
+    fn a_board_that_stops_at_the_other_is_extended_first() {
+        // The board along X stops at the inner face of the one along Y.
+        let x = bx([18.0, 0.0, 0.0], [282.0, 18.0, 100.0]);
+        let (_, y) = corner();
+        let p = plan(x, y, &Options::default()).unwrap();
+        let ext = p.extend_first.unwrap();
+        assert!((ext.corner[0] - 0.0).abs() < 1e-9 && (ext.size[0] - 18.1).abs() < 1e-9);
+        assert_eq!((ext.corner[1], ext.size[1], ext.size[2]), (0.0, 18.0, 100.0));
+        assert_eq!(p.extend_second, None);
+    }
+
+    #[test]
+    fn unequal_boards_and_other_corners() {
+        // A 12 mm board along X on the far end of a 20 mm board along Y.
+        let x = bx([-300.0, 282.0, 0.0], [300.0, 12.0, 100.0]);
+        let y = bx([-20.0, -6.0, 0.0], [20.0, 300.0, 100.0]);
+        let p = plan(x, y, &Options::default()).unwrap();
+        assert!((p.angle - (20.0_f64).atan2(12.0).to_degrees()).abs() < 1e-9);
+        // The outer corner is at x = 0, y = 294.
+        assert_eq!(p.tool_first.origin, [0.0, 294.0, 0.0]);
+        assert_eq!(p.cut_first, 0.5 * 12.0 * 20.0 * 100.0);
+    }
+
+    #[test]
+    fn a_flat_frame_is_cut_across_its_width() {
+        // Two 45 x 18 boards lying flat, as two sides of a picture frame.
+        let x = bx([0.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
+        let y = bx([0.0, 0.0, 0.0], [45.0, 300.0, 18.0]);
+        let p = plan(x, y, &Options::default()).unwrap();
+        assert!((p.angle - 45.0).abs() < 1e-9);
+        assert_eq!((p.tool_first.axis, p.cut_first), ([0.0, 0.0, 1.0], 0.5 * 45.0 * 45.0 * 18.0));
+    }
+
+    #[test]
+    fn bad_miters_are_refused_with_a_reason() {
+        let (x, y) = corner();
+        let beside = bx([0.0, 40.0, 0.0], [300.0, 18.0, 100.0]);
+        assert!(plan(x, beside, &Options::default()).unwrap_err().contains("same way"));
+        let apart = bx([60.0, 60.0, 0.0], [18.0, 300.0, 100.0]);
+        assert!(plan(x, apart, &Options::default()).unwrap_err().contains("do not meet"));
+        let _ = y;
+    }
+}

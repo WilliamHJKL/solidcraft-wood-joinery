@@ -7,8 +7,11 @@ pub mod boards;
 pub mod dowel;
 pub mod finger;
 pub mod groove;
+pub mod housing;
 pub mod joint;
 pub mod lap;
+pub mod loose;
+pub mod miter;
 
 #[cfg(target_arch = "wasm32")]
 mod guest;

@@ -6,8 +6,11 @@ use crate::boards;
 use crate::dowel::{self, Bore};
 use crate::finger;
 use crate::groove;
+use crate::housing;
 use crate::joint::{plan, Aabb, Block, Options, Variant};
 use crate::lap;
+use crate::loose;
+use crate::miter;
 
 wit_bindgen::generate!({ world: "command-plugin", path: "wit" });
 
@@ -26,6 +29,9 @@ impl exports::craft::plugin::entry::Guest for Plugin {
             "half-lap" => half_lap(&params),
             "dowels" => dowels(&params),
             "box-joint" => box_joint(&params),
+            "loose-tenon" => loose_tenon(&params),
+            "housing" => housing(&params),
+            "miter" => miter(&params),
             other => Err(invalid("entry", format!("unknown entry `{other}`"))),
         }
     }
@@ -300,6 +306,45 @@ fn add(block: &Block, operation: &str, target: &str, name: &str) -> Result<(), P
     .map(|_| ())
 }
 
+/// `count` body names that are free, as `Dowel 1`, `Dowel 2`... SolidCraft renames a body whose
+/// name is taken, so the numbers go past the ones already there.
+fn free_names(prefix: &str, count: usize) -> Result<Vec<String>, PluginError> {
+    let listed = run("inspect.measure", json!({ "names_only": true }))?;
+    let taken: Vec<&str> = listed
+        .get("bodies")
+        .and_then(Value::as_array)
+        .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str)).collect())
+        .unwrap_or_default();
+    let mut names = Vec::new();
+    let mut number = 0;
+    while names.len() < count {
+        number += 1;
+        let name = format!("{prefix} {number}");
+        if !taken.contains(&name.as_str()) {
+            names.push(name);
+        }
+    }
+    Ok(names)
+}
+
+/// A new body from a block.
+fn body_from(block: &Block, body_name: &str, name: &str) -> Result<(), PluginError> {
+    let r = |v: f64| (v * 1e6).round() / 1e6;
+    run(
+        "solid.box",
+        json!({
+            "corner": [r(block.corner[0]), r(block.corner[1]), r(block.corner[2])],
+            "length": r(block.size[0]),
+            "width": r(block.size[1]),
+            "height": r(block.size[2]),
+            "operation": "new",
+            "body_name": body_name,
+            "name": name,
+        }),
+    )
+    .map(|_| ())
+}
+
 fn bore(b: &Bore, operation: Value, name: &str) -> Result<(), PluginError> {
     let r = |v: f64| (v * 1e6).round() / 1e6;
     let mut axis = [0.0; 3];
@@ -480,22 +525,7 @@ fn dowels(params: &str) -> Result<String, PluginError> {
     }
     landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
     if with_bodies {
-        // SolidCraft renames a body whose name is taken, so number the dowels past the ones there.
-        let all = run("inspect.measure", json!({}))?;
-        let taken: Vec<&str> = all
-            .get("bodies")
-            .and_then(Value::as_array)
-            .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str)).collect())
-            .unwrap_or_default();
-        let mut number = 0;
-        for peg in &plan.dowels {
-            let name = loop {
-                number += 1;
-                let name = format!("Dowel {number}");
-                if !taken.contains(&name.as_str()) {
-                    break name;
-                }
-            };
+        for (peg, name) in plan.dowels.iter().zip(free_names("Dowel", plan.dowels.len())?) {
             bore(peg, json!({ "operation": "new", "body_name": name }), "Dowel")?;
         }
     }
@@ -532,6 +562,102 @@ fn box_joint(params: &str) -> Result<String, PluginError> {
         "fingers_on_first": plan.fingers.len(),
         "finger_width_mm": plan.finger_width,
         "finger_length_mm": plan.finger_length,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn loose_tenon(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    let options = loose::Options {
+        thickness: length(&p, "thickness")?,
+        width: length(&p, "width")?,
+        length: length(&p, "length")?,
+        count: count(&p, "count")?,
+        glue_relief: length(&p, "glue_relief")?,
+    };
+    let with_bodies = flag(&p, "tenon_bodies", true)?;
+    let plan = loose::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    for mortise in &plan.mortises_first {
+        add(mortise, "cut", &first, "Loose tenon mortise")?;
+    }
+    for mortise in &plan.mortises_second {
+        add(mortise, "cut", &second, "Loose tenon mortise")?;
+    }
+    landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
+    if with_bodies {
+        for (tenon, name) in plan.tenons.iter().zip(free_names("Loose tenon", plan.tenons.len())?) {
+            body_from(tenon, &name, "Loose tenon")?;
+        }
+    }
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "count": plan.tenons.len(),
+        "thickness_mm": plan.thickness,
+        "width_mm": plan.width,
+        "length_mm": plan.length,
+        "in_first_mm": plan.in_first,
+        "in_second_mm": plan.in_second,
+        "tenon_bodies": with_bodies,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn housing(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_b, moved, .. } = pair(&p, ("first", "second"), boards::align_end)?;
+    let options = housing::Options {
+        depth: length(&p, "depth")?,
+        stop_start: length(&p, "stop_start")?,
+        stop_end: length(&p, "stop_end")?,
+    };
+    let plan = housing::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    add(&plan.socket, "cut", &second, "Housing")?;
+    add(&plan.tongue, "join", &first, "Housing tongue")?;
+    landed(&[(&first, Want::Bounds(grown(&a, &[plan.tongue]))), (&second, Want::Cut(volume_b))])?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "depth_mm": plan.depth,
+        "width_mm": plan.width,
+        "length_mm": plan.length,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn miter(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), finger::align)?;
+    let plan = miter::plan(a, b, &miter::Options::default()).map_err(|reason| invalid("first", reason))?;
+    let names = free_names("Miter tool", 2)?;
+    let r = |v: f64| (v * 1e6).round() / 1e6;
+    let mut grown_by = [0.0; 2];
+    let boards = [(&first, plan.extend_first, plan.tool_first), (&second, plan.extend_second, plan.tool_second)];
+    for (i, (board, extend, tool)) in boards.into_iter().enumerate() {
+        if let Some(block) = extend {
+            add(&block, "join", board, "Miter extension")?;
+            // The extension laps a hair into the board: only what lies outside it is new wood.
+            grown_by[i] = block.size[0] * block.size[1] * block.size[2] * 0.9;
+        }
+        // A box along the axes, turned about the outer corner, then cut from the board.
+        body_from(&tool.block, &names[i], "Miter tool")?;
+        run(
+            "solid.move",
+            json!({ "bodies": [names[i]], "origin": tool.origin.map(r), "axis": tool.axis, "angle": r(tool.angle), "name": "Miter tool turn" }),
+        )?;
+        run("solid.combine", json!({ "target": board, "tools": [names[i]], "operation": "cut", "name": "Miter" }))?;
+    }
+    landed(&[(&first, Want::Cut(volume_a + grown_by[0])), (&second, Want::Cut(volume_b + grown_by[1]))])?;
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "angle_deg": plan.angle,
+        "extended_first": plan.extend_first.is_some(),
+        "extended_second": plan.extend_second.is_some(),
         "moved_first_mm": moved,
     })
     .to_string())

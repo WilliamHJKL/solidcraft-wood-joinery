@@ -3,27 +3,57 @@
 *[English version](README.md)*
 
 Un plugin pour [SolidCraft](https://github.com/tangency-labs/solidcraft) qui réalise des
-assemblages de menuiserie. Il apporte cinq commandes : **Tenon et mortaise**, **Rainure** (et
-aussi entaille et feuillure), **Mi-bois**, **Tourillons** et **Queues droites**.
+assemblages de menuiserie. Il apporte huit commandes : **Tenon et mortaise**, **Rainure** (et
+aussi entaille et feuillure), **Mi-bois**, **Tourillons**, **Queues droites**, **Faux tenon**,
+**Entaille d'étagère** et **Coupe d'onglet**.
 
-Chaque commande ajoute des fonctions « boîte » et « cylindre » ordinaires dans la timeline, en une seule étape
-d'annulation. Un fichier créé avec le plugin s'ouvre et se reconstruit sans lui.
+Chaque commande ajoute des fonctions ordinaires dans la timeline (boîtes, cylindres, déplacements
+et coupes), en une seule étape d'annulation. Un fichier créé avec le plugin s'ouvre et se
+reconstruit sans lui.
 
 ## Installer
 
-1. Téléchargez `wood-joinery-fr.zip` depuis la
-   [dernière version publiée](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest).
-   Pour les textes en anglais, téléchargez `wood-joinery.zip`.
-   Ne prenez pas les archives « Source code » : SolidCraft ne peut pas les installer.
-   Vous pouvez aussi construire les paquets vous-même (voir [Construire](#construire)) ; ils sont
-   alors dans `dist/`.
-2. Dans SolidCraft, ouvrez Preferences › Plugins › Install plugin… et choisissez le fichier.
-3. Les commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
+Il faut l'application de bureau SolidCraft, en version 0.42.0 ou plus récente. La version web
+n'exécute aucun plugin.
 
-Le plugin appelle cinq commandes de SolidCraft : `inspect.measure`, `selection.get`, `solid.box`,
-`solid.cylinder` et `solid.move`. Il ne demande aucun accès aux fichiers, à l'horloge ou au réseau.
+1. **Télécharger le paquet.** Ouvrez la
+   [dernière version publiée](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest)
+   et, sous *Assets*, téléchargez un seul fichier :
+   - `wood-joinery-fr.zip` pour les textes en français ;
+   - `wood-joinery.zip` pour les textes en anglais.
 
-N'installez qu'une seule langue : les deux paquets sont le même plugin.
+   Ne prenez pas les deux archives « Source code » : SolidCraft ne peut pas les installer. Ne
+   décompressez pas le fichier.
+2. **L'installer.** Dans SolidCraft, ouvrez *Preferences › Plugins*, cliquez sur
+   *Install plugin…* et choisissez le fichier téléchargé.
+3. **Confirmer.** SolidCraft affiche le nom du plugin, sa version et ce qu'il demande. Le plugin
+   demande à lancer six commandes de SolidCraft : `inspect.measure`, `selection.get`,
+   `solid.box`, `solid.cylinder`, `solid.move` et `solid.combine`. Il ne demande aucun accès aux
+   fichiers, à l'horloge ou au réseau. Acceptez.
+4. **Trouver les commandes.** Elles sont dans le menu *Plugins*, à côté de *File*, et dans le
+   groupe *Plugins* de l'onglet *Model*. Ouvrez un fichier, sélectionnez deux pièces, puis
+   choisissez une commande.
+
+N'installez qu'une seule langue : les deux paquets sont le même plugin, avec le même identifiant.
+
+**Mettre à jour.** Dans *Preferences › Plugins*, cliquez sur *Remove* sur la carte
+*Assemblages bois*, puis installez le nouveau fichier comme ci-dessus. Vos fichiers gardent
+leurs assemblages : ce sont des fonctions ordinaires.
+
+**Désinstaller.** Dans *Preferences › Plugins*, cliquez sur *Remove* sur la carte du plugin.
+L'interrupteur de la même carte désactive le plugin sans le retirer.
+
+**En cas de problème.**
+
+- *SolidCraft refuse le fichier* : vous avez pris une archive « Source code », ou décompressé le
+  paquet. Téléchargez de nouveau `wood-joinery-fr.zip` ou `wood-joinery.zip` sous *Assets*.
+- *Le menu Plugins n'affiche aucune commande* : vérifiez que l'interrupteur du plugin est allumé
+  dans *Preferences › Plugins*.
+- *Un formulaire affiche « This entry needs to be run from the agent or CLI »* : le plugin est
+  plus ancien que la 0.4.3. Retirez-le et installez la dernière version.
+
+Vous pouvez aussi construire les paquets vous-même (voir [Construire](#construire)) ; ils sont
+alors dans `dist/`.
 
 ## Choisir les pièces
 
@@ -173,6 +203,59 @@ longueur.
 Exemple : deux pièces de 18 × 100 mm reçoivent cinq divisions de 20 mm, avec deux queues sur la
 première pièce.
 
+## Faux tenon
+
+![Un faux tenon entre une traverse et un pied, dessinés en transparence](docs/loose-tenon.png)
+
+Sélectionnez, ou saisissez les noms de deux pièces qui se touchent. Le plugin creuse deux
+mortaises en vis-à-vis et ajoute chaque faux tenon comme un nouveau corps nommé
+`Loose tenon 1`, `Loose tenon 2`, etc.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Épaisseur du tenon | `thickness` | 5, 6, 8 ou 10 mm : la plus grande qui ne dépasse pas le tiers du petit côté du contact |
+| Largeur du tenon | `width` | La largeur de l'assemblage, moins un épaulement de chaque côté |
+| Longueur du tenon | `length` | Cinq épaisseurs, arrondies aux 10 mm supérieurs. Une moitié dans chaque pièce. Une pièce mince garde 3 mm sous la mortaise, et l'autre pièce reçoit le reste |
+| Nombre de tenons | `count` | Un, puis un tous les 120 mm environ |
+| Réserve de colle | `glue_relief` | 1 mm au fond de chaque mortaise |
+| Ajouter les tenons | `tenon_bodies` | Coché. Décoché, seules les mortaises sont creusées |
+
+Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit un faux tenon de
+6 × 33 × 30 mm, 15 mm dans chaque pièce, dans des mortaises de 16 mm de profondeur.
+
+## Entaille d'étagère
+
+![Une étagère logée dans un côté, dans une entaille arrêtée avant le chant avant](docs/housing.png)
+
+Sélectionnez, ou saisissez le nom de l'étagère, puis celui du côté. Le bout de l'étagère doit
+toucher une face du côté. Le plugin creuse une entaille de la largeur de l'épaisseur de
+l'étagère, et allonge l'étagère de la profondeur de l'entaille : elle mesure ainsi sa vraie
+longueur.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Profondeur | `depth` | Un tiers du côté, arrondi au millimètre |
+| Arrêt au début | `stop_start` | L'entaille débouche. Sinon, cette longueur de bois reste au bout le plus proche de l'origine |
+| Arrêt à la fin | `stop_end` | Même chose, à l'autre bout |
+
+Exemple : une étagère de 18 mm entre de 6 mm dans un côté de 18 mm.
+
+## Coupe d'onglet
+
+![Deux pièces à plat coupées à 45 degrés, dessinées légèrement écartées](docs/miter.png)
+
+Sélectionnez, ou saisissez les noms de deux pièces qui se rejoignent à un angle. Chacune est
+coupée selon le plan qui va du coin extérieur au coin intérieur : à 45 degrés si les deux pièces
+ont la même épaisseur, à un autre angle sinon.
+
+Les pièces peuvent être dessinées l'une à travers l'autre à l'angle, ou l'une peut s'arrêter
+contre l'autre : celle-là est d'abord prolongée jusqu'au coin extérieur. La commande vaut pour
+des pièces sur chant, comme les côtés d'une boîte, et pour des pièces à plat, comme les côtés
+d'un cadre.
+
+Chaque coupe ajoute trois fonctions dans la timeline : une boîte outil, le déplacement qui la
+fait pivoter, et la coupe.
+
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
@@ -192,15 +275,16 @@ première pièce.
 - Un assemblage ne voit pas les autres. Les tourillons de deux traverses posées sur deux faces
   opposées d'un montant mince peuvent se rejoindre au milieu : donnez alors une longueur plus
   courte.
-- Les queues d'aronde et les coupes d'onglet manquent encore. Elles demandent des coupes en
-  biais.
+- Les queues d'aronde et les entures manquent encore.
+- Une coupe d'onglet n'a pas encore de clef ni de languette, et elle traverse toute la pièce.
 - Les messages d'erreur du plugin sont en anglais dans tous les paquets.
 
 ## Lancer depuis un script
 
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
 `plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
-`dowels` et `box-joint`. Les trois dernières reçoivent les deux corps dans `first` et `second`.
+`dowels`, `box-joint`, `loose-tenon`, `housing` et `miter`. Toutes sauf les deux premières
+reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 
 ```json

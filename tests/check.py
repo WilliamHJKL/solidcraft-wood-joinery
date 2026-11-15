@@ -4,8 +4,8 @@
 Usage: tests/check.py /path/to/solidcraft-cli [--keep DIR]
 
 It builds a 35 x 35 x 830 mm stile and a 360 x 18 x 45 mm rail, runs each joint, and compares the
-measured volumes with values worked out by hand: mortise and tenon, grooves, half laps, dowels
-and box joints. It also checks undo and redo, refusals, a saved design reopened without the
+measured volumes with values worked out by hand: mortise and tenon, grooves, half laps, dowels,
+box joints, loose tenons, housings and miters. It also checks undo and redo, refusals, a saved design reopened without the
 plugin, and writes a picture. With --keep, the files stay in DIR.
 """
 import json
@@ -317,6 +317,47 @@ def main():
         turned = [box("Back", [-18, 0, 0], (350, 18, 400), first=True), {"command": "component.create", "params": {"name": "SideC", "grounded": False}},
                   box("Side", [100, -100, 30], (300, 18, 400)), {"command": "occurrence.move", "params": {"occurrence": 3, "angle": "90 deg", "axis": [0, 0, 1]}}]
         c.refuse_entry("component", "a board in a turned component", turned, "box-joint", sb, "did not land")
+
+        # A loose tenon in the rail end: 6 x 33 x 30, 15 mm in each board, mortises 1 mm deeper.
+        slot, key = 6 * 33 * 16, 6 * 33 * 30
+        c.change("loose", "one loose tenon", mid, "loose-tenon", rs, {"Rail": -slot, "Stile": -slot, "Loose tenon 1": key})
+        # Sizes by hand, mortises only: 8 x 20 x 40, 20 mm in each board.
+        c.change("loose_holes", "loose tenon mortises only", mid, "loose-tenon", {**rs, "thickness": 8, "width": 20, "length": 40, "tenon_bodies": False}, {"Rail": -8 * 20 * 21, "Stile": -8 * 20 * 21})
+        c.change("loose_align", "loose tenon that aligns the rail first", away, "loose-tenon", {**rs, "align": True}, {"Rail": -slot, "Stile": -slot, "Loose tenon 1": key})
+        c.refuse_entry("loose_apart", "boards that do not touch", boards([45, 0, 400]), "loose-tenon", rs, "do not touch")
+        c.refuse_entry("loose_fat", "tenon as thick as the rail", mid, "loose-tenon", {**rs, "thickness": 17}, "no cheek")
+
+        # A housing: an 18 mm shelf let 6 mm into an 18 mm side. The shelf grows by as much.
+        cabinet = [box("Side", [0, 0, 0], (18, 250, 400), first=True), box("Shelf", [18, 0, 200], (300, 250, 18))]
+        ss = {"first": "Shelf", "second": "Side"}
+        got = c.change("housing", "through housing", cabinet, "housing", ss, {"Shelf": 6 * 250 * 18, "Side": -6 * 250 * 18})
+        shelf = next(b for b in got[-1]["bodies"] if b["name"] == "Shelf")["bbox"]
+        c.report(shelf["min"] == [12, 0, 200] and shelf["max"] == [318, 250, 218], f"the shelf is 6 mm longer, into the side: {shelf['min']} to {shelf['max']}")
+        c.change("housing_stopped", "housing stopped 20 mm from the front", cabinet, "housing", {**ss, "depth": 8, "stop_end": 20}, {"Shelf": 8 * 230 * 18, "Side": -8 * 230 * 18})
+        c.change("housing_pick", "housing on the selection", [*cabinet, select("Shelf", "Side")], "housing", {}, {"Shelf": 6 * 250 * 18, "Side": -6 * 250 * 18})
+        c.refuse_entry("housing_deep", "housing through the side", cabinet, "housing", {**ss, "depth": 18}, "cut through")
+        c.refuse_entry("housing_apart", "a shelf away from the side", [cabinet[0], box("Shelf", [30, 0, 200], (300, 250, 18))], "housing", ss, "does not lie on a face")
+
+        # A miter: two 18 x 100 boards drawn through each other at a corner. Each loses half of the
+        # 18 x 18 corner over its 100 mm, and no tool body is left behind.
+        frame = [box("A", [0, 0, 0], (300, 18, 100), first=True), box("B", [0, 0, 0], (18, 300, 100))]
+        half = 18 * 18 / 2 * 100
+        c.change("miter", "miter at 45 degrees", frame, "miter", two, {"A": -half, "B": -half})
+        # A board that stops at the other one is first made to reach the corner: +32400 - 16200.
+        butt = [box("A", [18, 0, 0], (282, 18, 100), first=True), frame[1]]
+        got = c.change("miter_butt", "miter on a board that stops at the other", butt, "miter", two, {"A": 18 * 18 * 100 - half, "B": -half})
+        a = next(b for b in got[-1]["bodies"] if b["name"] == "A")["bbox"]
+        c.report(all(abs(g - w) < 1e-3 for g, w in zip(a["min"] + a["max"], [0, 0, 0, 300, 18, 100])), f"the extended board reaches the outer corner: {[round(v, 3) for v in a['min'] + a['max']]}")
+        # Unequal boards at another corner: 12 mm along X, 20 mm along Y.
+        other = [box("A", [-300, 282, 0], (300, 12, 100), first=True), box("B", [-20, -6, 0], (20, 300, 100))]
+        c.change("miter_unequal", "miter between a 12 mm and a 20 mm board", other, "miter", two, {"A": -12 * 20 / 2 * 100, "B": -12 * 20 / 2 * 100})
+        # A frame lying flat: the boards are 45 wide and 18 thick, and the corner runs along Z.
+        flat = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [0, 0, 0], (45, 300, 18))]
+        c.change("miter_flat", "miter of a flat frame", flat, "miter", two, {"A": -45 * 45 / 2 * 18, "B": -45 * 45 / 2 * 18})
+        c.refuse_entry("miter_apart", "boards that do not meet", [frame[0], box("B", [60, 60, 0], (18, 300, 100))], "miter", two, "do not meet")
+        undone = c.cli("miter_undo", [*frame, c.run("miter", two), {"command": "edit.undo", "params": {}}, MEASURE])
+        back = {b["name"]: round(b["volume_mm3"]) for b in undone[-1]["bodies"]}
+        c.report(back == {"A": 540000, "B": 540000}, f"one undo removes the whole miter: {back}")
 
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"

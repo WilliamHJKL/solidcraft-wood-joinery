@@ -1,6 +1,6 @@
 //! Dowels across two boards that touch: matching holes in both, and the dowels themselves.
 
-use crate::boards::{contact, measurable, FIT, OVERCUT};
+use crate::boards::{contact, measurable, share, FIT, OVERCUT};
 use crate::joint::Aabb;
 
 /// What the user may set. `None` means the default.
@@ -83,21 +83,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
         return Err("glue_relief must be zero or a positive length".into());
     }
 
-    // Half in each board, unless a board is too thin: 3 mm of wood stay under each hole.
-    let most_first = first.size(n) - 3.0 - relief;
-    let most_second = second.size(n) - 3.0 - relief;
-    let mut in_first = (0.5 * length).min(most_first);
-    let mut in_second = length - in_first;
-    if in_second > most_second {
-        in_second = most_second;
-        in_first = length - in_second;
-    }
-    if in_first > most_first + FIT || in_first <= FIT || in_second <= FIT {
-        return Err(format!(
-            "a {length:.3} mm dowel is too long for these boards; give a length of at most {:.3} mm",
-            (most_first + most_second).max(0.0)
-        ));
-    }
+    let (in_first, in_second) = share(length, relief, first.size(n), second.size(n)).map_err(|most| {
+        format!("a {length:.3} mm dowel is too long for these boards; give a length of at most {most:.3} mm")
+    })?;
 
     let mut plan = Plan {
         holes_first: Vec::new(),

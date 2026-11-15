@@ -3,26 +3,52 @@
 *[Version française](README.fr.md)*
 
 A plugin for [SolidCraft](https://github.com/tangency-labs/solidcraft) that makes woodworking
-joints. It has five commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
-**Half lap**, **Dowels** and **Box joint**.
+joints. It has eight commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
+**Half lap**, **Dowels**, **Box joint**, **Loose tenon**, **Housing** and **Miter**.
 
-Each command adds ordinary box and cylinder features to the timeline, in one undo step. A design made with
-the plugin opens and rebuilds without it.
+Each command adds ordinary features to the timeline (boxes, cylinders, moves and cuts), in one
+undo step. A design made with the plugin opens and rebuilds without it.
 
 ## Install
 
-1. Download `wood-joinery.zip` from the
-   [latest release](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest).
-   For the French texts, download `wood-joinery-fr.zip` instead.
-   Do not take the "Source code" archives: SolidCraft cannot install those.
-   You can also build the packages yourself (see [Build](#build)); they are then in `dist/`.
-2. In SolidCraft, open Preferences › Plugins › Install plugin… and choose the file.
-3. The commands are now in the Plugins menu, and in the Plugins group of the Model tab.
+You need the SolidCraft desktop application, version 0.42.0 or later. The web version runs no
+plugins.
 
-The plugin calls five SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
-`solid.cylinder` and `solid.move`. It asks for no file, clock or network access.
+1. **Download the package.** Open the
+   [latest release](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest) and,
+   under *Assets*, download one file:
+   - `wood-joinery.zip` for the English texts;
+   - `wood-joinery-fr.zip` for the French texts.
 
-Install one language only: both packages are the same plugin.
+   Do not take the two "Source code" archives: SolidCraft cannot install those. Do not unzip
+   the file.
+2. **Install it.** In SolidCraft, open *Preferences › Plugins*, click *Install plugin…* and
+   choose the file you downloaded.
+3. **Confirm.** SolidCraft shows the plugin's name, its version and what it asks for. The
+   plugin asks to run six SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
+   `solid.cylinder`, `solid.move` and `solid.combine`. It asks for no file, clock or network
+   access. Accept.
+4. **Find the commands.** They are in the *Plugins* menu, next to *File*, and in the *Plugins*
+   group of the *Model* tab. Open a design, select two boards, then choose a command.
+
+Install one language only: both packages are the same plugin, with the same id.
+
+**Update.** In *Preferences › Plugins*, click *Remove* on the *Wood joinery* card, then install
+the new file as above. Your designs keep their joints: they are ordinary features.
+
+**Uninstall.** In *Preferences › Plugins*, click *Remove* on the plugin's card. The switch on
+the same card turns the plugin off without removing it.
+
+**If something goes wrong.**
+
+- *SolidCraft refuses the file*: you took a "Source code" archive, or you unzipped the package.
+  Download `wood-joinery.zip` or `wood-joinery-fr.zip` again from *Assets*.
+- *The Plugins menu shows no command*: check that the plugin's switch is on in
+  *Preferences › Plugins*.
+- *A form says "This entry needs to be run from the agent or CLI"*: the plugin is older than
+  0.4.3. Remove it and install the latest release.
+
+You can also build the packages yourself (see [Build](#build)); they are then in `dist/`.
 
 ## Choose the boards
 
@@ -162,6 +188,55 @@ gets the matching sockets. As with a tenon, the first board then measures its tr
 
 Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on the first board.
 
+## Loose tenon
+
+![A loose tenon between a rail and a leg, both drawn see-through](docs/loose-tenon.png)
+
+Select, or type the names of two boards that touch. The plugin cuts matching mortises in both,
+and adds each loose tenon as a new body named `Loose tenon 1`, `Loose tenon 2` and so on.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Tenon thickness | `thickness` | 5, 6, 8 or 10 mm: the largest that is at most a third of the thinner side of the contact |
+| Tenon width | `width` | The width of the joint, less a shoulder on each side |
+| Tenon length | `length` | Five thicknesses, rounded up to 10 mm. Half goes in each board. A thin board keeps 3 mm under the mortise, and the other board takes the rest |
+| Number of tenons | `count` | One, then one every 120 mm or so |
+| Glue relief | `glue_relief` | 1 mm at the bottom of each mortise |
+| Add the tenons | `tenon_bodies` | On. Off cuts the mortises only |
+
+Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets one 6 x 33 x 30 mm tenon, 15 mm in
+each board, in mortises 16 mm deep.
+
+## Housing
+
+![A shelf let into a side panel, in a housing stopped short of the front edge](docs/housing.png)
+
+Select, or type the name of the shelf, then the name of the side panel. The end of the shelf
+must touch a face of the side. The plugin cuts a housing as wide as the shelf is thick, and
+makes the shelf longer by the depth of the housing, so it measures its true length.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Depth | `depth` | A third of the side, to the nearest millimetre |
+| Stop at start | `stop_start` | The housing runs out of the side. Otherwise that much wood stays uncut at the end nearest the origin |
+| Stop at end | `stop_end` | The same, at the other end |
+
+Example: an 18 mm shelf goes 6 mm into an 18 mm side.
+
+## Miter
+
+![Two flat boards cut at 45 degrees, drawn slightly apart](docs/miter.png)
+
+Select, or type the names of two boards that meet at a corner. Each is cut along the plane that
+runs from the outer corner to the inner one: at 45 degrees when the boards are equally thick,
+at another angle when they are not.
+
+The boards may be drawn through each other at the corner, or one may stop at the other: that
+one is first made to reach the outer corner. The command works for boards on edge, as the sides
+of a box, and for boards lying flat, as the sides of a picture frame.
+
+Each cut adds three features to the timeline: a tool box, the move that turns it, and the cut.
+
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
@@ -177,14 +252,16 @@ Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on
 - A tenon does not yet adjust itself to a groove already cut in the rail or the stile.
 - A joint does not see the other joints. Dowels from two rails on opposite faces of a thin
   stile can meet in the middle: give a shorter length in that case.
-- Dovetails and miters are not there yet. They need cuts at an angle.
+- Dovetails and scarf joints are not there yet.
+- A miter has no key or spline yet, and it is cut across the whole board.
 - The plugin's error messages are in English in every package.
 
 ## Run from a script
 
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
 `plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
-`dowels` and `box-joint`. The last three take the two bodies as `first` and `second`.
+`dowels`, `box-joint`, `loose-tenon`, `housing` and `miter`. All but the first two take the two
+bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 
 ```json
