@@ -51,8 +51,21 @@ class Check:
         self.failed |= not ok
         print(f"{'PASS' if ok else 'FAIL'}  {text}")
 
+    def run(self, entry, params):
+        return {"command": "plugin.run", "params": {"path": str(PLUGIN), "approval": self.approval, "entry": entry, "params": params}}
+
     def joint(self, params):
-        return {"command": "plugin.run", "params": {"path": str(PLUGIN), "approval": self.approval, "entry": "mortise-tenon", "params": params}}
+        return self.run("mortise-tenon", params)
+
+    def groove(self, name, text, params, removed):
+        """Volume a groove removes from the lone stile, in mm3."""
+        results = self.cli(name, [box("Stile", [0, 0, 0], (35, 35, 830), first=True), self.run("groove", params), MEASURE])
+        loss = STILE - results[-1]["total"]["volume_mm3"]
+        self.report(abs(loss - removed) < 0.5 and len(results[-1]["bodies"]) == 1, f"{text}: {loss:.1f} mm3 removed (expected {removed})")
+
+    def refuse_groove(self, name, text, params, reason):
+        code, output = self.cli(name, [box("Stile", [0, 0, 0], (35, 35, 830), first=True), self.run("groove", params)], expect_error=True)
+        self.report(code != 0 and reason in output, f"refused, {text}: {'ok' if reason in output else output.strip()[-300:]}")
 
     def volumes(self, name, setup, params, *extra):
         """Rail gain and stile loss, in mm3, after one joint."""
@@ -94,9 +107,22 @@ def main():
         inspected = c.cli("inspect", [{"command": "plugin.inspect", "params": {"path": str(PLUGIN)}}])
         c.approval = inspected[0]["approval"]
         c.report(inspected[0]["manifest"]["id"] == "wood-joinery", "plugin.inspect accepts the manifest and the component")
+        # The .zip is what Preferences > Plugins > Install plugin... takes. A dry run writes nothing.
+        dry = c.cli("install", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / "wood-joinery.zip"), "dry_run": True}}])
+        c.report(dry[0]["id"] == "wood-joinery" and dry[0]["installed"] is False, "plugin.install accepts the .zip in a dry run")
 
-        both = {"rail": ["Rail"], "stile": ["Stile"]}
+        both = {"rail": "Rail", "stile": "Stile"}
         mid = boards([35, 0, 400])
+
+        # Each translated package installs and runs as the English one does.
+        for package in sorted((ROOT / "dist").glob("*/wood-joinery")):
+            lang = package.parent.name
+            dry = c.cli(f"install_{lang}", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / f"wood-joinery-{lang}.zip"), "dry_run": True}}])
+            approval = c.cli(f"inspect_{lang}", [{"command": "plugin.inspect", "params": {"path": str(package)}}])[0]["approval"]
+            run = {"command": "plugin.run", "params": {"path": str(package), "approval": approval, "entry": "mortise-tenon", "params": both}}
+            total = c.cli(f"run_{lang}", [*mid, run, MEASURE])[-1]["total"]["volume_mm3"]
+            ok = dry[0]["id"] == "wood-joinery" and abs(total - (STILE + RAIL + 6 * 33 * 25 - 6 * 33 * 27)) < 0.5
+            c.report(ok, f"the {lang} package installs in a dry run and makes the same joint ({dry[0]['name']})")
 
         # 2. The four variants. Tenon 6 thick; classic: 33 wide, 25 long, mortise 27 deep.
         c.expect("classic", "classic", mid, both, 6 * 33 * 25, 6 * 33 * 27)
@@ -112,6 +138,9 @@ def main():
         # 3. Other directions: the rail on the -X side of the stile, then a rail along Y.
         c.expect("minus_x", "rail on the other side", boards([-360, 0, 400]), both, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("along_y", "rail along Y", boards([0, 35, 400], (18, 360, 45)), both, 6 * 33 * 25, 6 * 33 * 27)
+        # A script may also give each body as a list with one name.
+        c.expect("lists", "bodies given as lists", mid, {"rail": ["Rail"], "stile": ["Stile"]}, 6 * 33 * 25, 6 * 33 * 27)
+        c.refuse("empty", "empty body name", mid, {"rail": " ", "stile": "Stile"}, "name of one body")
 
         # 4. One undo removes the whole joint, one redo brings it back.
         steps = c.cli("undo", [*mid, c.joint({**both, "variant": "haunched"}), MEASURE, {"command": "edit.undo", "params": {}}, MEASURE, {"command": "edit.redo", "params": {}}, MEASURE])
@@ -123,9 +152,18 @@ def main():
         c.refuse("apart", "rail 10 mm away from the stile", boards([45, 0, 400]), both, "does not lie on a face")
         c.refuse("too_long", "blind tenon as long as the stile", mid, {**both, "length": 34}, "come through")
         c.refuse("bridle_mid", "bridle away from the stile end", mid, {**both, "variant": "bridle"}, "flush with the end")
-        c.refuse("same", "the same body twice", mid, {"rail": ["Rail"], "stile": ["Rail"]}, "two different bodies")
-        c.refuse("unknown", "unknown body", mid, {"rail": ["Nope"], "stile": ["Stile"]}, "unknown body name")
+        c.refuse("same", "the same body twice", mid, {"rail": "Rail", "stile": "Rail"}, "two different bodies")
+        c.refuse("unknown", "unknown body", mid, {"rail": "Nope", "stile": "Stile"}, "unknown body name")
         c.refuse("variant", "unknown variant", mid, {**both, "variant": "dovetail"}, "classic, haunched, through or bridle")
+
+        # Grooves in the stile. Default: 6 wide, 8 deep, the whole 830 mm.
+        c.groove("groove", "groove, default sizes", {"body": "Stile", "face": "+x"}, 6 * 8 * 830)
+        # As on a cabinet leg: 6 mm from the edge, stopped 80 mm above the foot.
+        c.groove("groove_stopped", "stopped groove in a low face", {"body": "Stile", "face": "-y", "offset": 6, "stop_start": 80}, 6 * 8 * 750)
+        c.groove("rabbet", "rabbet at the edge", {"body": "Stile", "face": "+y", "offset": 0, "width": 10, "depth": 5}, 10 * 5 * 830)
+        c.groove("dado", "dado across the top", {"body": "Stile", "face": "+z", "width": 12, "depth": 4}, 12 * 4 * 35)
+        c.refuse_groove("groove_deep", "groove through the board", {"body": "Stile", "face": "+x", "depth": 35}, "cut through")
+        c.refuse_groove("groove_face", "unknown face", {"body": "Stile", "face": "up"}, "+x, -x, +y, -y, +z or -z")
 
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"

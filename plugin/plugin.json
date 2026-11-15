@@ -1,9 +1,11 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.1.0",
-  "description": "Mortise and tenon joints between two boards: adds the tenon to the rail and cuts the mortise in the stile.",
-  "capabilities": ["commands@0.1"],
+  "version": "0.2.0",
+  "description": "Woodworking joints between boards: mortise and tenon, and grooves, dados and rabbets.",
+  "capabilities": [
+    "commands@0.1"
+  ],
   "runtime": {
     "module": "plugin.wasm",
     "entries": [
@@ -12,24 +14,214 @@
         "effect": "edit",
         "input_schema": {
           "type": "object",
-          "required": ["rail", "stile"],
+          "required": [
+            "rail",
+            "stile"
+          ],
           "properties": {
-            "rail": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 1, "description": "The body that gets the tenon. Its end touches the stile." },
-            "stile": { "type": "array", "items": { "type": "string" }, "minItems": 1, "maxItems": 1, "description": "The body that gets the mortise." },
-            "variant": { "type": "string", "enum": ["classic", "haunched", "through", "bridle"], "description": "Default: classic, a blind mortise." },
-            "thickness": { "type": "number", "description": "Tenon thickness in mm. Default: a third of the rail thickness." },
-            "length": { "type": "number", "description": "Tenon length in mm. Default: two thirds of the stile, to the nearest 5 mm; the whole stile for through and bridle." },
-            "shoulder": { "type": "number", "description": "Shoulder on each edge of the rail width, in mm." },
-            "haunch_width": { "type": "number", "description": "Haunched only: width of the haunch in mm." },
-            "haunch_depth": { "type": "number", "description": "Haunched only: depth of the haunch in mm." },
-            "glue_relief": { "type": "number", "description": "Extra depth under a blind tenon, in mm. Default: 2." },
-            "clearance": { "type": "number", "description": "Gap around the tenon in the mortise, in mm. Default: 0." },
-            "offset": { "type": "number", "description": "Shift of the tenon across the rail thickness, in mm. Default: 0, centred." }
+            "rail": {
+              "type": "string",
+              "title": "Rail",
+              "minLength": 1,
+              "description": "Name of the body that gets the tenon. Its end touches the stile."
+            },
+            "stile": {
+              "type": "string",
+              "title": "Stile",
+              "minLength": 1,
+              "description": "Name of the body that gets the mortise."
+            },
+            "variant": {
+              "type": "string",
+              "title": "Joint",
+              "default": "classic",
+              "oneOf": [
+                {
+                  "const": "classic",
+                  "title": "Classic",
+                  "description": "A blind mortise. The tenon has a shoulder on each edge."
+                },
+                {
+                  "const": "haunched",
+                  "title": "Haunched",
+                  "description": "A blind mortise with a short haunch near the end of the stile."
+                },
+                {
+                  "const": "through",
+                  "title": "Through",
+                  "description": "The tenon goes through the whole stile."
+                },
+                {
+                  "const": "bridle",
+                  "title": "Bridle",
+                  "description": "An open slot at the end of the stile."
+                }
+              ]
+            },
+            "thickness": {
+              "type": "number",
+              "title": "Tenon thickness",
+              "unit": "mm",
+              "description": "Empty: a third of the rail thickness.",
+              "exclusiveMinimum": 0
+            },
+            "length": {
+              "type": "number",
+              "title": "Tenon length",
+              "unit": "mm",
+              "description": "Empty: two thirds of the stile, to the nearest 5 mm. The whole stile for through and bridle.",
+              "exclusiveMinimum": 0
+            },
+            "shoulder": {
+              "type": "number",
+              "title": "Shoulder",
+              "unit": "mm",
+              "description": "On each edge of the rail width. Empty: the cheek width, at most a fifth of the rail width.",
+              "minimum": 0
+            },
+            "haunch_width": {
+              "type": "number",
+              "title": "Haunch width",
+              "unit": "mm",
+              "description": "Haunched only. Empty: a fifth of the rail width.",
+              "exclusiveMinimum": 0
+            },
+            "haunch_depth": {
+              "type": "number",
+              "title": "Haunch depth",
+              "unit": "mm",
+              "description": "Haunched only. Empty: the tenon thickness.",
+              "exclusiveMinimum": 0
+            },
+            "glue_relief": {
+              "type": "number",
+              "title": "Glue relief",
+              "unit": "mm",
+              "description": "Extra depth under a blind tenon. Empty: 2 mm.",
+              "minimum": 0
+            },
+            "clearance": {
+              "type": "number",
+              "title": "Clearance",
+              "unit": "mm",
+              "description": "Gap around the tenon in the mortise. Empty: none.",
+              "minimum": 0
+            },
+            "offset": {
+              "type": "number",
+              "title": "Offset",
+              "unit": "mm",
+              "description": "Shift of the tenon across the rail thickness. Empty: centred."
+            }
+          }
+        },
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Mortise and tenon"
+          }
+        ]
+      },
+      {
+        "name": "groove",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Groove"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "required": [
+            "body",
+            "face"
+          ],
+          "properties": {
+            "body": {
+              "type": "string",
+              "title": "Board",
+              "minLength": 1,
+              "description": "Name of the body to groove."
+            },
+            "face": {
+              "type": "string",
+              "title": "Face",
+              "description": "The face to cut into. The groove runs along its longer side.",
+              "oneOf": [
+                {
+                  "const": "+x",
+                  "title": "Right (+X)"
+                },
+                {
+                  "const": "-x",
+                  "title": "Left (-X)"
+                },
+                {
+                  "const": "+y",
+                  "title": "Back (+Y)"
+                },
+                {
+                  "const": "-y",
+                  "title": "Front (-Y)"
+                },
+                {
+                  "const": "+z",
+                  "title": "Top (+Z)"
+                },
+                {
+                  "const": "-z",
+                  "title": "Bottom (-Z)"
+                }
+              ]
+            },
+            "width": {
+              "type": "number",
+              "title": "Width",
+              "unit": "mm",
+              "description": "Across the face. Empty: 6 mm.",
+              "exclusiveMinimum": 0
+            },
+            "depth": {
+              "type": "number",
+              "title": "Depth",
+              "unit": "mm",
+              "description": "Into the board. Empty: 8 mm.",
+              "exclusiveMinimum": 0
+            },
+            "offset": {
+              "type": "number",
+              "title": "Offset",
+              "unit": "mm",
+              "description": "From the edge of the face nearest the origin to the groove. Empty: centred. Zero makes a rabbet.",
+              "minimum": 0
+            },
+            "stop_start": {
+              "type": "number",
+              "title": "Stop at start",
+              "unit": "mm",
+              "description": "Wood left uncut at the end nearest the origin. Empty: the groove runs out.",
+              "minimum": 0
+            },
+            "stop_end": {
+              "type": "number",
+              "title": "Stop at end",
+              "unit": "mm",
+              "description": "Wood left uncut at the other end. Empty: the groove runs out.",
+              "minimum": 0
+            }
           }
         }
       }
     ],
-    "commands": ["inspect.measure", "solid.box"],
-    "limits": { "fuel": 50000000, "memory_mib": 16, "deadline_ms": 10000 }
+    "commands": [
+      "inspect.measure",
+      "solid.box"
+    ],
+    "limits": {
+      "fuel": 50000000,
+      "memory_mib": 16,
+      "deadline_ms": 10000
+    }
   }
 }

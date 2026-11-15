@@ -2,6 +2,7 @@
 
 use serde_json::{json, Value};
 
+use crate::groove;
 use crate::joint::{plan, Aabb, Block, Options, Variant};
 
 wit_bindgen::generate!({ world: "command-plugin", path: "wit" });
@@ -17,6 +18,7 @@ impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
         match entry.as_str() {
             "mortise-tenon" => mortise_tenon(&params),
+            "groove" => groove(&params),
             other => Err(invalid("entry", format!("unknown entry `{other}`"))),
         }
     }
@@ -26,12 +28,19 @@ fn invalid(field: &str, reason: impl Into<String>) -> PluginError {
     PluginError::InvalidInput(FieldFailure { field: field.into(), reason: reason.into() })
 }
 
-/// One body name: the field is a list, as every selection input of a plugin entry is.
+/// One body name. The form sends plain text; a script may also send a list with one name.
 fn body(p: &Value, field: &str) -> Result<String, PluginError> {
-    let names = p.get(field).and_then(Value::as_array).ok_or_else(|| invalid(field, "expected a list with one body name"))?;
-    match names.as_slice() {
-        [Value::String(name)] if !name.trim().is_empty() => Ok(name.clone()),
-        _ => Err(invalid(field, "expected exactly one body name")),
+    let name = match p.get(field) {
+        Some(Value::String(name)) => Some(name),
+        Some(Value::Array(names)) => match names.as_slice() {
+            [Value::String(name)] => Some(name),
+            _ => None,
+        },
+        _ => None,
+    };
+    match name.map(|n| n.trim()) {
+        Some(name) if !name.is_empty() => Ok(name.to_owned()),
+        _ => Err(invalid(field, "expected the name of one body")),
     }
 }
 
@@ -52,7 +61,7 @@ fn bbox(measured: &Value, name: &str) -> Result<Aabb, PluginError> {
         .get("bodies")
         .and_then(Value::as_array)
         .and_then(|bodies| bodies.iter().find(|b| b.get("name").and_then(Value::as_str) == Some(name)))
-        .ok_or_else(|| invalid("rail", format!("no body named `{name}`")))?;
+        .ok_or_else(|| invalid("body", format!("no body named `{name}`")))?;
     let corner = |key: &str| -> Option<[f64; 3]> {
         let v = found.get("bbox")?.get(key)?.as_array()?;
         Some([v.first()?.as_f64()?, v.get(1)?.as_f64()?, v.get(2)?.as_f64()?])
@@ -125,6 +134,33 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         "tenon_length_mm": plan.length,
         "tenon_width_mm": plan.width,
         "mortise_depth_mm": plan.mortise_depth,
+    })
+    .to_string())
+}
+
+fn groove(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let board = body(&p, "body")?;
+    let face = p
+        .get("face")
+        .and_then(Value::as_str)
+        .and_then(groove::Face::parse)
+        .ok_or_else(|| invalid("face", "expected +x, -x, +y, -y, +z or -z"))?;
+    let options = groove::Options {
+        width: length(&p, "width")?,
+        depth: length(&p, "depth")?,
+        offset: length(&p, "offset")?,
+        stop_start: length(&p, "stop_start")?,
+        stop_end: length(&p, "stop_end")?,
+    };
+    let measured = run("inspect.measure", json!({ "bodies": [board] }))?;
+    let plan = groove::plan(bbox(&measured, &board)?, face, &options).map_err(|reason| invalid("body", reason))?;
+    add(&plan.cut, "cut", &board, "Groove")?;
+    Ok(json!({
+        "body": board,
+        "width_mm": plan.width,
+        "depth_mm": plan.depth,
+        "length_mm": plan.length,
     })
     .to_string())
 }
