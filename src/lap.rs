@@ -22,6 +22,23 @@ pub struct Plan {
     pub depth_second: f64,
 }
 
+/// How far to move `first` across its thickness so that it lies in the plane of `second`: on the
+/// nearer of the two faces when the boards are not equally thick.
+pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
+    measurable(first)?;
+    measurable(second)?;
+    let n = (0..3).min_by(|&a, &b| first.size(a).total_cmp(&first.size(b))).unwrap_or(2);
+    for a in (0..3).filter(|a| *a != n) {
+        if first.min[a].max(second.min[a]) >= first.max[a].min(second.max[a]) - FIT {
+            return Err("the two boards do not cross; move one over the other, where the joint goes".into());
+        }
+    }
+    let (low, high) = (second.min[n] - first.min[n], second.max[n] - first.max[n]);
+    let mut shift = [0.0; 3];
+    shift[n] = if low.abs() <= high.abs() { low } else { high };
+    Ok(shift)
+}
+
 /// Plan the two notches where `first` and `second` overlap.
 pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
@@ -98,6 +115,18 @@ mod tests {
         let p = plan(a, b, &Options::default()).unwrap();
         assert_eq!(p.cut_first, Block { corner: [-0.5, -0.5, 9.0], size: [45.5, 46.0, 9.5] });
         assert_eq!(p.cut_second, Block { corner: [-0.5, -0.5, -0.5], size: [46.0, 45.5, 9.5] });
+    }
+
+    #[test]
+    fn align_brings_the_first_board_into_the_plane_of_the_second() {
+        let (a, b) = cross();
+        assert_eq!(align(&a, &b).unwrap(), [0.0; 3]);
+        // Lying 30 mm above the second board.
+        let above = bx([0.0, 0.0, 30.0], [300.0, 45.0, 18.0]);
+        assert_eq!(align(&above, &b).unwrap(), [0.0, 0.0, -30.0]);
+        // Beside it: they do not cross, so there is nowhere to put the joint.
+        let beside = bx([0.0, 300.0, 30.0], [300.0, 45.0, 18.0]);
+        assert!(align(&beside, &b).unwrap_err().contains("do not cross"));
     }
 
     #[test]

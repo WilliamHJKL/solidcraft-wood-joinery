@@ -20,21 +20,50 @@ d'annulation. Un fichier créé avec le plugin s'ouvre et se reconstruit sans lu
 2. Dans SolidCraft, ouvrez Preferences › Plugins › Install plugin… et choisissez le fichier.
 3. Les cinq commandes sont alors dans le menu Plugins, et dans le groupe Plugins de l'onglet Model.
 
-Le plugin appelle trois commandes de SolidCraft, `inspect.measure`, `solid.box` et
-`solid.cylinder`. Il ne demande aucun accès aux fichiers, à l'horloge ou au réseau.
+Le plugin appelle cinq commandes de SolidCraft : `inspect.measure`, `selection.get`, `solid.box`,
+`solid.cylinder` et `solid.move`. Il ne demande aucun accès aux fichiers, à l'horloge ou au réseau.
 
 N'installez qu'une seule langue : les deux paquets sont le même plugin.
+
+## Choisir les pièces
+
+Chaque commande reçoit ses pièces de deux façons :
+
+- **Par clic.** Sélectionnez les pièces dans la vue ou dans le navigateur, lancez la commande et
+  laissez vides les champs de nom. Pour un assemblage, la pièce sélectionnée en premier est la
+  première pièce (la traverse pour un tenon et mortaise). Une face ou une arête sélectionnée
+  compte pour sa pièce.
+- **Par nom.** Saisissez les noms tels que le navigateur les affiche.
+
+Pour une rainure, sélectionnez une face plane et laissez vides Pièce et Face : la rainure se
+fait dans cette face.
+
+## Aligner d'abord les pièces
+
+Chaque assemblage a une case **Aligner d'abord les pièces** (`align` dans un script). Cochée,
+elle fait déplacer la première pièce à sa place avant l'usinage. La deuxième pièce ne bouge
+jamais. Le déplacement et l'assemblage font une seule étape d'annulation.
+
+| Assemblage | Où va la première pièce |
+|---|---|
+| Tenon et mortaise, Tourillons | Contre la deuxième pièce : dans sa longueur s'il y a un écart dans ce sens, sinon en travers de l'écart. Sur les côtés, elle ne bouge que du nécessaire pour porter sur la deuxième pièce. Une pièce déjà en place ne bouge pas |
+| Queues droites | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur |
+| Mi-bois | Dans le plan de la deuxième pièce. Les pièces doivent déjà se croiser, vues de dessus |
+
+Case décochée, les pièces doivent déjà être en place, et le plugin le dit quand elles ne le
+sont pas.
 
 ## Tenon et mortaise
 
 ![Un tenon à renfort dans un pied, le pied affiché en transparence](docs/mortise-tenon.png)
 
-Saisissez le nom de la traverse et celui du montant, tels que le navigateur les affiche. Le
+Sélectionnez, ou saisissez le nom de la traverse et celui du montant, tels que le navigateur les affiche. Le
 plugin ajoute le tenon au bout de la traverse et creuse la mortaise correspondante dans le
 montant. La boîte englobante de la traverse comprend alors ses tenons : une fiche de débit lit la
 vraie longueur de la pièce brute.
 
-Le bout de la traverse doit toucher une face du montant avant de lancer la commande.
+Le bout de la traverse doit toucher une face du montant avant de lancer la commande, sauf si
+vous cochez **Aligner d'abord les pièces**.
 
 | Assemblage | Ce qu'il réalise |
 |---|---|
@@ -68,7 +97,7 @@ enfourchement loin du bout du montant.
 
 ![Un pied avec deux rainures arrêtées](docs/groove.png)
 
-Saisissez le nom de la pièce et choisissez une face. La rainure suit le grand côté de cette
+Sélectionnez, ou saisissez le nom de la pièce et choisissez une face. La rainure suit le grand côté de cette
 face, d'un bout à l'autre.
 
 | Champ | Nom dans un script | Vide signifie |
@@ -86,12 +115,13 @@ Sur une face plus large que longue, la même commande réalise une entaille en t
 
 ![Deux pièces croisées à mi-bois, l'une dessinée en transparence](docs/half-lap.png)
 
-Saisissez les noms de deux pièces qui se croisent. Chacune perd la moitié de son épaisseur à
+Sélectionnez, ou saisissez les noms de deux pièces qui se croisent. Chacune perd la moitié de son épaisseur à
 l'endroit du croisement : elles se retrouvent dans le même plan. La même commande réalise un
 mi-bois en croix, en T ou d'angle.
 
 Les deux corps doivent se chevaucher dans le modèle avant de lancer la commande : dessinez
-chaque pièce à sa taille complète, l'une à travers l'autre.
+chaque pièce à sa taille complète, l'une à travers l'autre. **Aligner d'abord les pièces**
+ramène dans le même plan une pièce posée au-dessus ou au-dessous de l'autre.
 
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
@@ -102,7 +132,7 @@ chaque pièce à sa taille complète, l'une à travers l'autre.
 
 ![Deux tourillons entre une traverse et un pied, dessinés en transparence](docs/dowels.png)
 
-Saisissez les noms de deux pièces qui se touchent. Le plugin perce des trous en vis-à-vis dans
+Sélectionnez, ou saisissez les noms de deux pièces qui se touchent. Le plugin perce des trous en vis-à-vis dans
 les deux, alignés sur le grand côté du contact, et ajoute chaque tourillon comme un nouveau
 corps nommé `Dowel 1`, `Dowel 2`, etc.
 
@@ -121,7 +151,7 @@ Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit d
 
 ![Des queues droites à un angle, la façade dessinée en transparence](docs/box-joint.png)
 
-Saisissez le nom de la pièce dont le bout touche l'autre pièce, puis le nom de cette autre
+Sélectionnez, ou saisissez le nom de la pièce dont le bout touche l'autre pièce, puis le nom de cette autre
 pièce. La première reçoit des queues carrées qui traversent la deuxième, et la deuxième reçoit
 les entailles correspondantes. Comme pour un tenon, la première pièce mesure alors sa vraie
 longueur.
@@ -137,8 +167,8 @@ première pièce.
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
-  chaque corps : une pièce en biais n'est pas prise en charge. Les faces se désignent par leur
-  axe, elles ne se cliquent pas.
+  chaque corps : une pièce en biais n'est pas prise en charge. Une face cliquée pour
+  une rainure doit aussi être d'équerre avec un axe.
 - La profondeur du montant est celle de sa boîte englobante dans l'axe de l'assemblage. Un
   montant avec un pied ou un retour est donc mesuré trop profond : fixez alors vous-même la
   longueur du tenon.
@@ -158,6 +188,7 @@ première pièce.
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
 `plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
 `dowels` et `box-joint`. Les trois dernières reçoivent les deux corps dans `first` et `second`.
+Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 
 ```json
 [{"command": "plugin.inspect", "params": {"path": "dist/wood-joinery"}}]

@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels and box joints.",
   "capabilities": [
     "commands@0.1"
@@ -14,22 +14,16 @@
         "effect": "edit",
         "input_schema": {
           "type": "object",
-          "required": [
-            "rail",
-            "stile"
-          ],
           "properties": {
             "rail": {
               "type": "string",
               "title": "Rail",
-              "minLength": 1,
-              "description": "Name of the body that gets the tenon. Its end touches the stile."
+              "description": "Name of the body that gets the tenon. Its end touches the stile. Empty: the selection, in the order picked."
             },
             "stile": {
               "type": "string",
               "title": "Stile",
-              "minLength": 1,
-              "description": "Name of the body that gets the mortise."
+              "description": "Name of the body that gets the mortise. Empty: the selection, in the order picked."
             },
             "variant": {
               "type": "string",
@@ -112,6 +106,12 @@
               "title": "Offset",
               "unit": "mm",
               "description": "Shift of the tenon across the rail thickness. Empty: centred."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the rail first, so that its end lies on the stile."
             }
           }
         },
@@ -133,21 +133,16 @@
         ],
         "input_schema": {
           "type": "object",
-          "required": [
-            "body",
-            "face"
-          ],
           "properties": {
             "body": {
               "type": "string",
               "title": "Board",
-              "minLength": 1,
-              "description": "Name of the body to groove."
+              "description": "Name of the body to groove. Empty: the selected board."
             },
             "face": {
               "type": "string",
               "title": "Face",
-              "description": "The face to cut into. The groove runs along its longer side.",
+              "description": "The face to cut into. The groove runs along its longer side. Empty: the selected face.",
               "oneOf": [
                 {
                   "const": "+x",
@@ -224,22 +219,16 @@
         ],
         "input_schema": {
           "type": "object",
-          "required": [
-            "first",
-            "second"
-          ],
           "properties": {
             "first": {
               "type": "string",
               "title": "First board",
-              "minLength": 1,
-              "description": "Name of a body. The two boards must overlap where the joint goes."
+              "description": "Name of a body. The two boards must overlap where the joint goes. Empty: the selection, in the order picked."
             },
             "second": {
               "type": "string",
               "title": "Second board",
-              "minLength": 1,
-              "description": "Name of the body that crosses the first one."
+              "description": "Name of the body that crosses the first one. Empty: the selection, in the order picked."
             },
             "depth": {
               "type": "number",
@@ -253,6 +242,12 @@
               "title": "Swap sides",
               "default": false,
               "description": "Off: the first board is cut on its side away from the origin. On: on the other side."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the first board into the plane of the second one first."
             }
           }
         }
@@ -268,22 +263,16 @@
         ],
         "input_schema": {
           "type": "object",
-          "required": [
-            "first",
-            "second"
-          ],
           "properties": {
             "first": {
               "type": "string",
               "title": "First board",
-              "minLength": 1,
-              "description": "Name of a body. A face of it touches the second board."
+              "description": "Name of a body. A face of it touches the second board. Empty: the selection, in the order picked."
             },
             "second": {
               "type": "string",
               "title": "Second board",
-              "minLength": 1,
-              "description": "Name of the body the first one touches."
+              "description": "Name of the body the first one touches. Empty: the selection, in the order picked."
             },
             "diameter": {
               "type": "number",
@@ -317,6 +306,12 @@
               "title": "Add the dowels",
               "default": true,
               "description": "On: each dowel is a new body. Off: holes only."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the first board against the second one first."
             }
           }
         }
@@ -332,22 +327,16 @@
         ],
         "input_schema": {
           "type": "object",
-          "required": [
-            "first",
-            "second"
-          ],
           "properties": {
             "first": {
               "type": "string",
               "title": "First board",
-              "minLength": 1,
-              "description": "Name of the body that gets the fingers. Its end touches the second board."
+              "description": "Name of the body that gets the fingers. Its end touches the second board. Empty: the selection, in the order picked."
             },
             "second": {
               "type": "string",
               "title": "Second board",
-              "minLength": 1,
-              "description": "Name of the body that gets the sockets. The fingers go through it."
+              "description": "Name of the body that gets the sockets. The fingers go through it. Empty: the selection, in the order picked."
             },
             "count": {
               "type": "integer",
@@ -360,6 +349,12 @@
               "title": "Start with a finger",
               "default": false,
               "description": "Off: the first board starts with a gap at the edge nearest the origin. On: with a finger."
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first",
+              "default": false,
+              "description": "On: moves the first board against the nearest corner of the second one."
             }
           }
         }
@@ -367,8 +362,10 @@
     ],
     "commands": [
       "inspect.measure",
+      "selection.get",
       "solid.box",
-      "solid.cylinder"
+      "solid.cylinder",
+      "solid.move"
     ],
     "limits": {
       "fuel": 50000000,

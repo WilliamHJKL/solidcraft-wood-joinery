@@ -19,20 +19,47 @@ the plugin opens and rebuilds without it.
 2. In SolidCraft, open Preferences › Plugins › Install plugin… and choose the file.
 3. The five commands are now in the Plugins menu, and in the Plugins group of the Model tab.
 
-The plugin calls three SolidCraft commands, `inspect.measure`, `solid.box` and
-`solid.cylinder`. It asks for no file, clock or network access.
+The plugin calls five SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
+`solid.cylinder` and `solid.move`. It asks for no file, clock or network access.
 
 Install one language only: both packages are the same plugin.
+
+## Choose the boards
+
+Every command takes its boards in one of two ways:
+
+- **By click.** Select the boards in the view or in the browser, then run the command and leave
+  the name fields empty. For a joint, the board you select first is the first board (the rail
+  for a mortise and tenon). A selected face or edge counts as its board.
+- **By name.** Type the names as the browser shows them.
+
+For a groove, select one flat face and leave both Board and Face empty: the groove goes in that
+face.
+
+## Align the boards first
+
+Every joint has an **Align the boards first** box (`align` in a script). With it on, the plugin
+moves the first board into place before it cuts. The second board never moves. The move and
+the joint are one undo step.
+
+| Joint | Where the first board goes |
+|---|---|
+| Mortise and tenon, Dowels | Against the second board: along its length when there is a gap that way, otherwise across the gap. Sideways, it moves only as far as it must to land on the second board. A board already in place does not move |
+| Box joint | Its end on the second board, at the nearest end of that board, centred across the width |
+| Half lap | Into the plane of the second board. The boards must already cross when seen from above |
+
+With the box off, the boards must be in place already, and the plugin says so when they are not.
 
 ## Mortise and tenon
 
 ![A haunched tenon in a leg, the leg drawn see-through](docs/mortise-tenon.png)
 
-Type the names of the rail and the stile, as the browser shows them. The plugin adds the tenon
+Select, or type the names of the rail and the stile, as the browser shows them. The plugin adds the tenon
 to the end of the rail and cuts the matching mortise in the stile. The rail's bounding box then
 includes its tenons, so a cut list reads the true length of the blank.
 
-The end of the rail must touch a face of the stile before you run the command.
+The end of the rail must touch a face of the stile before you run the command, unless you
+tick **Align the boards first**.
 
 | Joint | What it makes |
 |---|---|
@@ -65,7 +92,7 @@ from the end of the stile.
 
 ![A leg with two stopped grooves](docs/groove.png)
 
-Type the name of the board and choose a face. The groove runs along the longer side of that
+Select, or type the name of the board and choose a face. The groove runs along the longer side of that
 face, from end to end.
 
 | Field | Script name | Empty means |
@@ -83,11 +110,12 @@ On a face that is wider than it is long, the same command makes a dado.
 
 ![Two boards crossing in a half lap, one drawn see-through](docs/half-lap.png)
 
-Type the names of two boards that cross. Each loses half its thickness where they overlap, so
+Select, or type the names of two boards that cross. Each loses half its thickness where they overlap, so
 they end up in one plane. The same command makes a cross lap, a T lap and a corner lap.
 
 The two bodies must overlap in the model before you run the command: draw each board at its
-full size, one through the other.
+full size, one through the other. **Align the boards first** brings a board that lies above or
+below the other into the same plane.
 
 | Field | Script name | Empty means |
 |---|---|---|
@@ -98,7 +126,7 @@ full size, one through the other.
 
 ![Two dowels between a rail and a leg, both drawn see-through](docs/dowels.png)
 
-Type the names of two boards that touch. The plugin drills matching holes in both, in a row
+Select, or type the names of two boards that touch. The plugin drills matching holes in both, in a row
 along the longer side of the contact, and adds each dowel as a new body named `Dowel 1`,
 `Dowel 2` and so on.
 
@@ -117,7 +145,7 @@ board, in holes 21 mm deep.
 
 ![A box joint at a corner, the front drawn see-through](docs/box-joint.png)
 
-Type the name of the board whose end touches the other board, then the name of that other
+Select, or type the name of the board whose end touches the other board, then the name of that other
 board. The first board gets square fingers that go through the second one, and the second one
 gets the matching sockets. As with a tenon, the first board then measures its true length.
 
@@ -131,7 +159,7 @@ Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
-  board at an angle is not supported. Faces are named by their axis, not picked.
+  board at an angle is not supported. A face picked for a groove must be square to an axis too.
 - The stile depth is its bounding box along the joint, so a stile with a foot or a return is
   measured too deep. Set the tenon length yourself in that case.
 - Sizes are numbers. They do not follow a parameter: after a change, undo the cut and run the
@@ -148,6 +176,7 @@ Example: two 18 x 100 mm boards get five divisions of 20 mm, with two fingers on
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
 `plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
 `dowels` and `box-joint`. The last three take the two bodies as `first` and `second`.
+A script may leave the bodies out and set the selection with `select.set` first.
 
 ```json
 [{"command": "plugin.inspect", "params": {"path": "dist/wood-joinery"}}]

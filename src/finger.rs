@@ -24,6 +24,29 @@ pub struct Plan {
     pub finger_length: f64,
 }
 
+/// How far to move `first` so that its end lies on the face of `second`, at the nearest end of
+/// `second`, with the two boards level across their width.
+pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
+    measurable(first)?;
+    measurable(second)?;
+    let longest = |b: &Aabb, skip: Option<usize>| {
+        (0..3).filter(|a| Some(*a) != skip).max_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(0)
+    };
+    // `n` runs along the first board, `m` along the second, `l` across the width they share.
+    let n = longest(first, None);
+    if longest(second, None) == n {
+        return Err("the two boards run the same way; turn one so they make a corner".into());
+    }
+    let m = longest(second, Some(n));
+    let l = 3 - n - m;
+    let centre = |b: &Aabb, a: usize| 0.5 * (b.min[a] + b.max[a]);
+    let mut shift = [0.0; 3];
+    shift[n] = if centre(first, n) >= centre(second, n) { second.max[n] - first.min[n] } else { second.min[n] - first.max[n] };
+    shift[m] = if centre(first, m) <= centre(second, m) { second.min[m] - first.min[m] } else { second.max[m] - first.max[m] };
+    shift[l] = centre(second, l) - centre(first, l);
+    Ok(shift)
+}
+
 /// Plan a box joint where the end of `first` lies on a face of `second`.
 pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
@@ -98,6 +121,20 @@ mod tests {
         assert_eq!((p.fingers.len(), p.finger_width), (2, 25.0));
         // The first finger is at the lower edge, so its socket is open there too.
         assert_eq!(p.sockets[0], Block { corner: [-0.5, -0.5, -0.5], size: [19.0, 18.5, 25.5] });
+    }
+
+    #[test]
+    fn align_brings_the_first_board_to_the_nearest_corner() {
+        let (side, front) = corner();
+        assert_eq!(align(&side, &front).unwrap(), [0.0, 0.0, 0.0]);
+        // 40 mm away, 25 mm in from the end of the front and 7 mm too high.
+        let loose = bx([58.0, 25.0, 7.0], [300.0, 18.0, 100.0]);
+        assert_eq!(align(&loose, &front).unwrap(), [-40.0, -25.0, -7.0]);
+        // On the other side of the front, near its far end, and run into it by 5 mm.
+        let other = bx([-295.0, 270.0, 0.0], [300.0, 18.0, 100.0]);
+        assert_eq!(align(&other, &front).unwrap(), [-5.0, 12.0, 0.0]);
+        let parallel = bx([40.0, 0.0, 0.0], [18.0, 300.0, 100.0]);
+        assert!(align(&parallel, &front).unwrap_err().contains("same way"));
     }
 
     #[test]

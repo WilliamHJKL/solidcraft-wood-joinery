@@ -34,6 +34,12 @@ def boards(rail_corner, rail_size=(360, 18, 45)):
 MEASURE = {"command": "inspect.measure", "params": {}}
 
 
+def select(*items):
+    """Selects bodies (a name) and faces (a body name and a face index), in that order."""
+    picked = [{"type": "body", "name": i} if isinstance(i, str) else {"type": "face", "body": i[0], "index": i[1]} for i in items]
+    return {"command": "select.set", "params": {"items": picked}}
+
+
 class Check:
     def __init__(self, binary, work):
         self.binary, self.work, self.failed, self.n = binary, work, False, 0
@@ -219,6 +225,48 @@ def main():
         c.change("box_swap", "box joint starting with a finger", drawer, "box-joint", {**sf, "swap": True}, {"Side": 3 * 20 * 18 * 18, "Front": -3 * 20 * 18 * 18})
         c.change("box_four", "box joint in four divisions", drawer, "box-joint", {**sf, "count": 4}, {"Side": 2 * 25 * 18 * 18, "Front": -2 * 25 * 18 * 18})
         c.refuse_entry("box_apart", "boards that do not touch", [drawer[0], box("Front", [-20, 0, 0], (18, 300, 100))], "box-joint", sf, "does not lie on a face")
+
+        # Boards picked in SolidCraft instead of typed: the first one picked is the first board.
+        c.change("pick", "box joint on two selected bodies", [*drawer, select("Side", "Front")], "box-joint", {}, {"Side": 2 * 20 * 18 * 18, "Front": -2 * 20 * 18 * 18})
+        c.change("pick_face", "box joint on a selected face and a body", [*drawer, select(("Side", 0), "Front")], "box-joint", {}, {"Side": 2 * 20 * 18 * 18, "Front": -2 * 20 * 18 * 18})
+        c.change("pick_tenon", "mortise and tenon on the selection", [*mid, select("Rail", "Stile")], "mortise-tenon", {}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
+        c.change("pick_lap", "half lap on the selection", [*cross, select("A", "B")], "half-lap", {}, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
+        c.refuse_entry("pick_one", "one body selected", [*drawer, select("Side")], "box-joint", {}, "select two bodies")
+        c.refuse_entry("pick_none", "nothing selected", drawer, "dowels", {}, "select two bodies")
+        # A groove in a picked face. Find the +X face of the stile by its normal first.
+        stile = box("Stile", [0, 0, 0], (35, 35, 830), first=True)
+        faces = c.cli("faces", [stile, *[x for i in range(6) for x in (select(("Stile", i)), {"command": "selection.get", "params": {}})]])
+        plus_x = next(i for i in range(6) if faces[2 + 2 * i]["items"][0]["surface"]["normal"] == [1.0, 0.0, 0.0])
+        c.change("pick_groove", "groove in a selected face", [stile, select(("Stile", plus_x))], "groove", {}, {"Stile": -6 * 8 * 830})
+        c.change("pick_board", "groove in the selected board, face from the list", [stile, select("Stile")], "groove", {"face": "+x"}, {"Stile": -6 * 8 * 830})
+        c.refuse_entry("pick_no_face", "groove with nothing selected", [stile], "groove", {}, "select one flat face")
+
+        # Align: a side left 40 mm away, 25 mm in from the corner and 7 mm too high is moved into place.
+        loose = [box("Side", [58, 25, 7], (300, 18, 100), first=True), drawer[1]]
+        moved = c.change("align", "box joint that aligns the boards first", loose, "box-joint", {**sf, "align": True}, {"Side": 2 * 20 * 18 * 18, "Front": -2 * 20 * 18 * 18})
+        side = next(b for b in moved[-1]["bodies"] if b["name"] == "Side")["bbox"]
+        c.report(side["min"] == [0, 0, 0] and side["max"] == [318, 18, 100], f"the aligned side lies in the corner: {side['min']} to {side['max']}")
+        c.refuse_entry("align_off", "the same boards without align", loose, "box-joint", sf, "does not lie on a face")
+        undone = c.cli("align_undo", [*loose, c.run("box-joint", {**sf, "align": True}), {"command": "edit.undo", "params": {}}, MEASURE])
+        side = next(b for b in undone[-1]["bodies"] if b["name"] == "Side")["bbox"]
+        c.report(side["min"] == [58, 25, 7], f"one undo puts the side back: {side['min']}")
+
+        # Align on the other joints. A rail 10 mm away, hanging 5 mm off the front of the stile.
+        away = boards([45, -5, 400])
+        got = c.change("align_tenon", "mortise and tenon that aligns the rail first", away, "mortise-tenon", {**both, "align": True}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
+        rail = next(b for b in got[-1]["bodies"] if b["name"] == "Rail")["bbox"]
+        c.report(rail["min"] == [10, 0, 400] and rail["max"] == [395, 18, 445], f"the aligned rail and its tenon: {rail['min']} to {rail['max']}")
+        c.change("align_dowels", "dowels that align the rail first", away, "dowels", {**rs, "align": True}, {"Rail": -2 * hole, "Stile": -2 * hole, "Dowel 1": peg, "Dowel 2": peg})
+        placed = c.change("align_kept", "align leaves a rail that is in place", boards([35, 10, 400]), "dowels", {**rs, "align": True, "dowel_bodies": False}, {"Rail": -2 * hole, "Stile": -2 * hole})
+        rail = next(b for b in placed[-1]["bodies"] if b["name"] == "Rail")["bbox"]
+        # The round holes leave float noise in the bounding box, so compare within a micron.
+        still = all(abs(got - want) < 1e-3 for got, want in zip(rail["min"], [35, 10, 400]))
+        c.report(still, f"a rail already on the stile does not move: {[round(v, 3) for v in rail['min']]}")
+        # A half lap whose first board lies 30 mm above the second one.
+        above = [box("A", [0, 0, 30], (300, 45, 18), first=True), cross[1]]
+        c.change("align_lap", "half lap that aligns the boards first", above, "half-lap", {**two, "align": True}, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
+        c.refuse_entry("align_lap_off", "the same boards without align", above, "half-lap", two, "do not overlap")
+        c.refuse_entry("align_lap_beside", "align on boards that do not cross", [box("A", [0, 300, 30], (300, 45, 18), first=True), cross[1]], "half-lap", {**two, "align": True}, "do not cross")
 
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"
