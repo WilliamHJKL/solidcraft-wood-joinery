@@ -116,11 +116,17 @@ glue relief, no clearance, no offset.
 | Tenon position | `position` | `centre`. `low` or `high` puts the tenon level with a face of the rail (a bare-faced tenon). The stile must then be wider than the rail on that side |
 | Pegs through the tenon | `pegs` | 0. Otherwise 1 or 2 pegs through the stile and the tenon, half way along the tenon. Each peg is a new body named `Peg 1`, `Peg 2`… |
 | Peg diameter | `peg_diameter` | 6 mm, 8 mm when the tenon is 30 mm long or more |
+| Wedges in a through tenon | `wedges` | 0. Otherwise 1 or 2 wedges in the end of a `through` tenon, three quarters of its length deep. Each wedge is a new body named `Wedge 1`, `Wedge 2`… A script may set `wedge_thickness`, 4 mm by default |
 
 Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets a 6 x 33 x 25 mm tenon in a
 27 mm deep mortise.
 
 ![A double tenon held by two pegs, the leg drawn see-through](docs/pegged-tenon.png)
+
+![A through tenon with two wedges in its end, the leg drawn see-through](docs/wedged-tenon.png)
+
+A wedge does not spread the wood in the model: it fills a slot of its own shape in the end of
+the tenon, so the volumes stay true. The mortise is not flared.
 
 The plugin refuses a joint it cannot make, and says why: a blind tenon that would come through
 the stile, a tenon as thick as the rail, a rail that does not touch the stile, a bridle away
@@ -283,9 +289,18 @@ of the overlap sets the slope: eight thicknesses give 1:8.
 | Field | Script name | Empty means |
 |---|---|---|
 | Turn the slope over | `flip` | Off: the slope starts on the face away from the origin |
+| Tabled, with a key | `key` | Off: one plain slope. On: a tabled scarf, see below |
 
 With **Align the boards first**, the first board is moved so that the two overlap by eight
 thicknesses, level across their width and thickness.
+
+![A tabled scarf: two hooked boards and the key between them, one board drawn see-through](docs/scarf-key.png)
+
+A tabled scarf has two steps in place of the slope. Each board keeps a hook, 3/8 of the
+thickness up to the middle of the overlap and 5/8 past it, and a key fills the step between
+the two hooks: it stops the boards from pulling apart. The key is a new body named
+`Scarf key 1`. It is half a thickness long; a script may set `key_width`. The overlap must be
+three thicknesses or more. The ends are cut square, not squinted.
 
 ## Dovetails
 
@@ -355,8 +370,7 @@ The boards must be at least 10 mm thick where they touch.
   stile can meet in the middle: give a shorter length in that case. Two boards already joined
   by tenons, fingers or tails can take dowels, screws or biscuits: they are read as touching
   on the face that the first board enters.
-- A scarf is a plain slope, with
-  no key. A miter is cut across the whole board.
+- A tabled scarf has square ends and one plain key, not a pair of folding wedges. A miter is cut across the whole board.
 - The cuts at an angle add many features: six for a miter or a scarf, nine for each dovetail.
 - The plugin's error messages are in English in every package.
 

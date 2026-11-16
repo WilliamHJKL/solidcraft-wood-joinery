@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
     "commands@0.1"
@@ -116,6 +116,13 @@
               "title": "Peg diameter (empty = 6 or 8)",
               "unit": "mm",
               "exclusiveMinimum": 0
+            },
+            "wedges": {
+              "type": "integer",
+              "title": "Wedges in a through tenon (0 to 2)",
+              "minimum": 0,
+              "maximum": 2,
+              "default": 0
             }
           }
         },
@@ -554,6 +561,10 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "key": {
+              "type": "boolean",
+              "title": "Tabled, with a key"
             }
           }
         }

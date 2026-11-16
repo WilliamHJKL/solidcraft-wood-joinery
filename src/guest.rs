@@ -414,6 +414,8 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         },
         pegs: count(&p, "pegs")?.unwrap_or(0),
         peg_diameter: length(&p, "peg_diameter")?,
+        wedges: count(&p, "wedges")?.unwrap_or(0),
+        wedge_thickness: length(&p, "wedge_thickness")?,
     };
 
     let plan = plan(rail_box, stile_box, &options).map_err(|reason| invalid("rail", reason))?;
@@ -452,6 +454,17 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         bore(&body, json!({ "operation": "new", "body_name": name }), "Peg")?;
     }
     sizes["pegs"] = json!(plan.pegs.len());
+    // Each wedge: a block with its two sides sloped to a point, which then cuts its own slot in
+    // the end of the tenon and stays as a body.
+    let tools = free_names("Wedge tool", 2)?;
+    for (wedge, name) in plan.wedges.iter().zip(free_names("Wedge", plan.wedges.len())?) {
+        body_from(&wedge.blank, &name, "Wedge")?;
+        for (side, tool) in wedge.sides.iter().zip(&tools) {
+            slanted_cut(&name, side, tool, "Wedge side")?;
+        }
+        run("solid.combine", json!({ "target": rail, "tools": [name], "operation": "cut", "keep_tools": true, "name": "Wedge slot" }))?;
+    }
+    sizes["wedges"] = json!(plan.wedges.len());
 
     sizes["moved_rail_mm"] = json!(moved);
     Ok(sizes.to_string())
@@ -757,17 +770,34 @@ fn tongue_groove(params: &str) -> Result<String, PluginError> {
 fn scarf(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), scarf::align)?;
-    let options = scarf::Options { flip: flag(&p, "flip", false)? };
+    let options = scarf::Options { flip: flag(&p, "flip", false)?, key: flag(&p, "key", false)?, key_width: length(&p, "key_width")? };
     let plan = scarf::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
-    let names = free_names("Scarf tool", 2)?;
-    slanted_cut(&first, &plan.tool_first, &names[0], "Scarf")?;
-    slanted_cut(&second, &plan.tool_second, &names[1], "Scarf")?;
+    match &plan.tabled {
+        None => {
+            let names = free_names("Scarf tool", 2)?;
+            slanted_cut(&first, &plan.tool_first, &names[0], "Scarf")?;
+            slanted_cut(&second, &plan.tool_second, &names[1], "Scarf")?;
+        }
+        // A tabled scarf: two steps cut from each board, and the key between them.
+        Some(tabled) => {
+            for block in &tabled.cuts_first {
+                add(block, "cut", &first, "Scarf table")?;
+            }
+            for block in &tabled.cuts_second {
+                add(block, "cut", &second, "Scarf table")?;
+            }
+        }
+    }
     landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
+    if let Some(tabled) = &plan.tabled {
+        body_from(&tabled.key, &free_names("Scarf key", 1)?.remove(0), "Scarf key")?;
+    }
     Ok(json!({
         "first": first,
         "second": second,
         "length_mm": plan.length,
         "slope": plan.slope,
+        "tabled": plan.tabled.is_some(),
         "moved_first_mm": moved,
     })
     .to_string())

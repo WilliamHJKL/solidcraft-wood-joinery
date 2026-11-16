@@ -73,6 +73,17 @@ pub struct Options {
     pub pegs: u32,
     /// Default: 6 mm, 8 mm when the tenon is 30 mm long or more.
     pub peg_diameter: Option<f64>,
+    /// Wedges driven into the end of a through tenon: 0, 1 or 2 per tenon.
+    pub wedges: u32,
+    /// Thickness of a wedge at the end of the tenon. Default: 4 mm.
+    pub wedge_thickness: Option<f64>,
+}
+
+/// A wedge: the block it is cut from, and the two tools that slope its sides to a point.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Wedge {
+    pub blank: Block,
+    pub sides: [crate::slant::Tool; 2],
 }
 
 /// Where the tenon sits across the thickness of the rail.
@@ -128,6 +139,10 @@ pub struct Plan {
     pub haunch: Option<(f64, f64)>,
     /// One per peg, through the whole stile.
     pub pegs: Vec<Peg>,
+    /// Each wedge fills a slot of its own shape in the end of the tenon.
+    pub wedges: Vec<Wedge>,
+    /// Volume of one wedge, in mm3.
+    pub wedge_volume: f64,
 }
 
 const TOUCH: f64 = 1e-2;
@@ -342,11 +357,60 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     };
     let (mut tenon, mut mortise) = (Vec::new(), Vec::new());
     let (mut width, mut haunch, mut across) = (0.0, None, (0.0, 0.0));
-    for (lo, hi) in cheeks {
+    for (lo, hi) in cheeks.iter().copied() {
         let made = make(lo, hi)?;
         tenon.extend(made.0);
         mortise.extend(made.1);
         (width, haunch, across) = (made.2, made.3, made.4);
+    }
+
+    // Wedges: in the end of a through tenon, three quarters of its length deep. The wood is not
+    // spread: each wedge fills a slot of its own shape, so the volumes stay true.
+    let mut wedges = Vec::new();
+    let mut wedge_volume = 0.0;
+    if o.wedges > 2 {
+        return Err("wedges must be 0, 1 or 2".into());
+    }
+    if o.wedges > 0 {
+        if o.variant != Variant::Through {
+            return Err("wedges go in a through tenon; choose the through joint".into());
+        }
+        let thick = positive("wedge_thickness", o.wedge_thickness.unwrap_or(4.0))?;
+        let (lo, hi) = across;
+        let room = (hi - lo) / f64::from(o.wedges + 1);
+        if thick > 0.5 * room + FIT {
+            return Err(format!("{} wedges {thick:.3} mm thick leave too little tenon between them; give fewer or thinner ones", o.wedges));
+        }
+        let deep = 0.75 * length;
+        let (end, tip) = (contact + dir * length, contact + dir * (length - deep));
+        let run = (deep * deep + 0.25 * thick * thick).sqrt();
+        for (e_lo, e_hi) in cheeks.iter().copied() {
+            for i in 0..o.wedges {
+                // One wedge in the middle, or two a fifth of the width in from each edge.
+                let middle = if o.wedges == 1 { 0.5 * (lo + hi) } else { lo + (hi - lo) * (0.2 + 0.6 * f64::from(i)) };
+                let mut corner = [0.0; 3];
+                let mut size = [0.0; 3];
+                corner[a] = end.min(tip);
+                size[a] = deep;
+                corner[w] = middle - 0.5 * thick;
+                size[w] = thick;
+                corner[e] = e_lo;
+                size[e] = e_hi - e_lo;
+                let mut point = [0.0; 3];
+                point[a] = tip;
+                point[w] = middle;
+                let mut keep = point;
+                keep[a] = contact + dir * (length - 0.25 * deep);
+                let side = |sign: f64| {
+                    let mut along = [0.0; 3];
+                    along[w] = sign * 0.5 * thick / run;
+                    along[a] = dir * deep / run;
+                    crate::slant::beyond(keep, point, along, e, w, (e_lo, e_hi), deep + thick)
+                };
+                wedges.push(Wedge { blank: Block { corner, size }, sides: [side(-1.0), side(1.0)] });
+            }
+        }
+        wedge_volume = 0.5 * thick * deep * t;
     }
 
     // Pegs: through the stile and the tenon, half way along the tenon.
@@ -380,6 +444,8 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         glue_relief: if o.variant.blind() { relief } else { 0.0 },
         haunch,
         pegs,
+        wedges,
+        wedge_volume,
     })
 }
 
@@ -448,6 +514,24 @@ mod tests {
         assert_eq!((two.pegs[0].base[2], two.pegs[1].base[2]), (414.25, 430.75));
         assert!(plan(rail, stile, &Options { pegs: 3, ..Options::default() }).unwrap_err().contains("0, 1 or 2"));
         assert!(plan(rail, stile, &Options { pegs: 1, peg_diameter: Some(20.0), ..Options::default() }).unwrap_err().contains("too little wood"));
+    }
+
+    #[test]
+    fn wedges_go_in_the_end_of_a_through_tenon() {
+        let (rail, stile) = cabinet(400.0);
+        let through = Options { variant: Variant::Through, wedges: 2, ..Options::default() };
+        let p = plan(rail, stile, &through).unwrap();
+        // The tenon is 35 long and 33 wide: wedges 4 thick, 26.25 deep, a fifth in from each edge.
+        assert_eq!(p.wedges.len(), 2);
+        assert_eq!(p.wedge_volume, 0.5 * 4.0 * 26.25 * 6.0);
+        assert_eq!(p.wedges[0].blank, Block { corner: [0.0, 6.0, 410.6], size: [26.25, 6.0, 4.0] });
+        assert!((p.wedges[1].blank.corner[2] - 430.4).abs() < 1e-9);
+        // Both sides of a wedge turn about its point, 26.25 mm from the end of the tenon.
+        assert_eq!(p.wedges[0].sides[0].origin, p.wedges[0].sides[1].origin);
+        assert!((p.wedges[0].sides[0].origin[0] - 26.25).abs() < 1e-9);
+        let blind = plan(rail, stile, &Options { wedges: 1, ..Options::default() }).unwrap_err();
+        assert!(blind.contains("through tenon"));
+        assert!(plan(rail, stile, &Options { wedges: 3, ..through }).unwrap_err().contains("0, 1 or 2"));
     }
 
     #[test]

@@ -128,11 +128,17 @@ menuiserie :
 | Position du tenon | `position` | Centré. Les deux autres choix mettent le tenon à fleur d'une face de la traverse. Le montant doit alors dépasser la traverse de ce côté |
 | Chevilles à travers le tenon | `pegs` | 0. Sinon, 1 ou 2 chevilles à travers le montant et le tenon, à mi-longueur du tenon. Chaque cheville est un nouveau corps nommé `Peg 1`, `Peg 2`… |
 | Diamètre de la cheville | `peg_diameter` | 6 mm, 8 mm si le tenon fait 30 mm de long ou plus |
+| Coins dans un tenon traversant | `wedges` | 0. Sinon, 1 ou 2 coins dans le bout d'un tenon traversant, sur les trois quarts de sa longueur. Chaque coin est un nouveau corps nommé `Wedge 1`, `Wedge 2`… Un script peut fixer `wedge_thickness`, 4 mm par défaut |
 
 Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit un tenon de
 6 × 33 × 25 mm, dans une mortaise de 27 mm de profondeur.
 
 ![Un tenon double tenu par deux chevilles, le pied dessiné en transparence](docs/pegged-tenon.png)
+
+![Un tenon traversant avec deux coins dans son bout, le pied dessiné en transparence](docs/wedged-tenon.png)
+
+Dans le modèle, un coin n'écarte pas le bois : il remplit une fente à sa propre forme dans le
+bout du tenon, si bien que les volumes restent justes. La mortaise n'est pas évasée.
 
 Le plugin refuse un assemblage impossible et dit pourquoi : un tenon borgne qui traverserait le
 montant, un tenon aussi épais que la traverse, une traverse qui ne touche pas le montant, un
@@ -303,9 +309,19 @@ l'autre. La longueur du chevauchement fixe la pente : huit épaisseurs donnent 1
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Retourner la pente | `flip` | Décoché : la pente part de la face opposée à l'origine |
+| À redans, avec une clef | `key` | Décoché : une pente simple. Coché : une enture à redans, voir plus bas |
 
 Avec **Aligner d'abord les pièces**, la première pièce est déplacée pour que les deux se
 chevauchent de huit épaisseurs, alignées en largeur et en épaisseur.
+
+![Une enture à redans : deux pièces en crochet et la clef entre elles, une pièce dessinée en transparence](docs/scarf-key.png)
+
+Une enture à redans a deux marches à la place de la pente. Chaque pièce garde un crochet,
+3/8 de l'épaisseur jusqu'au milieu du chevauchement et 5/8 au-delà, et une clef remplit la
+marche entre les deux crochets : elle empêche les pièces de se séparer. La clef est un nouveau
+corps nommé `Scarf key 1`. Elle fait une demi-épaisseur de long ; un script peut fixer
+`key_width`. Le chevauchement doit faire au moins trois épaisseurs. Les bouts sont coupés
+d'équerre, sans sifflet.
 
 ## Queues d'aronde
 
@@ -381,8 +397,7 @@ Les pièces doivent faire au moins 10 mm d'épaisseur à l'endroit du contact.
   opposées d'un montant mince peuvent se rejoindre au milieu : donnez alors une longueur plus
   courte. Deux pièces déjà reliées par des tenons ou des queues peuvent recevoir des tourillons,
   des vis ou des lamelles : elles sont lues comme se touchant sur la face où la première entre.
-- L'enture est
-  une pente simple, sans clef. La coupe d'onglet traverse toute la pièce.
+- L'enture à redans a des bouts d'équerre et une clef simple, pas une paire de coins croisés. La coupe d'onglet traverse toute la pièce.
 - Les coupes en biais ajoutent beaucoup de fonctions : six pour un onglet ou une enture, neuf
   par queue d'aronde.
 - Les messages d'erreur du plugin sont en anglais dans tous les paquets.

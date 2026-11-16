@@ -438,6 +438,21 @@ def main():
         fingered = [*drawer, c.run("box-joint", sf)]
         got = c.change("dowels_after", "dowels after a box joint", fingered, "dowels", {**sf, "count": 1, "dowel_bodies": False}, {"Side": -math.pi * 16 * 27, "Front": -math.pi * 16 * 15})
 
+        # A wedged through tenon: two wedges 4 thick and 26.25 deep, in slots of their own shape.
+        wedge = 4 * 26.25 / 2 * 6
+        got = c.change("wedged", "wedged through tenon", mid, "mortise-tenon", {**both, "variant": "through", "wedges": 2},
+                       {"Rail": 6 * 33 * 35 - 2 * wedge, "Stile": -6 * 33 * 35, "Wedge 1": wedge, "Wedge 2": wedge})
+        c.report(len(got[-1]["bodies"]) == 4, f"no wedge tool is left: {[b['name'] for b in got[-1]['bodies']]}")
+        c.refuse("wedged_blind", "wedges in a blind tenon", mid, {**both, "wedges": 1}, "through tenon")
+
+        # A tabled scarf: each board keeps a hook, and a 9 x 4.5 key locks the two steps.
+        table = (76.5 * 11.25 + 67.5 * 6.75) * 45
+        got = c.change("scarf_key", "tabled scarf with a key", ends, "scarf", {**two, "key": True}, {"A": -table, "B": -table, "Scarf key 1": 9 * 4.5 * 45})
+        whole = sum(b["volume_mm3"] for b in got[-1]["bodies"])
+        c.report(abs(whole - (2 * 400 - 144) * 45 * 18) < 0.5, f"the two boards and the key fill a 656 mm board exactly: {whole:.1f} mm3")
+        c.change("scarf_key_flip", "tabled scarf turned over", ends, "scarf", {**two, "key": True, "flip": True}, {"A": -table, "B": -table, "Scarf key 1": 9 * 4.5 * 45})
+        c.refuse_entry("scarf_key_short", "an overlap too short for a tabled scarf", [ends[0], box("B", [370, 0, 0], (400, 45, 18))], "scarf", {**two, "key": True}, "three thicknesses")
+
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"
         c.volumes("save", mid, both, "--save", str(saved))

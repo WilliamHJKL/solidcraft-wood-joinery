@@ -1,7 +1,7 @@
 //! A scarf joint: two boards end to end, overlapping, each cut along one long slope.
 
-use crate::boards::{measurable, FIT};
-use crate::joint::Aabb;
+use crate::boards::{cut_block, measurable, FIT};
+use crate::joint::{Aabb, Block};
 use crate::slant::{beyond, Tool};
 
 /// What the user may set.
@@ -10,6 +10,20 @@ pub struct Options {
     /// The slope runs from the high face of the lower board to the low face of the other one.
     /// `true` turns it the other way.
     pub flip: bool,
+    /// A tabled scarf: two hooked steps in place of the slope, held tight by a key between them.
+    pub key: bool,
+    /// Width of the key along the boards. Default: half their thickness.
+    pub key_width: Option<f64>,
+}
+
+/// A tabled scarf: what is cut from each board, and the key.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Tabled {
+    pub cuts_first: [Block; 2],
+    pub cuts_second: [Block; 2],
+    pub key: Block,
+    /// Volume cut from each board, in mm3.
+    pub cut: f64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -22,6 +36,8 @@ pub struct Plan {
     pub slope: f64,
     /// Volume the cut takes from each board, in mm3.
     pub cut: f64,
+    /// Set for a tabled scarf: the boards are then cut by blocks, not by the two tools.
+    pub tabled: Option<Tabled>,
 }
 
 fn axes(first: &Aabb, second: &Aabb) -> Result<(usize, usize, usize), String> {
@@ -90,7 +106,49 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     let centre = |x: &Aabb| [0.5 * (x.min[0] + x.max[0]), 0.5 * (x.min[1] + x.max[1]), 0.5 * (x.min[2] + x.max[2])];
     let reach = length + height + 1.0;
     let tool = |board: &Aabb| beyond(centre(board), from, w, width, thick, (board.min[width], board.max[width]), reach);
+    let tabled = if o.key {
+        if length < 3.0 * height - FIT {
+            return Err(format!(
+                "a tabled scarf needs an overlap of three thicknesses or more: {:.3} mm here, not {length:.3}",
+                3.0 * height
+            ));
+        }
+        let key = o.key_width.unwrap_or(0.5 * height);
+        if !(key.is_finite() && key > FIT) || key > length / 3.0 + FIT {
+            return Err(format!("key_width must be more than zero and at most {:.3} mm", length / 3.0));
+        }
+        // The board that starts at the low end keeps a hook: 3/8 of the thickness up to the key,
+        // 5/8 past it. The other board keeps the rest, and the key fills the step between them.
+        let (neck, hook) = (0.375 * height, 0.625 * height);
+        let (start, end) = (lo[along], hi[along]);
+        let middle = 0.5 * (start + end);
+        let (k0, k1) = (middle - 0.5 * key, middle + 0.5 * key);
+        // A region of the overlap: `from..to` along the boards, `low..high` up from the hook's face.
+        let region = |from: f64, to: f64, low: f64, high: f64| {
+            let (mut a, mut b) = (lo, hi);
+            (a[along], b[along]) = (from, to);
+            let (x, y) = if o.flip { (hi[thick] - high, hi[thick] - low) } else { (lo[thick] + low, lo[thick] + high) };
+            (a[thick], b[thick]) = (x, y);
+            (a, b)
+        };
+        let first_is_low = first.min[along] + first.max[along] <= second.min[along] + second.max[along];
+        let (low_board, high_board) = if first_is_low { (&first, &second) } else { (&second, &first) };
+        let cut = |board: &Aabb, r: ([f64; 3], [f64; 3])| cut_block(board, r.0, r.1);
+        let low_cuts = [cut(low_board, region(start, k1, neck, height)), cut(low_board, region(k1, end, hook, height))];
+        let high_cuts = [cut(high_board, region(start, k0, 0.0, neck)), cut(high_board, region(k0, end, 0.0, hook))];
+        let (a, b) = region(k0, k1, neck, hook);
+        let across = hi[width] - lo[width];
+        Some(Tabled {
+            cuts_first: if first_is_low { low_cuts } else { high_cuts },
+            cuts_second: if first_is_low { high_cuts } else { low_cuts },
+            key: Block { corner: a, size: [b[0] - a[0], b[1] - a[1], b[2] - a[2]] },
+            cut: ((k1 - start) * (height - neck) + (end - k1) * (height - hook)) * across,
+        })
+    } else {
+        None
+    };
     Ok(Plan {
+        tabled,
         tool_first: tool(&first),
         tool_second: tool(&second),
         length,
@@ -128,6 +186,24 @@ mod tests {
         assert_eq!(align(&loose, &b).unwrap(), [194.0, -10.0, -5.0]);
         let across = bx([0.0, 0.0, 0.0], [45.0, 400.0, 18.0]);
         assert!(align(&across, &b).unwrap_err().contains("same way"));
+    }
+
+    #[test]
+    fn a_tabled_scarf_hooks_the_two_boards_around_a_key() {
+        let (a, b) = boards();
+        let p = plan(a, b, &Options { key: true, ..Options::default() }).unwrap();
+        let t = p.tabled.unwrap();
+        // The key: 9 long in the middle of the overlap (X = 328), between 3/8 and 5/8 of the thickness.
+        assert_eq!(t.key, Block { corner: [323.5, 0.0, 6.75], size: [9.0, 45.0, 4.5] });
+        // Each board loses the same: 76.5 x 11.25 and 67.5 x 6.75, over 45 mm.
+        assert_eq!(t.cut, (76.5 * 11.25 + 67.5 * 6.75) * 45.0);
+        // The first board is cut from above: over the key and to its own end.
+        assert_eq!(t.cuts_first[0], Block { corner: [256.0, -0.5, 6.75], size: [76.5, 46.0, 11.75] });
+        assert_eq!(t.cuts_first[1], Block { corner: [332.5, -0.5, 11.25], size: [68.0, 46.0, 7.25] });
+        // The second from below, from its end to the key and beyond.
+        assert_eq!(t.cuts_second[0], Block { corner: [255.5, -0.5, -0.5], size: [68.0, 46.0, 7.25] });
+        let short = bx([370.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
+        assert!(plan(a, short, &Options { key: true, ..Options::default() }).unwrap_err().contains("three thicknesses"));
     }
 
     #[test]
