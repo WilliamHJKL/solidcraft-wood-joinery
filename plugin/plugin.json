@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
     "commands@0.1"
@@ -130,8 +130,78 @@
           {
             "kind": "menu",
             "name": "Mortise and tenon"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Tenon"
           }
         ]
+      },
+      {
+        "name": "loose-tenon",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Loose tenon"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Loose tenon"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)"
+            },
+            "thickness": {
+              "type": "number",
+              "title": "Tenon thickness (empty = 5 to 10, by thickness)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
+            "width": {
+              "type": "number",
+              "title": "Tenon width (empty = by the joint)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
+            "length": {
+              "type": "number",
+              "title": "Tenon length (empty = 5 thicknesses)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of tenons (empty = by length)",
+              "minimum": 1
+            },
+            "glue_relief": {
+              "type": "number",
+              "title": "Glue relief",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 1
+            },
+            "tenon_bodies": {
+              "type": "boolean",
+              "title": "Add the tenons as bodies",
+              "default": true
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            }
+          }
+        }
       },
       {
         "name": "groove",
@@ -139,6 +209,10 @@
         "slots": [
           {
             "kind": "menu",
+            "name": "Groove"
+          },
+          {
+            "kind": "ribbon",
             "name": "Groove"
           }
         ],
@@ -206,11 +280,122 @@
         }
       },
       {
+        "name": "tongue-groove",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Tongue and groove"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Tongue"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "Tongue board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Groove board (empty = selection)"
+            },
+            "thickness": {
+              "type": "number",
+              "title": "Tongue thickness (empty = 1/3 of the board)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
+            "depth": {
+              "type": "number",
+              "title": "Tongue length (empty = 1/2 of the board)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
+            "glue_relief": {
+              "type": "number",
+              "title": "Glue relief",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 1
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            }
+          }
+        }
+      },
+      {
+        "name": "housing",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Housing joint"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Housing"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "Shelf (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Side (empty = selection)"
+            },
+            "depth": {
+              "type": "number",
+              "title": "Depth (empty = 1/3 of the side)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
+            "stop_start": {
+              "type": "number",
+              "title": "Stop at start",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0
+            },
+            "stop_end": {
+              "type": "number",
+              "title": "Stop at end",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            },
+            "slope": {
+              "type": "number",
+              "title": "Dovetail slope 1:N (0 = square)",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        }
+      },
+      {
         "name": "half-lap",
         "effect": "edit",
         "slots": [
           {
             "kind": "menu",
+            "name": "Half lap"
+          },
+          {
+            "kind": "ribbon",
             "name": "Half lap"
           }
         ],
@@ -243,11 +428,193 @@
         }
       },
       {
+        "name": "miter",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Miter joint"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Miter"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)"
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            },
+            "spline": {
+              "type": "number",
+              "title": "Spline thickness (0 = no spline)",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0
+            },
+            "spline_depth": {
+              "type": "number",
+              "title": "Spline depth in each board (empty = 1/3)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      },
+      {
+        "name": "scarf",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Scarf joint"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Scarf"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)"
+            },
+            "flip": {
+              "type": "boolean",
+              "title": "Turn the slope over"
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            },
+            "key": {
+              "type": "boolean",
+              "title": "Tabled, with a key"
+            }
+          }
+        }
+      },
+      {
+        "name": "box-joint",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Box joints"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Box joint"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "Finger board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Socket board (empty = selection)"
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of divisions (empty = square fingers)",
+              "minimum": 2
+            },
+            "swap": {
+              "type": "boolean",
+              "title": "Start with a finger"
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            }
+          }
+        }
+      },
+      {
+        "name": "dovetail",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Dovetails"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Dovetail"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "Tail board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Pin board (empty = selection)"
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of tails (empty = by width)",
+              "minimum": 1
+            },
+            "slope": {
+              "type": "number",
+              "title": "Slope 1:N (8 hardwood, 6 softwood)",
+              "minimum": 1,
+              "default": 8
+            },
+            "pin": {
+              "type": "number",
+              "title": "Pin width (empty = 1/2 of the board)",
+              "unit": "mm",
+              "minimum": 2
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            },
+            "lap": {
+              "type": "number",
+              "title": "Lap (0 = through dovetails)",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        }
+      },
+      {
         "name": "dowels",
         "effect": "edit",
         "slots": [
           {
             "kind": "menu",
+            "name": "Dowels"
+          },
+          {
+            "kind": "ribbon",
             "name": "Dowels"
           }
         ],
@@ -298,48 +665,16 @@
         }
       },
       {
-        "name": "box-joint",
+        "name": "biscuits",
         "effect": "edit",
         "slots": [
           {
             "kind": "menu",
-            "name": "Box joint"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "Finger board (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Socket board (empty = selection)"
-            },
-            "count": {
-              "type": "integer",
-              "title": "Number of divisions (empty = square fingers)",
-              "minimum": 2
-            },
-            "swap": {
-              "type": "boolean",
-              "title": "Start with a finger"
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            }
-          }
-        }
-      },
-      {
-        "name": "loose-tenon",
-        "effect": "edit",
-        "slots": [
+            "name": "Biscuits"
+          },
           {
-            "kind": "menu",
-            "name": "Loose tenon"
+            "kind": "ribbon",
+            "name": "Biscuits"
           }
         ],
         "input_schema": {
@@ -353,39 +688,24 @@
               "type": "string",
               "title": "Second board (empty = selection)"
             },
-            "thickness": {
-              "type": "number",
-              "title": "Tenon thickness (empty = 5 to 10, by thickness)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
-            },
-            "width": {
-              "type": "number",
-              "title": "Tenon width (empty = by the joint)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
-            },
-            "length": {
-              "type": "number",
-              "title": "Tenon length (empty = 5 thicknesses)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
+            "size": {
+              "type": "string",
+              "title": "Biscuit size",
+              "enum": [
+                "20",
+                "10",
+                "0"
+              ],
+              "default": "20"
             },
             "count": {
               "type": "integer",
-              "title": "Number of tenons (empty = by length)",
+              "title": "Number of biscuits (empty = by length)",
               "minimum": 1
             },
-            "glue_relief": {
-              "type": "number",
-              "title": "Glue relief",
-              "unit": "mm",
-              "minimum": 0,
-              "default": 1
-            },
-            "tenon_bodies": {
+            "biscuit_bodies": {
               "type": "boolean",
-              "title": "Add the tenons as bodies",
+              "title": "Add the biscuits as bodies",
               "default": true
             },
             "align": {
@@ -396,236 +716,15 @@
         }
       },
       {
-        "name": "housing",
-        "effect": "edit",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Housing"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "Shelf (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Side (empty = selection)"
-            },
-            "depth": {
-              "type": "number",
-              "title": "Depth (empty = 1/3 of the side)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
-            },
-            "stop_start": {
-              "type": "number",
-              "title": "Stop at start",
-              "unit": "mm",
-              "minimum": 0,
-              "default": 0
-            },
-            "stop_end": {
-              "type": "number",
-              "title": "Stop at end",
-              "unit": "mm",
-              "minimum": 0,
-              "default": 0
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
-            "slope": {
-              "type": "number",
-              "title": "Dovetail slope 1:N (0 = square)",
-              "minimum": 0,
-              "default": 0
-            }
-          }
-        }
-      },
-      {
-        "name": "miter",
-        "effect": "edit",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Miter"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
-            "spline": {
-              "type": "number",
-              "title": "Spline thickness (0 = no spline)",
-              "unit": "mm",
-              "minimum": 0,
-              "default": 0
-            },
-            "spline_depth": {
-              "type": "number",
-              "title": "Spline depth in each board (empty = 1/3)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
-            }
-          }
-        }
-      },
-      {
-        "name": "tongue-groove",
-        "effect": "edit",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Tongue and groove"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "Tongue board (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Groove board (empty = selection)"
-            },
-            "thickness": {
-              "type": "number",
-              "title": "Tongue thickness (empty = 1/3 of the board)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
-            },
-            "depth": {
-              "type": "number",
-              "title": "Tongue length (empty = 1/2 of the board)",
-              "unit": "mm",
-              "exclusiveMinimum": 0
-            },
-            "glue_relief": {
-              "type": "number",
-              "title": "Glue relief",
-              "unit": "mm",
-              "minimum": 0,
-              "default": 1
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            }
-          }
-        }
-      },
-      {
-        "name": "scarf",
-        "effect": "edit",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Scarf joint"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
-            },
-            "flip": {
-              "type": "boolean",
-              "title": "Turn the slope over"
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
-            "key": {
-              "type": "boolean",
-              "title": "Tabled, with a key"
-            }
-          }
-        }
-      },
-      {
-        "name": "dovetail",
-        "effect": "edit",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Dovetails"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "Tail board (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Pin board (empty = selection)"
-            },
-            "count": {
-              "type": "integer",
-              "title": "Number of tails (empty = by width)",
-              "minimum": 1
-            },
-            "slope": {
-              "type": "number",
-              "title": "Slope 1:N (8 hardwood, 6 softwood)",
-              "minimum": 1,
-              "default": 8
-            },
-            "pin": {
-              "type": "number",
-              "title": "Pin width (empty = 1/2 of the board)",
-              "unit": "mm",
-              "minimum": 2
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
-            "lap": {
-              "type": "number",
-              "title": "Lap (0 = through dovetails)",
-              "unit": "mm",
-              "minimum": 0,
-              "default": 0
-            }
-          }
-        }
-      },
-      {
         "name": "screws",
         "effect": "edit",
         "slots": [
           {
             "kind": "menu",
+            "name": "Screws"
+          },
+          {
+            "kind": "ribbon",
             "name": "Screws"
           }
         ],
@@ -661,53 +760,6 @@
             "countersink": {
               "type": "boolean",
               "title": "Countersink the heads",
-              "default": true
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            }
-          }
-        }
-      },
-      {
-        "name": "biscuits",
-        "effect": "edit",
-        "slots": [
-          {
-            "kind": "menu",
-            "name": "Biscuits"
-          }
-        ],
-        "input_schema": {
-          "type": "object",
-          "properties": {
-            "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
-            },
-            "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
-            },
-            "size": {
-              "type": "string",
-              "title": "Biscuit size",
-              "enum": [
-                "20",
-                "10",
-                "0"
-              ],
-              "default": "20"
-            },
-            "count": {
-              "type": "integer",
-              "title": "Number of biscuits (empty = by length)",
-              "minimum": 1
-            },
-            "biscuit_bodies": {
-              "type": "boolean",
-              "title": "Add the biscuits as bodies",
               "default": true
             },
             "align": {
