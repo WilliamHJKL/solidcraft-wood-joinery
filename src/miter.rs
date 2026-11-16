@@ -5,7 +5,7 @@
 
 use crate::boards::{measurable, FIT, TOUCH};
 use crate::joint::{Aabb, Block};
-use crate::slant::{beyond, Tool};
+use crate::slant::{beyond, cross, dot, Tool};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Plan {
@@ -19,6 +19,9 @@ pub struct Plan {
     /// Volume the cut takes from each board, in mm3.
     pub cut_first: f64,
     pub cut_second: f64,
+    /// A loose spline across the cut: its body, built along the axes and then turned like a
+    /// tool, and the volume of the slot it leaves in each board.
+    pub spline: Option<(Tool, f64)>,
 }
 
 fn thin(b: &Aabb) -> usize {
@@ -26,7 +29,7 @@ fn thin(b: &Aabb) -> usize {
 }
 
 /// Plan the miter between `first` and `second`.
-pub fn plan(first: Aabb, second: Aabb, _o: &Options) -> Result<Plan, String> {
+pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
     measurable(&second)?;
     // In the plane of the corner, `a` is the side of the first board that the cut crosses, `b`
@@ -79,7 +82,48 @@ pub fn plan(first: Aabb, second: Aabb, _o: &Options) -> Result<Plan, String> {
         size[l] = board.size(l);
         Some(Block { corner, size })
     };
+    let thickness = o.spline.unwrap_or(0.0);
+    if !(thickness.is_finite() && thickness >= 0.0) {
+        return Err("spline must be zero or a positive thickness".into());
+    }
+    let spline = if thickness > 0.0 {
+        let depth = o.spline_depth.unwrap_or(ta.min(tb) / 3.0);
+        // Half way along the cut, the wood on each side is half the diagonal deep at most.
+        let most = 0.5 * diagonal * (ta / tb).min(tb / ta) - 2.0;
+        if !(depth.is_finite() && depth > FIT) || depth > most + FIT {
+            return Err(format!("spline_depth must be more than zero and at most {:.3} mm for these boards", most.max(0.0)));
+        }
+        if thickness > 0.5 * diagonal {
+            return Err(format!("a {thickness:.3} mm spline is too thick for a cut {diagonal:.3} mm long"));
+        }
+        let tool = tool(&first);
+        // The spline lies square to the cut: `depth` each way across it, `thickness` along it,
+        // around the middle of the cut. It is built along the axes, then turned as the tool is.
+        let mut u = [0.0; 3];
+        u[l] = 1.0;
+        let mut e = [0.0; 3];
+        e[a] = 1.0;
+        let turn = tool.angle.to_radians();
+        let across = cross(u, e);
+        // Where `e` and `across` point after the turn about `u`.
+        let d = [e[0] * turn.cos() + across[0] * turn.sin(), e[1] * turn.cos() + across[1] * turn.sin(), e[2] * turn.cos() + across[2] * turn.sin()];
+        let along = if dot(cross(u, d), w) > 0.0 { 1.0 } else { -1.0 } * across[b];
+        let (from, to) = (along * (0.5 * diagonal - 0.5 * thickness), along * (0.5 * diagonal + 0.5 * thickness));
+        let (l_lo, l_hi) = (first.min[l].max(second.min[l]), first.max[l].min(second.max[l]));
+        let mut corner = outer;
+        let mut size = [0.0; 3];
+        corner[a] = outer[a] - depth;
+        size[a] = 2.0 * depth;
+        corner[b] = outer[b] + from.min(to);
+        size[b] = thickness;
+        corner[l] = l_lo;
+        size[l] = l_hi - l_lo;
+        Some((Tool { block: Block { corner, size }, ..tool }, thickness * depth * (l_hi - l_lo)))
+    } else {
+        None
+    };
     Ok(Plan {
+        spline,
         extend_first: extend(&first, a, b),
         extend_second: extend(&second, b, a),
         tool_first: tool(&first),
@@ -90,9 +134,14 @@ pub fn plan(first: Aabb, second: Aabb, _o: &Options) -> Result<Plan, String> {
     })
 }
 
-/// Nothing to set yet: the cut always runs from the outer corner to the inner one.
+/// What the user may set. The cut itself always runs from the outer corner to the inner one.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Options {}
+pub struct Options {
+    /// Thickness of a loose spline across the cut. Default: 0, no spline.
+    pub spline: Option<f64>,
+    /// How far the spline goes into each board. Default: a third of the thinner board.
+    pub spline_depth: Option<f64>,
+}
 
 #[cfg(test)]
 mod tests {
@@ -151,6 +200,23 @@ mod tests {
         let p = plan(x, y, &Options::default()).unwrap();
         assert!((p.angle - 45.0).abs() < 1e-9);
         assert_eq!((p.tool_first.axis, p.cut_first), ([0.0, 0.0, 1.0], 0.5 * 45.0 * 45.0 * 18.0));
+    }
+
+    #[test]
+    fn a_spline_lies_square_to_the_cut_half_way_along_it() {
+        let (x, y) = corner();
+        let p = plan(x, y, &Options { spline: Some(4.0), ..Options::default() }).unwrap();
+        let (body, slot) = p.spline.unwrap();
+        // 6 mm into each board, 4 thick, over the 100 mm the boards share.
+        assert_eq!(slot, 4.0 * 6.0 * 100.0);
+        assert_eq!((body.block.size[1], body.block.size[2]), (12.0, 100.0));
+        assert!((body.block.size[0] - 4.0).abs() < 1e-9);
+        // It turns with the first tool, about the outer corner.
+        assert_eq!((body.origin, body.angle), (p.tool_first.origin, p.tool_first.angle));
+        // The middle of the cut is 12.73 mm from the outer corner.
+        let middle = body.block.corner[0].abs() + 2.0;
+        assert!((middle - 0.5 * (2.0_f64 * 18.0 * 18.0).sqrt()).abs() < 1e-9);
+        assert!(plan(x, y, &Options { spline: Some(4.0), spline_depth: Some(12.0) }).unwrap_err().contains("at most"));
     }
 
     #[test]

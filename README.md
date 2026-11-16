@@ -3,9 +3,9 @@
 *[Version française](README.fr.md)*
 
 A plugin for [SolidCraft](https://github.com/tangency-labs/solidcraft) that makes woodworking
-joints. It has twelve commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
+joints. It has thirteen commands: **Mortise and tenon**, **Groove** (also dados and rabbets),
 **Half lap**, **Dowels**, **Box joint**, **Loose tenon**, **Housing**, **Miter**, **Tongue and
-groove**, **Scarf joint**, **Dovetails** and **Screws**.
+groove**, **Scarf joint**, **Dovetails**, **Screws** and **Biscuits**.
 
 Each command adds ordinary features to the timeline (boxes, cylinders, moves and cuts), in one
 undo step. A design made with the plugin opens and rebuilds without it.
@@ -112,9 +112,15 @@ glue relief, no clearance, no offset.
 | Glue relief | `glue_relief` | 2 mm under a blind tenon |
 | Clearance | `clearance` | None |
 | Offset | `offset` | The tenon is centred in the rail thickness |
+| Double tenon | `double` | Off. On: two tenons side by side across the rail, each a fifth of its thickness, each in its own mortise |
+| Tenon position | `position` | `centre`. `low` or `high` puts the tenon level with a face of the rail (a bare-faced tenon). The stile must then be wider than the rail on that side |
+| Pegs through the tenon | `pegs` | 0. Otherwise 1 or 2 pegs through the stile and the tenon, half way along the tenon. Each peg is a new body named `Peg 1`, `Peg 2`… |
+| Peg diameter | `peg_diameter` | 6 mm, 8 mm when the tenon is 30 mm long or more |
 
 Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets a 6 x 33 x 25 mm tenon in a
 27 mm deep mortise.
+
+![A double tenon held by two pegs, the leg drawn see-through](docs/pegged-tenon.png)
 
 The plugin refuses a joint it cannot make, and says why: a blind tenon that would come through
 the stile, a tenon as thick as the rail, a rail that does not touch the stile, a bridle away
@@ -221,8 +227,14 @@ makes the shelf longer by the depth of the housing, so it measures its true leng
 | Depth | `depth` | A third of the side, to the nearest millimetre |
 | Stop at start | `stop_start` | The housing runs out of the side. Otherwise that much wood stays uncut at the end nearest the origin |
 | Stop at end | `stop_end` | The same, at the other end |
+| Dovetail slope 1:N | `slope` | 0: a square housing. Otherwise a sliding dovetail: the tongue widens into the side at that slope, 6 for 1:6 |
 
 Example: an 18 mm shelf goes 6 mm into an 18 mm side.
+
+![A shelf with a dovetailed tongue, slid part of the way out of its housing](docs/sliding-dovetail.png)
+
+A sliding dovetail holds the side against the shelf. At 1:6 and 6 mm deep, the tongue is 18 mm
+wide at the bottom and 16 mm at the neck.
 
 ## Miter
 
@@ -237,6 +249,13 @@ one is first made to reach the outer corner. The command works for boards on edg
 of a box, and for boards lying flat, as the sides of a picture frame.
 
 Each cut adds three features to the timeline: a tool box, the move that turns it, and the cut.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Spline thickness | `spline` | 0: no spline. Otherwise a loose spline of that thickness across the cut, half way along it. It is a new body named `Miter spline 1`… |
+| Spline depth in each board | `spline_depth` | A third of the thinner board |
+
+![A miter with a loose spline across the cut, the boards drawn see-through](docs/miter-spline.png)
 
 ## Tongue and groove
 
@@ -305,6 +324,20 @@ with a countersink for the head, and a pilot hole in the second one. It adds no 
 Example: an 18 mm side on a shelf end gets two 4 x 45 mm screws: 4.5 mm holes countersunk to
 8 mm, and 3 mm pilot holes 27 mm deep.
 
+## Biscuits
+
+Select, or type the names of two boards that touch. The plugin cuts in each board the slot that
+the 100 mm blade of a biscuit joiner leaves, 4 mm thick, and adds each biscuit as a new body
+named `Biscuit 1`, `Biscuit 2` and so on.
+
+| Field | Script name | Empty means |
+|---|---|---|
+| Biscuit size | `size` | 20. Sizes 0, 10 and 20 go 8, 10 and 12 mm into each board |
+| Number of biscuits | `count` | One every 150 mm or so |
+| Add the biscuits as bodies | `biscuit_bodies` | On. Off cuts the slots only |
+
+The boards must be at least 10 mm thick where they touch.
+
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
@@ -319,9 +352,11 @@ Example: an 18 mm side on a shelf end gets two 4 x 45 mm screws: 4.5 mm holes co
   landed, and when it is not where it was planned it changes nothing and says so.
 - A tenon does not yet adjust itself to a groove already cut in the rail or the stile.
 - A joint does not see the other joints. Dowels from two rails on opposite faces of a thin
-  stile can meet in the middle: give a shorter length in that case.
+  stile can meet in the middle: give a shorter length in that case. Two boards already joined
+  by tenons, fingers or tails can take dowels, screws or biscuits: they are read as touching
+  on the face that the first board enters.
 - A scarf is a plain slope, with
-  no key. A miter has no key or spline, and it is cut across the whole board.
+  no key. A miter is cut across the whole board.
 - The cuts at an angle add many features: six for a miter or a scarf, nine for each dovetail.
 - The plugin's error messages are in English in every package.
 
@@ -329,8 +364,8 @@ Example: an 18 mm side on a shelf end gets two 4 x 45 mm screws: 4.5 mm holes co
 
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
 `plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
-`dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail` and
-`screws`.
+`dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
+`screws` and `biscuits`.
 All but the first two take the two bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 

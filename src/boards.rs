@@ -36,7 +36,43 @@ impl Contact {
 }
 
 /// The largest rectangle where `a` and `b` touch, if they do.
+///
+/// Two boards already joined by tenons, fingers or tails no longer touch by their boxes: the
+/// box of the first reaches into the second. They are then read as touching on the face of the
+/// second that the first enters.
 pub fn contact(a: &Aabb, b: &Aabb) -> Option<Contact> {
+    touching(a, b).or_else(|| entering(a, b))
+}
+
+/// Where `a` enters `b` through one of its faces without coming out of the other side.
+fn entering(a: &Aabb, b: &Aabb) -> Option<Contact> {
+    let mut best: Option<(f64, Contact)> = None;
+    for n in 0..3 {
+        // From the low side: `a` starts outside `b` and ends inside it. Or the same from the high side.
+        let (dir, plane, depth) = if a.min[n] < b.min[n] - FIT && a.max[n] > b.min[n] + TOUCH && a.max[n] <= b.max[n] + FIT {
+            (1.0, b.min[n], a.max[n] - b.min[n])
+        } else if a.max[n] > b.max[n] + FIT && a.min[n] < b.max[n] - TOUCH && a.min[n] >= b.min[n] - FIT {
+            (-1.0, b.max[n], b.max[n] - a.min[n])
+        } else {
+            continue;
+        };
+        let mut lo = [plane; 3];
+        let mut hi = [plane; 3];
+        let mut shared = true;
+        for x in [(n + 1) % 3, (n + 2) % 3] {
+            lo[x] = a.min[x].max(b.min[x]);
+            hi[x] = a.max[x].min(b.max[x]);
+            shared &= hi[x] - lo[x] > FIT;
+        }
+        // Of several faces, the one `a` enters least is the joint.
+        if shared && best.is_none_or(|(least, _)| depth < least) {
+            best = Some((depth, Contact { axis: n, dir, lo, hi }));
+        }
+    }
+    best.map(|(_, c)| c)
+}
+
+fn touching(a: &Aabb, b: &Aabb) -> Option<Contact> {
     let mut best: Option<(f64, Contact)> = None;
     for n in 0..3 {
         let (dir, plane) = if (a.max[n] - b.min[n]).abs() <= TOUCH {
@@ -146,6 +182,21 @@ pub fn bx(min: [f64; 3], size: [f64; 3]) -> Aabb {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn boards_joined_by_fingers_still_have_a_contact() {
+        // A drawer side whose fingers go through the 18 mm front: its box starts at X = 0.
+        let side = bx([0.0, 0.0, 0.0], [318.0, 18.0, 100.0]);
+        let front = bx([0.0, 0.0, 0.0], [18.0, 300.0, 100.0]);
+        let c = contact(&side, &front).unwrap();
+        // They are read as touching on the inner face of the front, X = 18.
+        assert_eq!((c.axis, c.dir, c.plane()), (0, -1.0, 18.0));
+        assert_eq!((c.lo[1], c.hi[1], c.lo[2], c.hi[2]), (0.0, 18.0, 0.0, 100.0));
+        // Two boards that cross, as for a half lap, do not: each comes out of the other.
+        let x = bx([0.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
+        let y = bx([100.0, -100.0, 0.0], [45.0, 300.0, 18.0]);
+        assert!(contact(&x, &y).is_none());
+    }
 
     #[test]
     fn align_end_closes_the_gap_and_keeps_what_is_in_place() {

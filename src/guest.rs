@@ -3,12 +3,13 @@
 use serde_json::{json, Value};
 
 use crate::boards;
+use crate::biscuit;
 use crate::dovetail;
 use crate::dowel::{self, Bore};
 use crate::finger;
 use crate::groove;
 use crate::housing;
-use crate::joint::{plan, Aabb, Block, Options, Variant};
+use crate::joint::{plan, Aabb, Block, Options, Position, Variant};
 use crate::lap;
 use crate::loose;
 use crate::miter;
@@ -41,6 +42,7 @@ impl exports::craft::plugin::entry::Guest for Plugin {
             "scarf" => scarf(&params),
             "dovetail" => dovetail(&params),
             "screws" => screws(&params),
+            "biscuits" => biscuits(&params),
             other => Err(invalid("entry", format!("unknown entry `{other}`"))),
         }
     }
@@ -405,6 +407,13 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         glue_relief: length(&p, "glue_relief")?,
         clearance: length(&p, "clearance")?,
         offset: length(&p, "offset")?,
+        double: flag(&p, "double", false)?,
+        position: match p.get("position").filter(|v| !v.is_null() && v.as_str() != Some("")) {
+            None => Position::Centre,
+            Some(v) => v.as_str().map(choice).and_then(Position::parse).ok_or_else(|| invalid("position", "expected centre, low or high"))?,
+        },
+        pegs: count(&p, "pegs")?.unwrap_or(0),
+        peg_diameter: length(&p, "peg_diameter")?,
     };
 
     let plan = plan(rail_box, stile_box, &options).map_err(|reason| invalid("rail", reason))?;
@@ -424,13 +433,25 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         sizes["haunch_width_mm"] = json!(width);
         sizes["haunch_depth_mm"] = json!(depth);
     }
+    // With a haunch, every second block is the haunch of the tenon before it.
+    let haunch = |i: usize| plan.haunch.is_some() && i % 2 == 1;
     for (i, block) in plan.tenon.iter().enumerate() {
-        add(block, "join", &rail, if i == 0 { "Tenon" } else { "Haunch" })?;
+        add(block, "join", &rail, if haunch(i) { "Haunch" } else { "Tenon" })?;
     }
     for (i, block) in plan.mortise.iter().enumerate() {
-        add(block, "cut", &stile, if i == 0 { "Mortise" } else { "Haunch mortise" })?;
+        add(block, "cut", &stile, if haunch(i) { "Haunch mortise" } else { "Mortise" })?;
     }
     landed(&[(&rail, Want::Bounds(grown(&rail_box, &plan.tenon))), (&stile, Want::Cut(stile_volume))])?;
+    // Each peg: a hole through the stile and the tenon, then the peg itself.
+    for (peg, name) in plan.pegs.iter().zip(free_names("Peg", plan.pegs.len())?) {
+        let mut out = peg.base;
+        out[peg.axis] -= boards::OVERCUT;
+        let hole = Bore { base: out, axis: peg.axis, dir: 1.0, diameter: peg.diameter, height: peg.height + 2.0 * boards::OVERCUT };
+        bore(&hole, json!({ "operation": "cut", "targets": [stile, rail] }), "Peg hole")?;
+        let body = Bore { base: peg.base, axis: peg.axis, dir: 1.0, diameter: peg.diameter, height: peg.height };
+        bore(&body, json!({ "operation": "new", "body_name": name }), "Peg")?;
+    }
+    sizes["pegs"] = json!(plan.pegs.len());
 
     sizes["moved_rail_mm"] = json!(moved);
     Ok(sizes.to_string())
@@ -634,16 +655,33 @@ fn housing(params: &str) -> Result<String, PluginError> {
         depth: length(&p, "depth")?,
         stop_start: length(&p, "stop_start")?,
         stop_end: length(&p, "stop_end")?,
+        slope: length(&p, "slope")?,
     };
     let plan = housing::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
-    add(&plan.socket, "cut", &second, "Housing")?;
-    add(&plan.tongue, "join", &first, "Housing tongue")?;
+    match &plan.sides {
+        None => {
+            add(&plan.socket, "cut", &second, "Housing")?;
+            add(&plan.tongue, "join", &first, "Housing tongue")?;
+        }
+        // A sliding dovetail: the tongue is a body of its own, its two sides cut at the slope.
+        // It cuts its housing in the side, then becomes part of the shelf.
+        Some((sides, _)) => {
+            let name = free_names("Dovetail", 1)?.remove(0);
+            body_from(&plan.tongue, &name, "Dovetail tongue")?;
+            for (side, tool) in sides.iter().zip(free_names("Dovetail tool", 2)?) {
+                slanted_cut(&name, side, &tool, "Dovetail side")?;
+            }
+            run("solid.combine", json!({ "target": second, "tools": [name], "operation": "cut", "keep_tools": true, "name": "Dovetail housing" }))?;
+            run("solid.combine", json!({ "target": first, "tools": [name], "operation": "join", "name": "Dovetail tongue" }))?;
+        }
+    }
     landed(&[(&first, Want::Bounds(grown(&a, &[plan.tongue]))), (&second, Want::Cut(volume_b))])?;
     Ok(json!({
         "first": first,
         "second": second,
         "depth_mm": plan.depth,
         "width_mm": plan.width,
+        "neck_mm": plan.sides.map_or(plan.width, |(_, neck)| neck),
         "length_mm": plan.length,
         "moved_first_mm": moved,
     })
@@ -653,7 +691,8 @@ fn housing(params: &str) -> Result<String, PluginError> {
 fn miter(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), finger::align)?;
-    let plan = miter::plan(a, b, &miter::Options::default()).map_err(|reason| invalid("first", reason))?;
+    let options = miter::Options { spline: length(&p, "spline")?, spline_depth: length(&p, "spline_depth")? };
+    let plan = miter::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
     let names = free_names("Miter tool", 2)?;
     let mut grown_by = [0.0; 2];
     let boards = [(&first, plan.extend_first, plan.tool_first), (&second, plan.extend_second, plan.tool_second)];
@@ -666,9 +705,23 @@ fn miter(params: &str) -> Result<String, PluginError> {
         slanted_cut(board, &tool, &names[i], "Miter")?;
     }
     landed(&[(&first, Want::Cut(volume_a + grown_by[0])), (&second, Want::Cut(volume_b + grown_by[1]))])?;
+    // A loose spline: a body turned square to the cut, which then cuts its slot in both boards.
+    if let Some((body, _)) = &plan.spline {
+        let name = free_names("Miter spline", 1)?.remove(0);
+        let r = |v: f64| (v * 1e6).round() / 1e6;
+        body_from(&body.block, &name, "Miter spline")?;
+        run(
+            "solid.move",
+            json!({ "bodies": [name], "origin": body.origin.map(r), "axis": body.axis, "angle": r(body.angle), "name": "Miter spline turn" }),
+        )?;
+        for board in [&first, &second] {
+            run("solid.combine", json!({ "target": board, "tools": [name], "operation": "cut", "keep_tools": true, "name": "Spline slot" }))?;
+        }
+    }
     Ok(json!({
         "first": first,
         "second": second,
+        "spline": plan.spline.is_some(),
         "angle_deg": plan.angle,
         "extended_first": plan.extend_first.is_some(),
         "extended_second": plan.extend_second.is_some(),
@@ -798,6 +851,49 @@ fn screws(params: &str) -> Result<String, PluginError> {
         "pilot_diameter_mm": plan.pilot_diameter,
         "pilot_depth_mm": plan.pilot_depth,
         "countersink_depth_mm": plan.sink_depth,
+        "moved_first_mm": moved,
+    })
+    .to_string())
+}
+
+fn biscuits(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    let size = match p.get("size").filter(|v| !v.is_null() && v.as_str() != Some("")) {
+        None => None,
+        Some(v) => Some(
+            v.as_u64()
+                .or_else(|| v.as_str().map(choice).and_then(|s| s.parse().ok()))
+                .and_then(|k| u32::try_from(k).ok())
+                .ok_or_else(|| invalid("size", "expected 0, 10 or 20"))?,
+        ),
+    };
+    let options = biscuit::Options { size, count: count(&p, "count")? };
+    let with_bodies = flag(&p, "biscuit_bodies", true)?;
+    let plan = biscuit::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    for slot in &plan.slots_first {
+        bore(slot, json!({ "operation": "cut", "targets": [first] }), "Biscuit slot")?;
+    }
+    for slot in &plan.slots_second {
+        bore(slot, json!({ "operation": "cut", "targets": [second] }), "Biscuit slot")?;
+    }
+    landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
+    if with_bodies {
+        // A biscuit is what the two discs of the blade share.
+        let names = free_names("Biscuit", plan.slots_first.len())?;
+        for ((one, other), name) in plan.slots_first.iter().zip(&plan.slots_second).zip(names) {
+            bore(one, json!({ "operation": "new", "body_name": name }), "Biscuit")?;
+            bore(other, json!({ "operation": "intersect", "targets": [name] }), "Biscuit")?;
+        }
+    }
+    Ok(json!({
+        "first": first,
+        "second": second,
+        "count": plan.slots_first.len(),
+        "size": plan.size,
+        "depth_mm": plan.depth,
+        "slot_length_mm": plan.slot_length,
+        "biscuit_bodies": with_bodies,
         "moved_first_mm": moved,
     })
     .to_string())

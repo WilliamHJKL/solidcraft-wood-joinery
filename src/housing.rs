@@ -2,6 +2,7 @@
 
 use crate::boards::{contact, cut_block, measurable, FIT};
 use crate::joint::{Aabb, Block};
+use crate::slant::{beyond, Tool};
 
 /// What the user may set. `None` means the default.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -12,6 +13,8 @@ pub struct Options {
     pub stop_start: Option<f64>,
     /// The same at the other end.
     pub stop_end: Option<f64>,
+    /// A sliding dovetail: the tongue widens into the side at 1:N. Default: 0, a square housing.
+    pub slope: Option<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -24,6 +27,9 @@ pub struct Plan {
     /// Thickness of the shelf, which is the width of the housing.
     pub width: f64,
     pub length: f64,
+    /// For a sliding dovetail: the two tools that slope the sides of the tongue, and the width
+    /// of the tongue where it leaves the shelf. The tongue is then made as a body of its own.
+    pub sides: Option<([Tool; 2], f64)>,
 }
 
 fn not_negative(name: &str, v: f64) -> Result<f64, String> {
@@ -68,7 +74,37 @@ pub fn plan(shelf: Aabb, side: Aabb, o: &Options) -> Result<Plan, String> {
     let back = c.plane() - c.dir * 0.1_f64.min(shelf.size(n) * 0.05);
     (lo[n], hi[n]) = (back.min(far), back.max(far));
     let tongue = Block { corner: lo, size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]] };
-    Ok(Plan { tongue, socket, depth, width: hi[m] - lo[m], length: hi[l] - lo[l] })
+    let width = hi[m] - lo[m];
+    let slope = o.slope.unwrap_or(0.0);
+    if !(slope.is_finite() && (slope == 0.0 || slope >= 1.0)) {
+        return Err("slope must be 0 for a square housing, or 1 or more: 6 means a slope of 1:6".into());
+    }
+    let sides = if slope > 0.0 {
+        let lean = depth / slope;
+        let neck = width - 2.0 * lean;
+        if neck < width / 3.0 - FIT {
+            return Err(format!("a slope of 1:{slope} leaves a neck of {neck:.3} mm; give a higher slope or a shallower housing"));
+        }
+        let run = (depth * depth + lean * lean).sqrt();
+        let middle = 0.5 * (lo[m] + hi[m]);
+        let mut keep = lo;
+        keep[m] = middle;
+        keep[n] = 0.5 * (near + far);
+        let side = |sign: f64| {
+            // From the neck, on the face of the side, out to the full thickness at the bottom.
+            let mut from = lo;
+            from[m] = middle + sign * 0.5 * neck;
+            from[n] = near;
+            let mut w = [0.0; 3];
+            w[m] = sign * lean / run;
+            w[n] = c.dir * depth / run;
+            beyond(keep, from, w, l, m, (lo[l], hi[l]), depth + width)
+        };
+        Some(([side(-1.0), side(1.0)], neck))
+    } else {
+        None
+    };
+    Ok(Plan { tongue, socket, depth, width, length: hi[l] - lo[l], sides })
 }
 
 #[cfg(test)]
@@ -105,6 +141,20 @@ mod tests {
         assert_eq!((p.depth, p.length), (8.0, 230.0));
         assert!(near(p.tongue, Block { corner: [10.0, 0.0, 200.0], size: [8.1, 230.0, 18.0] }));
         assert_eq!(p.socket, Block { corner: [10.0, -0.5, 200.0], size: [8.5, 230.5, 18.0] });
+    }
+
+    #[test]
+    fn a_slope_makes_a_sliding_dovetail() {
+        let (shelf, side) = shelf_and_side();
+        let p = plan(shelf, side, &Options { slope: Some(6.0), ..Options::default() }).unwrap();
+        // 6 mm deep at 1:6: each side leans 1 mm, so the neck is 16 mm.
+        let (tools, neck) = p.sides.unwrap();
+        assert!((neck - 16.0).abs() < 1e-9);
+        // The tools turn about lines along the housing, on the face of the side, 16 mm apart.
+        assert_eq!((tools[0].origin, tools[1].origin), ([18.0, 0.0, 201.0], [18.0, 0.0, 217.0]));
+        assert_eq!(tools[0].axis, [0.0, 1.0, 0.0]);
+        let steep = plan(shelf, side, &Options { slope: Some(1.0), depth: Some(8.0), ..Options::default() });
+        assert!(steep.unwrap_err().contains("neck"));
     }
 
     #[test]

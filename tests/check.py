@@ -5,7 +5,7 @@ Usage: tests/check.py /path/to/solidcraft-cli [--keep DIR]
 
 It builds a 35 x 35 x 830 mm stile and a 360 x 18 x 45 mm rail, runs each joint, and compares the
 measured volumes with values worked out by hand: mortise and tenon, grooves, half laps, dowels,
-box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails and screws. It also checks undo and redo, refusals, a saved design reopened without the
+box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits. It also checks undo and redo, refusals, a saved design reopened without the
 plugin, and writes a picture. With --keep, the files stay in DIR.
 """
 import json
@@ -402,6 +402,41 @@ def main():
         plain = {**fixed, "diameter": 5, "length": 50, "count": 3, "countersink": False}
         c.change("screws_plain", "three 5 x 50 screws, no countersink", cabinet, "screws", plain, {"Side": -3 * math.pi * 2.75 ** 2 * 18, "Shelf": -3 * math.pi * 1.75 ** 2 * 32})
         c.refuse_entry("screws_wrong_way", "screws through the long board", cabinet, "screws", {"first": "Shelf", "second": "Side", "length": 45}, "does not reach through")
+
+        # Mortise and tenon variants. A double tenon: two tenons 4 thick, each in its own mortise.
+        c.expect("double", "double tenon", mid, {**both, "double": True, "thickness": 4, "shoulder": 6}, 2 * 4 * 33 * 25, 2 * 4 * 33 * 27)
+        # A tenon level with a face of the rail. The rail stands 10 mm in, so the mortise keeps a cheek.
+        inset = boards([35, 10, 400])
+        got = c.change("barefaced", "tenon level with a face of the rail", inset, "mortise-tenon", {**both, "position": "low"}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
+        c.change("barefaced_fr", "the same, as the French form sends it", inset, "mortise-tenon", {**both, "position": "à fleur, côté opposé (high)"}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
+        c.refuse("barefaced_flush", "level tenon on a rail flush with the stile", mid, {**both, "position": "low"}, "leaves no cheek")
+        # One 6 mm peg through the 35 mm stile: 29 mm of stile around the 6 mm tenon.
+        peg = math.pi * 9
+        got = c.change("pegged", "pegged tenon", mid, "mortise-tenon", {**both, "pegs": 1}, {"Rail": 6 * 33 * 25 - peg * 6, "Stile": -6 * 33 * 27 - peg * 29, "Peg 1": peg * 35})
+        c.refuse("pegs_many", "three pegs", mid, {**both, "pegs": 3}, "0, 1 or 2")
+
+        # A sliding dovetail: the housing at 1:6. The tongue is 18 wide at the bottom, 16 at the neck.
+        slid = (18 + 16) / 2 * 6 * 250
+        got = c.change("sliding", "sliding dovetail housing", cabinet, "housing", {**ss, "slope": 6}, {"Shelf": slid, "Side": -slid})
+        c.report(len(got[-1]["bodies"]) == 2, f"no tool or tongue body is left: {[b['name'] for b in got[-1]['bodies']]}")
+
+        # A miter with a loose spline: 4 thick, 6 mm into each board, over the 100 mm of the boards.
+        slot = 4 * 6 * 100
+        c.change("miter_spline", "miter with a loose spline", frame, "miter", {**two, "spline": 4}, {"A": -half - slot, "B": -half - slot, "Miter spline 1": 2 * slot})
+        c.refuse_entry("miter_spline_deep", "a spline too deep", frame, "miter", {**two, "spline": 4, "spline_depth": 12}, "at most")
+
+        # Biscuits: four size 20 biscuits along a 600 mm joint. Each slot is the segment a 100 mm
+        # blade leaves 12 mm deep, 4 mm thick; a biscuit is two of them.
+        seg = (2500 * math.acos(38 / 50) - 38 * math.sqrt(1200 - 144)) * 4
+        got = c.change("biscuits", "four biscuits", planks, "biscuits", two, {"A": -4 * seg, "B": -4 * seg, **{f"Biscuit {i}": 2 * seg for i in range(1, 5)}})
+        small = (2500 * math.acos(42 / 50) - 42 * math.sqrt(800 - 64)) * 4
+        c.change("biscuits_small", "two size 0 slots, no biscuit body", planks, "biscuits", {**two, "size": "0", "count": 2, "biscuit_bodies": False}, {"A": -2 * small, "B": -2 * small})
+        c.refuse_entry("biscuits_many", "too many biscuits", planks, "biscuits", {**two, "count": 12}, "do not fit")
+
+        # Dowels in a corner that fingers already hold: the side's box reaches through the front,
+        # yet the boards are read as touching on the inner face of the front.
+        fingered = [*drawer, c.run("box-joint", sf)]
+        got = c.change("dowels_after", "dowels after a box joint", fingered, "dowels", {**sf, "count": 1, "dowel_bodies": False}, {"Side": -math.pi * 16 * 27, "Front": -math.pi * 16 * 15})
 
         # 6. A saved design reopens without the plugin: the joint is ordinary features.
         saved = work / "joint.sc"

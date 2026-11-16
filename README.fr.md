@@ -3,10 +3,10 @@
 *[English version](README.md)*
 
 Un plugin pour [SolidCraft](https://github.com/tangency-labs/solidcraft) qui réalise des
-assemblages de menuiserie. Il apporte douze commandes : **Tenon et mortaise**, **Rainure** (et
+assemblages de menuiserie. Il apporte treize commandes : **Tenon et mortaise**, **Rainure** (et
 aussi entaille et feuillure), **Mi-bois**, **Tourillons**, **Queues droites**, **Faux tenon**,
 **Entaille d'étagère**, **Coupe d'onglet**, **Rainure et languette**, **Enture**,
-**Queues d'aronde** et **Vis**.
+**Queues d'aronde**, **Vis** et **Lamelles**.
 
 Chaque commande ajoute des fonctions ordinaires dans la timeline (boîtes, cylindres, déplacements
 et coupes), en une seule étape d'annulation. Un fichier créé avec le plugin s'ouvre et se
@@ -124,9 +124,15 @@ menuiserie :
 | Réserve de colle | `glue_relief` | 2 mm sous un tenon borgne |
 | Jeu | `clearance` | Aucun |
 | Décalage | `offset` | Le tenon est centré dans l'épaisseur de la traverse |
+| Tenon double | `double` | Décoché. Coché : deux tenons côte à côte dans l'épaisseur de la traverse, d'un cinquième de cette épaisseur, chacun dans sa mortaise |
+| Position du tenon | `position` | Centré. Les deux autres choix mettent le tenon à fleur d'une face de la traverse. Le montant doit alors dépasser la traverse de ce côté |
+| Chevilles à travers le tenon | `pegs` | 0. Sinon, 1 ou 2 chevilles à travers le montant et le tenon, à mi-longueur du tenon. Chaque cheville est un nouveau corps nommé `Peg 1`, `Peg 2`… |
+| Diamètre de la cheville | `peg_diameter` | 6 mm, 8 mm si le tenon fait 30 mm de long ou plus |
 
 Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit un tenon de
 6 × 33 × 25 mm, dans une mortaise de 27 mm de profondeur.
+
+![Un tenon double tenu par deux chevilles, le pied dessiné en transparence](docs/pegged-tenon.png)
 
 Le plugin refuse un assemblage impossible et dit pourquoi : un tenon borgne qui traverserait le
 montant, un tenon aussi épais que la traverse, une traverse qui ne touche pas le montant, un
@@ -238,8 +244,14 @@ longueur.
 | Profondeur | `depth` | Un tiers du côté, arrondi au millimètre |
 | Arrêt au début | `stop_start` | L'entaille débouche. Sinon, cette longueur de bois reste au bout le plus proche de l'origine |
 | Arrêt à la fin | `stop_end` | Même chose, à l'autre bout |
+| Pente en queue d'aronde 1:N | `slope` | 0 : une entaille droite. Sinon, une queue d'aronde glissée : la languette s'élargit dans le côté selon cette pente, 6 pour 1:6 |
 
 Exemple : une étagère de 18 mm entre de 6 mm dans un côté de 18 mm.
+
+![Une étagère à languette en queue d'aronde, à moitié sortie de son entaille](docs/sliding-dovetail.png)
+
+Une queue d'aronde glissée retient le côté contre l'étagère. À 1:6 et 6 mm de profondeur, la
+languette fait 18 mm de large au fond et 16 mm au collet.
 
 ## Coupe d'onglet
 
@@ -256,6 +268,13 @@ d'un cadre.
 
 Chaque coupe ajoute trois fonctions dans la timeline : une boîte outil, le déplacement qui la
 fait pivoter, et la coupe.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Épaisseur de la languette | `spline` | 0 : pas de languette. Sinon, une languette rapportée de cette épaisseur en travers de la coupe, à mi-longueur. C'est un nouveau corps nommé `Miter spline 1`… |
+| Profondeur dans chaque pièce | `spline_depth` | Un tiers de la pièce la plus mince |
+
+![Une coupe d'onglet avec une languette rapportée, les pièces dessinées en transparence](docs/miter-spline.png)
 
 ## Rainure et languette
 
@@ -328,6 +347,20 @@ corps de vis.
 Exemple : un côté de 18 mm sur un bout d'étagère reçoit deux vis de 4 × 45 mm : trous de 4,5 mm
 fraisés à 8 mm, et avant-trous de 3 mm profonds de 27 mm.
 
+## Lamelles
+
+Sélectionnez, ou saisissez les noms de deux pièces qui se touchent. Le plugin creuse dans chaque
+pièce la fente que laisse la lame de 100 mm d'une lamelleuse, épaisse de 4 mm, et ajoute chaque
+lamelle comme un nouveau corps nommé `Biscuit 1`, `Biscuit 2`, etc.
+
+| Champ | Nom dans un script | Vide signifie |
+|---|---|---|
+| Taille de la lamelle | `size` | 20. Les tailles 0, 10 et 20 entrent de 8, 10 et 12 mm dans chaque pièce |
+| Nombre de lamelles | `count` | Une tous les 150 mm environ |
+| Ajouter les lamelles comme corps | `biscuit_bodies` | Coché. Décoché, seules les fentes sont creusées |
+
+Les pièces doivent faire au moins 10 mm d'épaisseur à l'endroit du contact.
+
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
@@ -346,10 +379,10 @@ fraisés à 8 mm, et avant-trous de 3 mm profonds de 27 mm.
 - Un tenon ne s'ajuste pas encore à une rainure déjà creusée dans la traverse ou le montant.
 - Un assemblage ne voit pas les autres. Les tourillons de deux traverses posées sur deux faces
   opposées d'un montant mince peuvent se rejoindre au milieu : donnez alors une longueur plus
-  courte.
+  courte. Deux pièces déjà reliées par des tenons ou des queues peuvent recevoir des tourillons,
+  des vis ou des lamelles : elles sont lues comme se touchant sur la face où la première entre.
 - L'enture est
-  une pente simple, sans clef. La coupe d'onglet n'a ni clef ni languette, et elle traverse
-  toute la pièce.
+  une pente simple, sans clef. La coupe d'onglet traverse toute la pièce.
 - Les coupes en biais ajoutent beaucoup de fonctions : six pour un onglet ou une enture, neuf
   par queue d'aronde.
 - Les messages d'erreur du plugin sont en anglais dans tous les paquets.
@@ -358,8 +391,8 @@ fraisés à 8 mm, et avant-trous de 3 mm profonds de 27 mm.
 
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
 `plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
-`dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail` et
-`screws`.
+`dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
+`screws` et `biscuits`.
 Toutes sauf les deux premières reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 

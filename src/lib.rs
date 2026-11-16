@@ -3,6 +3,7 @@
 //! Each entry measures the bodies it is given, plans the cut from their bounding boxes and adds
 //! ordinary box and cylinder features. One call is one undo step, and the result needs no plugin to reopen.
 
+pub mod biscuit;
 pub mod boards;
 pub mod dovetail;
 pub mod dowel;

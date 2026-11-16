@@ -1,8 +1,8 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.6.0",
-  "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails and screws.",
+  "version": "0.7.0",
+  "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
     "commands@0.1"
   ],
@@ -88,6 +88,34 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "double": {
+              "type": "boolean",
+              "title": "Double tenon"
+            },
+            "position": {
+              "type": "string",
+              "title": "Tenon position",
+              "enum": [
+                "centre",
+                "low",
+                "high"
+              ],
+              "default": "centre",
+              "description": "low and high put the tenon level with a face of the rail."
+            },
+            "pegs": {
+              "type": "integer",
+              "title": "Pegs through the tenon (0 to 2)",
+              "minimum": 0,
+              "maximum": 2,
+              "default": 0
+            },
+            "peg_diameter": {
+              "type": "number",
+              "title": "Peg diameter (empty = 6 or 8)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
             }
           }
         },
@@ -403,6 +431,12 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "slope": {
+              "type": "number",
+              "title": "Dovetail slope 1:N (0 = square)",
+              "minimum": 0,
+              "default": 0
             }
           }
         }
@@ -430,6 +464,19 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "spline": {
+              "type": "number",
+              "title": "Spline thickness (0 = no spline)",
+              "unit": "mm",
+              "minimum": 0,
+              "default": 0
+            },
+            "spline_depth": {
+              "type": "number",
+              "title": "Spline depth in each board (empty = 1/3)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
             }
           }
         }
@@ -603,6 +650,53 @@
             "countersink": {
               "type": "boolean",
               "title": "Countersink the heads",
+              "default": true
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
+            }
+          }
+        }
+      },
+      {
+        "name": "biscuits",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Biscuits"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "properties": {
+            "first": {
+              "type": "string",
+              "title": "First board (empty = selection)"
+            },
+            "second": {
+              "type": "string",
+              "title": "Second board (empty = selection)"
+            },
+            "size": {
+              "type": "string",
+              "title": "Biscuit size",
+              "enum": [
+                "20",
+                "10",
+                "0"
+              ],
+              "default": "20"
+            },
+            "count": {
+              "type": "integer",
+              "title": "Number of biscuits (empty = by length)",
+              "minimum": 1
+            },
+            "biscuit_bodies": {
+              "type": "boolean",
+              "title": "Add the biscuits as bodies",
               "default": true
             },
             "align": {
