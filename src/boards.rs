@@ -130,8 +130,8 @@ pub fn align_end(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     // Boards that run into each other part along the axis where they overlap least.
     let n = if gap(length) > TOUCH { length } else { widest };
     let mut shift = [0.0; 3];
-    for a in 0..3 {
-        shift[a] = if a != n {
+    for (a, s) in shift.iter_mut().enumerate() {
+        *s = if a != n {
             cover(first, second, a)
         } else if first.min[a] + first.max[a] >= second.min[a] + second.max[a] {
             second.max[a] - first.min[a]
