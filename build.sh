@@ -18,12 +18,16 @@ if len(data.encode()) > 16 * 1024:
     raise SystemExit('the manifest is over the 16 KiB limit of SolidCraft')
 open(sys.argv[2], 'w', encoding='utf-8').write(data)
 " plugin/plugin.json dist/wood-joinery/plugin.json
+# The command icons (SolidCraft 0.44 and later draw them; older versions ignore them).
+cp -r plugin/icons dist/wood-joinery/icons
 pack() { # pack <folder> <zip>
     python3 -c "
-import sys, zipfile
+import os, sys, zipfile
 with zipfile.ZipFile(sys.argv[2], 'w', zipfile.ZIP_DEFLATED) as z:
     for name in ('plugin.json', 'plugin.wasm'):
         z.write(sys.argv[1] + '/' + name, 'wood-joinery/' + name)
+    for name in sorted(os.listdir(sys.argv[1] + '/icons')):
+        z.write(sys.argv[1] + '/icons/' + name, 'wood-joinery/icons/' + name)
 " "$1" "$2"
 }
 pack dist/wood-joinery dist/wood-joinery.zip
@@ -32,6 +36,7 @@ for locale in plugin/locales/*.json; do
     mkdir -p "dist/$lang/wood-joinery"
     python3 tools/localize.py plugin/plugin.json "$locale" "dist/$lang/wood-joinery/plugin.json"
     cp dist/wood-joinery/plugin.wasm "dist/$lang/wood-joinery/plugin.wasm"
+    cp -r plugin/icons "dist/$lang/wood-joinery/icons"
     pack "dist/$lang/wood-joinery" "dist/wood-joinery-$lang.zip"
 done
 # SolidCraft refuses a manifest over 16 KiB. Keep a fifth of it free for the next joints: a field's

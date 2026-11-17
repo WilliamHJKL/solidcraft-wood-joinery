@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Housing joint</title>
+  <path d="M26.73 25.91L58.36 44.17L37.27 56.35L5.64 38.09Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M58.36 47.83L37.27 60.00L37.27 56.35L58.36 44.17Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M37.27 60.00L5.64 41.74L5.64 38.09L37.27 56.35Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M26.73 22.26L39.38 29.57L18.29 41.74L5.64 34.43Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M39.38 33.22L18.29 45.39L18.29 41.74L39.38 29.57Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M18.29 45.39L5.64 38.09L5.64 34.43L18.29 41.74Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M39.38 33.21L44.65 36.25L23.57 48.42L18.29 45.38Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M44.65 36.26L23.57 48.43L23.57 48.42L44.65 36.25Z" fill="#236ead" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M23.57 48.43L18.29 45.39L18.29 45.38L23.57 48.42Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M44.65 32.61L58.36 40.52L37.27 52.70L23.57 44.78Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M58.36 44.17L37.27 56.35L37.27 52.70L58.36 40.52Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M37.27 56.35L23.57 48.43L23.57 44.78L37.27 52.70Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M37.27 4.00L42.54 7.04L25.67 16.78L20.40 13.74Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M42.54 26.52L25.67 36.26L25.67 16.78L42.54 7.04Z" fill="#236ead" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M25.67 36.26L20.40 33.22L20.40 13.74L25.67 16.78Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

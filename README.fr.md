@@ -31,9 +31,10 @@ n'exécute aucun plugin.
    demande à lancer sept commandes de SolidCraft : `inspect.measure`, `selection.get`,
    `solid.box`, `solid.cylinder`, `solid.cone`, `solid.move` et `solid.combine`. Il ne demande aucun accès aux
    fichiers, à l'horloge ou au réseau. Acceptez.
-4. **Trouver les commandes.** Elles sont dans le menu *Plugins*, à côté de *File*, et dans le
-   groupe *Plugins* de l'onglet *Model*. Ouvrez un fichier, sélectionnez deux pièces, puis
-   choisissez une commande.
+4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Model*. À partir
+   de SolidCraft 0.44, chaque commande y a sa propre icône. SolidCraft 0.42 et 0.43 affichent une
+   icône générique, et listent aussi les commandes dans le menu *Plugins*, à côté de *File*.
+   Ouvrez un fichier, sélectionnez deux pièces, puis choisissez une commande.
 
 N'installez qu'une seule langue : les deux paquets sont le même plugin, avec le même identifiant.
 

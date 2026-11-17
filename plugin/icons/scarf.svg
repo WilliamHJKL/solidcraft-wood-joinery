@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Scarf joint</title>
+  <path d="M10.22 11.52L22.67 18.71L42.58 44.57L10.22 25.89Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M10.22 25.89L42.58 44.57L36.36 48.17L4.00 29.49Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M10.22 11.52L10.22 25.89L4.00 29.49L4.00 15.12Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M28.89 16.55L60.00 34.51L60.00 48.88L48.80 42.42Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M48.80 42.42L60.00 48.88L53.78 52.48L42.58 46.01Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M28.89 16.55L48.80 42.42L42.58 46.01L22.67 20.15Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

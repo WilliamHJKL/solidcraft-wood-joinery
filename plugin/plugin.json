@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
     "commands@0.1"
@@ -14,6 +14,7 @@
         "effect": "edit",
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/mortise-tenon.svg",
           "properties": {
             "rail": {
               "type": "string",
@@ -152,6 +153,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/loose-tenon.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -218,6 +220,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/groove.svg",
           "properties": {
             "body": {
               "type": "string",
@@ -294,6 +297,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/tongue-groove.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -344,6 +348,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/housing.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -401,6 +406,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/half-lap.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -442,6 +448,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/miter.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -486,6 +493,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/scarf.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -525,6 +533,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/box-joint.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -565,6 +574,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/dovetail.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -620,6 +630,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/dowels.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -679,6 +690,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/biscuits.svg",
           "properties": {
             "first": {
               "type": "string",
@@ -730,6 +742,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-icon": "icons/screws.svg",
           "properties": {
             "first": {
               "type": "string",

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Dovetails</title>
+  <path d="M31.43 11.88L49.71 22.43L22.29 38.27L4.00 27.71Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M49.71 30.35L22.29 46.19L22.29 38.27L49.71 22.43Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M22.29 46.19L4.00 35.63L4.00 27.71L22.29 38.27Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M47.43 23.75L60.00 28.37L48.57 34.97L40.57 27.71Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M60.00 36.29L48.57 42.89L48.57 34.97L60.00 28.37Z" fill="#236ead" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M48.57 42.89L40.57 35.63L40.57 27.71L48.57 34.97Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M31.43 32.99L44.00 37.61L32.57 44.21L24.57 36.95Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M44.00 45.53L32.57 52.12L32.57 44.21L44.00 37.61Z" fill="#236ead" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32.57 52.12L24.57 44.87L24.57 36.95L32.57 44.21Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

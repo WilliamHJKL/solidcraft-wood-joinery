@@ -148,8 +148,13 @@ def main():
             manifest = json.loads((package / "plugin.json").read_text())
             bad = [f"{e['name']}.{k}" for e in manifest["runtime"]["entries"] for k, prop in e["input_schema"]["properties"].items()
                    if prop.get("type") not in allowed or set(prop) - notes - allowed[prop["type"]]]
-            bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - {"type", "properties", "required"}]
+            # At the top of a schema, 0.42.0 and 0.43.0 refuse only $ref, oneOf, anyOf, allOf, if and
+            # not; they ignore the icon that 0.44.0 draws.
+            bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - {"type", "properties", "required", "x-solidcraft-icon"}]
             c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by SolidCraft 0.42.0" + (f": not {bad}" if bad else ""))
+            icons = [e["input_schema"].get("x-solidcraft-icon") for e in manifest["runtime"]["entries"]]
+            missing = [i for i in icons if not i or not (package / i).is_file()]
+            c.report(not missing, f"every command of {package.parent.name}/{package.name} has its icon in the package" + (f": not {missing}" if missing else ""))
 
         both = {"rail": "Rail", "stile": "Stile"}
         mid = boards([35, 0, 400])

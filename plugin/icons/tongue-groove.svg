@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Tongue and groove</title>
+  <path d="M34.00 11.22L60.00 26.23L51.00 31.42L25.00 16.41Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M60.00 35.46L51.00 40.66L51.00 31.42L60.00 26.23Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M51.00 40.66L25.00 25.65L25.00 16.41L51.00 31.42Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M25.00 18.72L51.00 33.73L45.00 37.20L19.00 22.19Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M51.00 38.35L45.00 41.81L45.00 37.20L51.00 33.73Z" fill="#236ead" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M45.00 41.81L19.00 26.80L19.00 22.19L45.00 37.20Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M13.00 23.34L39.00 38.35L30.00 43.55L4.00 28.54Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M39.00 47.59L30.00 52.78L30.00 43.55L39.00 38.35Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M30.00 52.78L4.00 37.77L4.00 28.54L30.00 43.55Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

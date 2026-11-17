@@ -29,8 +29,10 @@ plugins.
    plugin asks to run seven SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
    `solid.cylinder`, `solid.cone`, `solid.move` and `solid.combine`. It asks for no file, clock or network
    access. Accept.
-4. **Find the commands.** They are in the *Plugins* menu, next to *File*, and in the *Plugins*
-   group of the *Model* tab. Open a design, select two boards, then choose a command.
+4. **Find the commands.** They are in the *Plugins* group of the *Model* tab. From SolidCraft
+   0.44, each command has its own icon there. SolidCraft 0.42 and 0.43 show a generic icon, and
+   also list the commands in the *Plugins* menu, next to *File*. Open a design, select two
+   boards, then choose a command.
 
 Install one language only: both packages are the same plugin, with the same id.
 
