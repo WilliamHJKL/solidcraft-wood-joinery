@@ -136,7 +136,7 @@ def main():
         c.approval = inspected[0]["approval"]
         c.report(inspected[0]["manifest"]["id"] == "wood-joinery", "plugin.inspect accepts the manifest and the component")
         # The .zip is what Preferences > Plugins > Install plugin... takes. A dry run writes nothing.
-        dry = c.cli("install", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / "wood-joinery.zip"), "dry_run": True}}])
+        dry = c.cli("install", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / "wood-joinery-en.zip"), "dry_run": True}}])
         c.report(dry[0]["id"] == "wood-joinery" and dry[0]["installed"] is False, "plugin.install accepts the .zip in a dry run")
 
         # Every form must be one SolidCraft 0.42.0 can draw: its dialog knows numbers, whole numbers,

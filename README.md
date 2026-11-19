@@ -18,7 +18,7 @@ plugins.
 1. **Download the package.** Open the
    [latest release](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest) and,
    under *Assets*, download one file:
-   - `wood-joinery.zip` for the English texts;
+   - `wood-joinery-en.zip` for the English texts;
    - `wood-joinery-fr.zip` for the French texts.
 
    Do not take the two "Source code" archives: SolidCraft cannot install those. Do not unzip
@@ -45,7 +45,7 @@ the same card turns the plugin off without removing it.
 **If something goes wrong.**
 
 - *SolidCraft refuses the file*: you took a "Source code" archive, or you unzipped the package.
-  Download `wood-joinery.zip` or `wood-joinery-fr.zip` again from *Assets*.
+  Download `wood-joinery-en.zip` or `wood-joinery-fr.zip` again from *Assets*.
 - *The Plugins menu shows no command*: check that the plugin's switch is on in
   *Preferences › Plugins*.
 - *A form says "This entry needs to be run from the agent or CLI"*: the plugin is older than
@@ -425,7 +425,7 @@ and Python 3.
 ./build.sh
 ```
 
-This writes one package per language: `dist/wood-joinery.zip` (English) and
+This writes one package per language: `dist/wood-joinery-en.zip` (English) and
 `dist/wood-joinery-fr.zip` (French).
 
 ## Test

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Builds the plugin and packs it, once per language:
-#   dist/wood-joinery/ and dist/wood-joinery.zip          English
+#   dist/wood-joinery/ and dist/wood-joinery-en.zip       English
 #   dist/<lang>/wood-joinery/ and dist/wood-joinery-<lang>.zip   one per file in plugin/locales/
 # A .zip is what Preferences > Plugins > Install plugin... takes. Install one language only:
 # every package has the same plugin id.
@@ -30,7 +30,7 @@ with zipfile.ZipFile(sys.argv[2], 'w', zipfile.ZIP_DEFLATED) as z:
         z.write(sys.argv[1] + '/icons/' + name, 'wood-joinery/icons/' + name)
 " "$1" "$2"
 }
-pack dist/wood-joinery dist/wood-joinery.zip
+pack dist/wood-joinery dist/wood-joinery-en.zip
 for locale in plugin/locales/*.json; do
     lang=$(basename "$locale" .json)
     mkdir -p "dist/$lang/wood-joinery"

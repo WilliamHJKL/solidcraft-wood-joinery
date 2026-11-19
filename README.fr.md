@@ -21,7 +21,7 @@ n'exécute aucun plugin.
    [dernière version publiée](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest)
    et, sous *Assets*, téléchargez un seul fichier :
    - `wood-joinery-fr.zip` pour les textes en français ;
-   - `wood-joinery.zip` pour les textes en anglais.
+   - `wood-joinery-en.zip` pour les textes en anglais.
 
    Ne prenez pas les deux archives « Source code » : SolidCraft ne peut pas les installer. Ne
    décompressez pas le fichier.
@@ -48,7 +48,7 @@ L'interrupteur de la même carte désactive le plugin sans le retirer.
 **En cas de problème.**
 
 - *SolidCraft refuse le fichier* : vous avez pris une archive « Source code », ou décompressé le
-  paquet. Téléchargez de nouveau `wood-joinery-fr.zip` ou `wood-joinery.zip` sous *Assets*.
+  paquet. Téléchargez de nouveau `wood-joinery-fr.zip` ou `wood-joinery-en.zip` sous *Assets*.
 - *Le menu Plugins n'affiche aucune commande* : vérifiez que l'interrupteur du plugin est allumé
   dans *Preferences › Plugins*.
 - *Un formulaire affiche « This entry needs to be run from the agent or CLI »* : le plugin est
@@ -455,7 +455,7 @@ et Python 3.
 ./build.sh
 ```
 
-Le script écrit un paquet par langue : `dist/wood-joinery.zip` (anglais) et
+Le script écrit un paquet par langue : `dist/wood-joinery-en.zip` (anglais) et
 `dist/wood-joinery-fr.zip` (français).
 
 ## Tester
