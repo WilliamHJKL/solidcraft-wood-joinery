@@ -1,7 +1,10 @@
 //! A box joint: the end of one board meets the face of another in a row of square fingers.
 
-use crate::boards::{contact, cut_block, measurable, FIT};
+use crate::boards::{contact, cut_block, measurable, FIT, too_many};
 use crate::joint::{Aabb, Block};
+
+/// The most divisions one call makes: see `boards::too_many`.
+pub const MAX: u32 = 60;
 
 /// What the user may set.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -63,8 +66,10 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
 
     let count = match o.count {
         Some(k) if k < 2 => return Err("count must be at least 2".into()),
+        Some(k) if k > MAX => return Err(too_many(k, MAX, "divisions")),
         Some(k) => k,
-        None => (2.0 * ((width / thickness - 1.0) * 0.5).round() + 1.0).max(3.0) as u32,
+        // Kept odd when it is cut down, so both ends stay the same.
+        None => ((2.0 * ((width / thickness - 1.0) * 0.5).round() + 1.0).max(3.0) as u32).min(MAX - 1),
     };
     let finger_width = width / f64::from(count);
     if finger_width < 2.0 - FIT {
@@ -153,7 +158,17 @@ mod tests {
         let (side, front) = corner();
         let apart = bx([30.0, 0.0, 0.0], [300.0, 18.0, 100.0]);
         assert!(plan(apart, front, &Options::default()).unwrap_err().contains("does not lie on a face"));
-        assert!(plan(side, front, &Options { count: Some(80), swap: false }).unwrap_err().contains("under 2 mm"));
+        assert!(plan(side, front, &Options { count: Some(MAX), swap: false }).unwrap_err().contains("under 2 mm"));
         assert!(plan(side, front, &Options { count: Some(1), swap: false }).unwrap_err().contains("at least 2"));
+    }
+
+    #[test]
+    fn a_3_m_corner_gets_59_divisions_at_most() {
+        let (a, b) = (bx([18.0, 0.0, 0.0], [300.0, 18.0, 3000.0]), bx([0.0, 0.0, 0.0], [18.0, 300.0, 3000.0]));
+        // Worked out from the length: cut down to MAX.
+        let p = plan(a, b, &Options { count: None, swap: false }).unwrap();
+        assert_eq!(p.count, MAX - 1);
+        // Given above MAX: refused before anything is cut.
+        assert!(plan(a, b, &Options { count: Some(MAX + 1), swap: false }).unwrap_err().contains("or fewer"));
     }
 }

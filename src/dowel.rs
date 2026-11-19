@@ -1,7 +1,10 @@
 //! Dowels across two boards that touch: matching holes in both, and the dowels themselves.
 
-use crate::boards::{contact, measurable, share, FIT, OVERCUT};
+use crate::boards::{contact, measurable, share, FIT, OVERCUT, too_many};
 use crate::joint::Aabb;
+
+/// The most dowels one call makes: see `boards::too_many`.
+pub const MAX: u32 = 30;
 
 /// What the user may set. `None` means the default.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -64,10 +67,11 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     }
     let count = match o.count {
         Some(0) => return Err("count must be at least 1".into()),
+        Some(k) if k > MAX => return Err(too_many(k, MAX, "dowels")),
         Some(k) => k,
         None => {
             let room = (long / (2.5 * diameter)).floor().max(1.0);
-            room.min((long / 96.0).ceil().max(2.0)) as u32
+            (room.min((long / 96.0).ceil().max(2.0)) as u32).min(MAX)
         }
     };
     let pitch = long / f64::from(count);
@@ -159,5 +163,15 @@ mod tests {
         assert!(err(Options { count: Some(4), ..Options::default() }).contains("do not fit"));
         assert!(err(Options { length: Some(400.0), ..Options::default() }).contains("too long"));
         assert!(err(Options { count: Some(0), ..Options::default() }).contains("at least 1"));
+    }
+
+    #[test]
+    fn a_6_m_joint_gets_30_dowels_at_most() {
+        let (b, a) = (bx([0.0, 0.0, 0.0], [6000.0, 100.0, 18.0]), bx([0.0, 100.0, 0.0], [6000.0, 100.0, 18.0]));
+        // Worked out from the length: cut down to MAX.
+        let p = plan(a, b, &Options::default()).unwrap();
+        assert_eq!(p.dowels.len() as u32, MAX);
+        // Given above MAX: refused before anything is cut.
+        assert!(plan(a, b, &Options { count: Some(MAX + 1), ..Options::default() }).unwrap_err().contains("or fewer"));
     }
 }

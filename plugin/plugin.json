@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
     "commands@0.1"
@@ -184,7 +184,8 @@
             "count": {
               "type": "integer",
               "title": "Number of tenons (empty = by length)",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 40
             },
             "glue_relief": {
               "type": "number",
@@ -546,7 +547,8 @@
             "count": {
               "type": "integer",
               "title": "Number of divisions (empty = square fingers)",
-              "minimum": 2
+              "minimum": 2,
+              "maximum": 60
             },
             "swap": {
               "type": "boolean",
@@ -587,7 +589,8 @@
             "count": {
               "type": "integer",
               "title": "Number of tails (empty = by width)",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 20
             },
             "slope": {
               "type": "number",
@@ -655,7 +658,8 @@
             "count": {
               "type": "integer",
               "title": "Number of dowels (empty = by length)",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 30
             },
             "glue_relief": {
               "type": "number",
@@ -713,7 +717,8 @@
             "count": {
               "type": "integer",
               "title": "Number of biscuits (empty = by length)",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 30
             },
             "biscuit_bodies": {
               "type": "boolean",
@@ -768,7 +773,8 @@
             "count": {
               "type": "integer",
               "title": "Number of screws (empty = by length)",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 15
             },
             "countersink": {
               "type": "boolean",
@@ -795,7 +801,7 @@
     "limits": {
       "fuel": 50000000,
       "memory_mib": 16,
-      "deadline_ms": 10000
+      "deadline_ms": 30000
     }
   }
 }

@@ -1,9 +1,12 @@
 //! Screws through one board into another: a clearance hole with a countersink in the first
 //! board, a pilot hole in the second.
 
-use crate::boards::{contact, measurable, FIT, OVERCUT};
+use crate::boards::{contact, measurable, FIT, OVERCUT, too_many};
 use crate::dowel::Bore;
 use crate::joint::Aabb;
+
+/// The most screws one call makes: see `boards::too_many`.
+pub const MAX: u32 = 15;
 
 /// What the user may set. `None` means the default.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -86,9 +89,10 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     }
     let count = match o.count {
         Some(0) => return Err("count must be at least 1".into()),
+        Some(k) if k > MAX => return Err(too_many(k, MAX, "screws")),
         Some(k) => k,
         None if long < 60.0 => 1,
-        None => (long / 150.0).ceil().max(2.0) as u32,
+        None => ((long / 150.0).ceil().max(2.0) as u32).min(MAX),
     };
     let pitch = long / f64::from(count);
     if 0.5 * pitch < head - FIT {
@@ -172,8 +176,20 @@ mod tests {
         assert!(plan(shelf, side, &Options { length: Some(45.0), ..Options::default() }).unwrap_err().contains("does not reach through"));
         assert!(err(Options { length: Some(400.0), ..Options::default() }).contains("come through"));
         assert!(err(Options { diameter: Some(10.0), ..Options::default() }).contains("no wood beside"));
-        assert!(err(Options { count: Some(40), ..Options::default() }).contains("do not fit"));
+        // 15 heads of 8 mm in a 100 mm deep shelf: under 7 mm apart.
+        let narrow = (bx([0.0, 0.0, 0.0], [18.0, 100.0, 400.0]), bx([18.0, 0.0, 200.0], [300.0, 100.0, 18.0]));
+        assert!(plan(narrow.0, narrow.1, &Options { count: Some(MAX), ..Options::default() }).unwrap_err().contains("do not fit"));
         let apart = bx([30.0, 0.0, 200.0], [300.0, 250.0, 18.0]);
         assert!(plan(side, apart, &Options::default()).unwrap_err().contains("do not touch"));
+    }
+
+    #[test]
+    fn a_6_m_joint_gets_15_screws_at_most() {
+        let (a, b) = (bx([0.0, 0.0, 0.0], [18.0, 6000.0, 400.0]), bx([18.0, 0.0, 200.0], [300.0, 6000.0, 18.0]));
+        // Worked out from the length: cut down to MAX.
+        let p = plan(a, b, &Options::default()).unwrap();
+        assert_eq!(p.clearance.len() as u32, MAX);
+        // Given above MAX: refused before anything is cut.
+        assert!(plan(a, b, &Options { count: Some(MAX + 1), ..Options::default() }).unwrap_err().contains("or fewer"));
     }
 }

@@ -374,6 +374,10 @@ The boards must be at least 10 mm thick where they touch.
   on the face that the first board enters.
 - A tabled scarf has square ends and one plain key, not a pair of folding wedges. A miter is cut across the whole board.
 - The cuts at an angle add many features: six for a miter or a scarf, nine for each dovetail.
+- SolidCraft stops a plugin command after 30 seconds. So one call makes at most 30 dowels,
+  30 biscuits, 40 loose tenons, 15 screws, 20 dovetails or 60 box joint divisions. Above that,
+  the command refuses and changes nothing. A count worked out from the length stops at the same
+  number: on a very long joint, the pieces are further apart.
 - The plugin's error messages are in English in every package.
 
 ## Run from a script

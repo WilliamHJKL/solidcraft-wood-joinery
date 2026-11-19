@@ -1,8 +1,11 @@
 //! Biscuits across two boards that touch: the slot a 100 mm blade leaves in each, and the biscuit.
 
-use crate::boards::{contact, measurable, FIT};
+use crate::boards::{contact, measurable, FIT, too_many};
 use crate::dowel::Bore;
 use crate::joint::Aabb;
+
+/// The most biscuits one call makes: see `boards::too_many`.
+pub const MAX: u32 = 30;
 
 /// The blade of a biscuit joiner, and the thickness of the slot it cuts.
 const BLADE: f64 = 100.0;
@@ -62,8 +65,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     let slot_length = 2.0 * (2.0 * radius * depth - depth * depth).sqrt();
     let count = match o.count {
         Some(0) => return Err("count must be at least 1".into()),
+        Some(k) if k > MAX => return Err(too_many(k, MAX, "biscuits")),
         Some(k) => k,
-        None => (long / 150.0).round().max(1.0) as u32,
+        None => ((long / 150.0).round().max(1.0) as u32).min(MAX),
     };
     let pitch = long / f64::from(count);
     if pitch < slot_length + 10.0 - FIT {
@@ -128,5 +132,15 @@ mod tests {
         assert!(plan(a, apart, &Options::default()).unwrap_err().contains("do not touch"));
         let thin = bx([0.0, 100.0, 0.0], [600.0, 100.0, 8.0]);
         assert!(plan(thin, a, &Options::default()).is_err());
+    }
+
+    #[test]
+    fn a_6_m_joint_gets_30_biscuits_at_most() {
+        let (a, b) = (bx([0.0, 0.0, 0.0], [6000.0, 100.0, 18.0]), bx([0.0, 100.0, 0.0], [6000.0, 100.0, 18.0]));
+        // Worked out from the length: cut down to MAX.
+        let p = plan(a, b, &Options::default()).unwrap();
+        assert_eq!(p.slots_first.len() as u32, MAX);
+        // Given above MAX: refused before anything is cut.
+        assert!(plan(a, b, &Options { count: Some(MAX + 1), ..Options::default() }).unwrap_err().contains("or fewer"));
     }
 }

@@ -401,6 +401,10 @@ Les pièces doivent faire au moins 10 mm d'épaisseur à l'endroit du contact.
 - L'enture à redans a des bouts d'équerre et une clef simple, pas une paire de coins croisés. La coupe d'onglet traverse toute la pièce.
 - Les coupes en biais ajoutent beaucoup de fonctions : six pour un onglet ou une enture, neuf
   par queue d'aronde.
+- SolidCraft arrête une commande de plugin au bout de 30 secondes. Un appel fait donc au plus
+  30 tourillons, 30 lamelles, 40 faux tenons, 15 vis, 20 queues d'aronde ou 60 divisions de
+  queues droites. Au-delà, la commande refuse et ne modifie rien. Le nombre calculé d'après la
+  longueur s'arrête au même chiffre : sur un très long assemblage, les pièces sont plus espacées.
 - Les messages d'erreur du plugin sont en anglais dans tous les paquets.
 
 ## Lancer depuis un script

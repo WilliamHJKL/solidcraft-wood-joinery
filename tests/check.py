@@ -258,6 +258,8 @@ def main():
         c.change("dowel_long", "long dowel, mostly in the rail", mid, "dowels", long, {"Rail": -math.pi * 16 * 50, "Stile": -math.pi * 16 * 32})
         c.refuse_entry("dowel_apart", "boards that do not touch", boards([45, 0, 400]), "dowels", rs, "do not touch")
         c.refuse_entry("dowel_fat", "dowel as thick as the rail", mid, "dowels", {**rs, "diameter": 17}, "no wood beside")
+        # More than one call can make before SolidCraft's 30 s limit: refused before any cut.
+        c.refuse_entry("dowels_too_many", "31 dowels, one over the limit", mid, "dowels", {**rs, "count": 31}, "30 or fewer")
 
         # A box joint at a drawer corner: 18 x 100 boards, five divisions of 20, two fingers on the side.
         drawer = [box("Side", [18, 0, 0], (300, 18, 100), first=True), box("Front", [0, 0, 0], (18, 300, 100))]

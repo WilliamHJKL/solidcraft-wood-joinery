@@ -3,9 +3,12 @@
 //! Each tail is first made as a body of its own: a block whose two sides are cut at the slope.
 //! That body cuts its socket in the pin board, then joins the tail board.
 
-use crate::boards::{contact, measurable, FIT};
+use crate::boards::{contact, measurable, FIT, too_many};
 use crate::joint::{Aabb, Block};
 use crate::slant::{beyond, Tool};
+
+/// The most tails one call makes: see `boards::too_many`.
+pub const MAX: u32 = 20;
 
 /// What the user may set. `None` means the default.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -67,8 +70,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     }
     let count = match o.count {
         Some(0) => return Err("count must be at least 1".into()),
+        Some(k) if k > MAX => return Err(too_many(k, MAX, "tails")),
         Some(k) => k,
-        None => (width / (2.5 * thickness)).round().max(1.0) as u32,
+        None => ((width / (2.5 * thickness)).round().max(1.0) as u32).min(MAX),
     };
     let pin = o.pin.unwrap_or(0.5 * thickness);
     if !(pin.is_finite() && pin >= 2.0 - FIT) {
@@ -172,5 +176,15 @@ mod tests {
         let blank = p.tails[0].blank;
         assert_eq!((blank.corner, blank.size[1], blank.size[2]), ([5.0, 0.0, 4.5], 18.0, 41.0));
         assert!((blank.size[0] - 13.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn a_3_m_corner_gets_20_tails_at_most() {
+        let (a, b) = (bx([18.0, 0.0, 0.0], [300.0, 18.0, 3000.0]), bx([0.0, 0.0, 0.0], [18.0, 300.0, 3000.0]));
+        // Worked out from the length: cut down to MAX.
+        let p = plan(a, b, &Options::default()).unwrap();
+        assert_eq!(p.tails.len() as u32, MAX);
+        // Given above MAX: refused before anything is cut.
+        assert!(plan(a, b, &Options { count: Some(MAX + 1), ..Options::default() }).unwrap_err().contains("or fewer"));
     }
 }

@@ -1,7 +1,10 @@
 //! Loose tenons across two boards that touch: matching mortises in both, and the tenons.
 
-use crate::boards::{contact, cut_block, measurable, share, FIT};
+use crate::boards::{contact, cut_block, measurable, share, FIT, too_many};
 use crate::joint::{Aabb, Block};
+
+/// The most tenons one call makes: see `boards::too_many`.
+pub const MAX: u32 = 40;
 
 /// What the user may set. `None` means the default.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -57,8 +60,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     }
     let count = match o.count {
         Some(0) => return Err("count must be at least 1".into()),
+        Some(k) if k > MAX => return Err(too_many(k, MAX, "tenons")),
         Some(k) => k,
-        None => (long / 120.0).ceil().max(1.0) as u32,
+        None => ((long / 120.0).ceil().max(1.0) as u32).min(MAX),
     };
     let pitch = long / f64::from(count);
     let width = match o.width {
@@ -166,5 +170,15 @@ mod tests {
         assert!(err(Options { width: Some(45.0), ..Options::default() }).contains("do not fit"));
         assert!(err(Options { length: Some(400.0), ..Options::default() }).contains("too long"));
         assert!(err(Options { count: Some(0), ..Options::default() }).contains("at least 1"));
+    }
+
+    #[test]
+    fn a_6_m_joint_gets_40_tenons_at_most() {
+        let (a, b) = (bx([0.0, 0.0, 0.0], [6000.0, 100.0, 18.0]), bx([0.0, 100.0, 0.0], [6000.0, 100.0, 18.0]));
+        // Worked out from the length: cut down to MAX.
+        let p = plan(a, b, &Options::default()).unwrap();
+        assert_eq!(p.tenons.len() as u32, MAX);
+        // Given above MAX: refused before anything is cut.
+        assert!(plan(a, b, &Options { count: Some(MAX + 1), ..Options::default() }).unwrap_err().contains("or fewer"));
     }
 }

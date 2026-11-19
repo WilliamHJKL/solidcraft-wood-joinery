@@ -8,6 +8,13 @@ pub const TOUCH: f64 = 1e-2;
 /// How far a cutting block runs past a face it opens, so no skin is left there.
 pub const OVERCUT: f64 = 0.5;
 
+/// SolidCraft stops a plugin call after 30 s, or at its 256th command. Each joint with a count
+/// has a `MAX` that stays well inside both on a Raspberry Pi 5: a count given above it is
+/// refused, and a count worked out from the length is cut down to it.
+pub fn too_many(count: u32, max: u32, what: &str) -> String {
+    format!("{count} {what} are more than the {max} one call can make before SolidCraft stops it; give {max} or fewer")
+}
+
 pub fn measurable(b: &Aabb) -> Result<(), String> {
     for a in 0..3 {
         if !(b.min[a].is_finite() && b.max[a].is_finite() && b.size(a) > FIT) {
