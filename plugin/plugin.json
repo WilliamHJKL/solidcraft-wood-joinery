@@ -423,6 +423,12 @@
               "unit": "mm",
               "exclusiveMinimum": 0
             },
+            "overlap": {
+              "type": "number",
+              "title": "Overlap edge to edge (empty = 1/2 thickness) or end to end (empty = width)",
+              "unit": "mm",
+              "exclusiveMinimum": 0
+            },
             "flip": {
               "type": "boolean",
               "title": "Swap sides"

@@ -579,7 +579,17 @@ fn picked_face() -> Result<(String, groove::Face), PluginError> {
 
 fn half_lap(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), lap::align)?;
+    let Pair { first, second, mut a, b, volume_a, volume_b, mut moved } = pair(&p, ("first", "second"), lap::align)?;
+    // Boards edge to edge or end to end: the first slides over the second by the overlap.
+    if let Some(by) = lap::slide(&a, &b, length(&p, "overlap")?).map_err(|reason| invalid("overlap", reason))? {
+        run("solid.move", json!({ "bodies": [first], "translate": by }))?;
+        for i in 0..3 {
+            a.min[i] += by[i];
+            a.max[i] += by[i];
+            moved[i] += by[i];
+        }
+        landed(&[(&first, Want::Bounds(a))])?;
+    }
     let options = lap::Options { depth: length(&p, "depth")?, flip: flag(&p, "flip", false)? };
     let plan = lap::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
     add(&plan.cut_first, "cut", &first, "Half lap")?;

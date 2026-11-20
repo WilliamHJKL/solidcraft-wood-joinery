@@ -160,17 +160,22 @@ On a face that is wider than it is long, the same command makes a dado.
 Select, or type the names of two boards that cross. Each loses half its thickness where they overlap, so
 they end up in one plane. The same command makes a cross lap, a T lap and a corner lap.
 Boards standing on edge that cross, as in an egg-crate divider, each lose half their height
-instead. Two boards along the same line make an end lap: overlap their ends by the length of
-the lap (often the width of the boards); they are notched through their thickness.
+instead.
 
-The two bodies must overlap in the model before you run the command: draw each board at its
-full size, one through the other. **Align the boards first** brings a board that lies above or
-below the other into the same plane.
+Boards that cross must overlap in the model: draw each board at its full size, one through the
+other. **Align the boards first** brings a board that lies above or below the other into the
+same plane.
+
+Two boards along the same line need not overlap: drawn edge to edge (a shiplap) or end to end
+(an end lap), touching or a little apart, the first slides over the second by the **overlap**,
+then both are notched through their thickness. The panel gets narrower, or the two boards
+shorter end to end, by that overlap.
 
 | Field | Script name | Empty means |
 |---|---|---|
 | Depth in the first board | `depth` | Half the thickness. The second board loses the rest |
 | Swap sides | `flip` | Off: the first board is cut on its side away from the origin |
+| Overlap | `overlap` | Boards edge to edge: half their thickness. End to end: the width of the first board |
 
 ## Dowels
 

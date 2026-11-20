@@ -242,9 +242,16 @@ def main():
         corner = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [0, 0, 0], (45, 300, 18))]
         c.change("lap_corner", "corner lap", corner, "half-lap", two, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
         c.refuse_entry("lap_apart", "boards that do not overlap", [cross[0], box("B", [100, 45, 0], (45, 300, 18))], "half-lap", two, "do not overlap")
-        # Boards end to end that only touch: the lap needs them to overlap.
+        # Boards end to end that only touch: the first slides over the second by its width, 45.
         ends = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [300, 0, 0], (300, 45, 18))]
-        c.refuse_entry("lap_butt", "boards end to end that only touch", ends, "half-lap", two, "overlap by the length of the lap")
+        got = c.change("lap_butt", "end lap of boards that only touch", ends, "half-lap", two, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
+        c.report(got[-2]["result"]["moved_first_mm"] == [45, 0, 0], f"the first board slid 45 mm: {got[-2]['result']['moved_first_mm']}")
+        # Two 220 x 22 planks lying flat edge to edge (a shiplap): by default they overlap by half
+        # the thickness, 11 mm, along the whole 1360; with an overlap of 10, by 10.
+        planks = [box("A", [0, 0, 0], (220, 1360, 22), first=True), box("B", [220, 0, 0], (220, 1360, 22))]
+        c.change("shiplap", "shiplap of planks edge to edge", planks, "half-lap", two, {"A": -11 * 1360 * 11, "B": -11 * 1360 * 11})
+        c.change("shiplap_10", "shiplap with an overlap of 10", planks, "half-lap", {**two, "overlap": 10}, {"A": -10 * 1360 * 11, "B": -10 * 1360 * 11})
+        c.refuse_entry("shiplap_wide", "an overlap as wide as the planks", planks, "half-lap", {**two, "overlap": 220}, "less than the 220")
         # An egg-crate divider: two 300 x 18 x 100 boards on edge, crossing. Each loses half its
         # height (50) over the other's thickness (18): never a cut through its thickness.
         crate = [box("A", [0, 141, 0], (300, 18, 100), first=True), box("B", [141, 0, 0], (18, 300, 100))]

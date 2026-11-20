@@ -172,18 +172,22 @@ Sélectionnez, ou saisissez les noms de deux pièces qui se croisent. Chacune pe
 l'endroit du croisement : elles se retrouvent dans le même plan. La même commande réalise un
 mi-bois en croix, en T ou d'angle. Des pièces posées sur chant qui se croisent, comme les
 croisillons d'un casier, perdent chacune la moitié de leur hauteur. Deux pièces dans le
-prolongement l'une de l'autre donnent un mi-bois en bout : faites chevaucher leurs extrémités
-de la longueur du mi-bois (souvent la largeur des pièces) ; elles sont entaillées dans leur
-épaisseur.
+prolongement l'une de l'autre donnent un mi-bois en bout.
 
-Les deux corps doivent se chevaucher dans le modèle avant de lancer la commande : dessinez
-chaque pièce à sa taille complète, l'une à travers l'autre. **Aligner d'abord les pièces**
-ramène dans le même plan une pièce posée au-dessus ou au-dessous de l'autre.
+Des pièces qui se croisent doivent se chevaucher dans le modèle : dessinez chaque pièce à sa
+taille complète, l'une à travers l'autre. **Aligner d'abord les pièces** ramène dans le même
+plan une pièce posée au-dessus ou au-dessous de l'autre.
+
+Deux pièces dans le même alignement n'ont pas besoin de se chevaucher : dessinées chant contre
+chant (feuillure à mi-bois) ou bout à bout (mi-bois en bout), jointives ou un peu écartées, la
+première glisse sur la seconde du **recouvrement**, puis les deux sont entaillées dans leur
+épaisseur. Le panneau perd d'autant en largeur, ou les deux pièces en longueur.
 
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Profondeur dans la première pièce | `depth` | La moitié de l'épaisseur. La deuxième pièce perd le reste |
 | Inverser les côtés | `flip` | Décoché : la première pièce est entaillée du côté opposé à l'origine |
+| Recouvrement | `overlap` | Pièces chant contre chant : la moitié de leur épaisseur. Bout à bout : la largeur de la première pièce |
 
 ## Tourillons
 
