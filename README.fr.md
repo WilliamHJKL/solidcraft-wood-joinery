@@ -118,18 +118,23 @@ menuiserie :
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Épaisseur du tenon | `thickness` | Un tiers de l'épaisseur de la traverse |
-| Longueur du tenon | `length` | Deux tiers du montant, arrondis à 5 mm. Tout le montant pour Traversant et Enfourchement |
+| Longueur du tenon | `length` | Trois quarts du montant, arrondis à 5 mm ; la mortaise a 2 mm de plus (dégagement de colle). Tout le montant pour Traversant et Enfourchement |
 | Épaulement | `shoulder` | La largeur de la joue, au plus un cinquième de la largeur de la traverse. Aucun pour Enfourchement |
-| Largeur du renfort | `haunch_width` | Un cinquième de la largeur de la traverse |
+| Largeur du renfort | `haunch_width` | Un quart de la largeur de la traverse |
 | Profondeur du renfort | `haunch_depth` | L'épaisseur du tenon |
 | Réserve de colle | `glue_relief` | 2 mm sous un tenon borgne |
 | Jeu | `clearance` | Aucun |
 | Décalage | `offset` | Le tenon est centré dans l'épaisseur de la traverse |
 | Tenon double | `double` | Décoché. Coché : deux tenons côte à côte dans l'épaisseur de la traverse, d'un cinquième de cette épaisseur, chacun dans sa mortaise |
 | Position du tenon | `position` | Centré. Les deux autres choix mettent le tenon à fleur d'une face de la traverse. Le montant doit alors dépasser la traverse de ce côté |
-| Chevilles à travers le tenon | `pegs` | 0. Sinon, 1 ou 2 chevilles à travers le montant et le tenon, à mi-longueur du tenon. Chaque cheville est un nouveau corps nommé `Peg 1`, `Peg 2`… |
+| Chevilles à travers le tenon | `pegs` | 0. Sinon, 1 cheville à mi-longueur du tenon, ou 2 en diagonale, au tiers et aux deux tiers, pour ne pas fendre le montant sur une même ligne. Chaque cheville est un nouveau corps nommé `Peg 1`, `Peg 2`… |
 | Diamètre de la cheville | `peg_diameter` | 6 mm, 8 mm si le tenon fait 30 mm de long ou plus |
+| Cheville à tire | `drawbore` | 0 : cheville simple. Sinon, le trou du tenon est décalé d'autant vers l'épaulement par rapport à celui du montant (1 à 2 mm) : la cheville serre l'assemblage en entrant |
 | Coins dans un tenon traversant | `wedges` | 0. Sinon, 1 ou 2 coins dans le bout d'un tenon traversant, sur les trois quarts de sa longueur. Chaque coin est un nouveau corps nommé `Wedge 1`, `Wedge 2`… Un script peut fixer `wedge_thickness`, 4 mm par défaut |
+
+La réponse signale, sans refuser, deux choses que l'usage évite : une joue de mortaise de moins
+de 8 mm, et une mortaise en travers du fil du montant (traverse posée à plat). Le journal des
+plugins de SolidCraft les affiche aussi.
 
 Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit un tenon de
 6 × 33 × 25 mm, dans une mortaise de 27 mm de profondeur.
@@ -204,6 +209,8 @@ corps nommé `Dowel 1`, `Dowel 2`, etc.
 | Nombre de tourillons | `count` | Deux s'il y a la place, puis un tous les 96 mm environ |
 | Réserve de colle | `glue_relief` | 1 mm au fond de chaque trou |
 | Ajouter les tourillons | `dowel_bodies` | Coché. Décoché, seuls les trous sont percés |
+
+Les pièces de moins de 11 mm d'épaisseur sont refusées : il resterait moins de 3 à 5 mm de bois à côté du tourillon.
 
 Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit deux tourillons de
 8 × 40 mm, 20 mm dans chaque pièce, dans des trous de 21 mm de profondeur.
@@ -288,6 +295,7 @@ fait pivoter, et la coupe.
 |---|---|---|
 | Épaisseur de la languette | `spline` | 0 : pas de languette. Sinon, une languette rapportée de cette épaisseur en travers de la coupe, à mi-longueur. C'est un nouveau corps nommé `Miter spline 1`… |
 | Profondeur dans chaque pièce | `spline_depth` | Un tiers de la pièce la plus mince |
+| Faux tenons à la place de la languette | `keys` | 0 : une languette sur toute la coupe. Sinon, autant de faux tenons (8 au plus), chacun de la moitié de sa part de coupe, nommés `Miter key 1`… |
 
 ![Une coupe d'onglet avec une languette rapportée, les pièces dessinées en transparence](docs/miter-spline.png)
 
@@ -300,9 +308,10 @@ première reçoit une languette sur tout le chant, la deuxième la rainure corre
 
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
-| Épaisseur de la languette | `thickness` | Un tiers de l'épaisseur des pièces. La languette est centrée |
+| Épaisseur de la languette | `thickness` | Un tiers de l'épaisseur des pièces, centrée. Une pièce à languette plus mince que l'autre et affleurant sur une face reçoit une languette bâtarde : la moitié de son épaisseur, contre son autre face, avec un seul arasement |
 | Longueur de la languette | `depth` | La moitié de l'épaisseur des pièces, arrondie au millimètre, 10 mm au plus |
 | Réserve de colle | `glue_relief` | 1 mm au fond de la rainure |
+| Fausse languette | `spline` | Décoché. Coché : les deux pièces sont rainurées, et une lame à part, `Spline 1`, remplit les deux rainures, 2 mm plus courte qu'elles |
 
 Exemple : deux pièces de 18 mm reçoivent une languette de 6 × 9 mm dans une rainure de 10 mm de
 profondeur.
@@ -349,9 +358,9 @@ deuxième reçoit les entailles correspondantes, avec un demi-tenon à chaque bo
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Nombre de queues | `count` | Une toutes les deux épaisseurs et demie environ |
-| Pente 1:N | `slope` | 8, la pente usuelle pour un bois dur. 6 pour un bois tendre |
+| Pente 1:N | `slope` | 6, environ 80°. L'usage français prend 5 (environ 78°) ; 8 donne une pente fine pour bois dur |
 | Largeur d'un tenon d'aronde | `pin` | La moitié de l'épaisseur de la pièce à queues, au bout étroit du tenon |
-| Recouvrement | `lap` | 0 : queues traversantes. Sinon, le bois laissé devant les queues, pour des queues semi-cachées |
+| Recouvrement | `lap` | 0 : queues traversantes. Sinon, le bois laissé devant les queues, pour des queues semi-cachées : 4 ou 5 mm sur une devanture de tiroir |
 
 Exemple : deux pièces de 18 × 100 mm reçoivent deux queues, larges de 41 mm au bout et de
 36,5 mm à la base, entre des tenons de 9 mm à leur bout étroit.

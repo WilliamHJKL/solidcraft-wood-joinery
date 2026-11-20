@@ -3,6 +3,9 @@
 use crate::boards::{contact, measurable, share, FIT, OVERCUT, too_many};
 use crate::joint::Aabb;
 
+/// The thinnest board that takes dowels, in mm.
+pub const THINNEST: f64 = 11.0;
+
 /// The most dowels one call makes: see `boards::too_many`.
 pub const MAX: u32 = 30;
 
@@ -45,6 +48,13 @@ pub struct Plan {
 pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
     measurable(&second)?;
+    // Boards under 11 mm leave less than 3 to 5 mm of wood beside the smallest dowel.
+    let thinnest = (0..3).map(|a| first.size(a).min(second.size(a))).fold(f64::INFINITY, f64::min);
+    if thinnest < THINNEST - FIT {
+        return Err(format!(
+            "a {thinnest:.3} mm board is too thin for dowels (11 mm at least); use biscuits, a loose tenon or screws"
+        ));
+    }
     let c = contact(&first, &second)
         .ok_or("the two boards do not touch; move one against the other, where the dowels go")?;
     let n = c.axis;
@@ -163,6 +173,10 @@ mod tests {
         assert!(err(Options { count: Some(4), ..Options::default() }).contains("do not fit"));
         assert!(err(Options { length: Some(400.0), ..Options::default() }).contains("too long"));
         assert!(err(Options { count: Some(0), ..Options::default() }).contains("at least 1"));
+        // A 10 mm panel is too thin for dowels.
+        let thin = bx([0.0, 0.0, 0.0], [300.0, 10.0, 200.0]);
+        let other = bx([0.0, 10.0, 0.0], [300.0, 10.0, 200.0]);
+        assert!(plan(thin, other, &Options::default()).unwrap_err().contains("too thin for dowels"));
     }
 
     #[test]

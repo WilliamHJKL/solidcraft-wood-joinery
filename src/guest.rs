@@ -49,6 +49,11 @@ impl exports::craft::plugin::entry::Guest for Plugin {
     }
 }
 
+/// A note in SolidCraft's plugin log: what was made, but against common practice.
+fn warn(message: &str) {
+    craft::plugin::log::log(craft::plugin::log::Level::Warn, message);
+}
+
 fn invalid(field: &str, reason: impl Into<String>) -> PluginError {
     PluginError::InvalidInput(FieldFailure { field: field.into(), reason: reason.into() })
 }
@@ -449,6 +454,7 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         },
         pegs: count(&p, "pegs")?.unwrap_or(0),
         peg_diameter: length(&p, "peg_diameter")?,
+        drawbore: length(&p, "drawbore")?.unwrap_or(0.0),
         wedges: count(&p, "wedges")?.unwrap_or(0),
         wedge_thickness: length(&p, "wedge_thickness")?,
     };
@@ -484,7 +490,16 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         let mut out = peg.base;
         out[peg.axis] -= boards::OVERCUT;
         let hole = Bore { base: out, axis: peg.axis, dir: 1.0, diameter: peg.diameter, height: peg.height + 2.0 * boards::OVERCUT };
-        bore(&hole, json!({ "operation": "cut", "targets": [stile, rail] }), "Peg hole")?;
+        match peg.tenon_base {
+            None => bore(&hole, json!({ "operation": "cut", "targets": [stile, rail] }), "Peg hole")?,
+            // Draw-bored: the hole in the tenon sits nearer the shoulder than the one in the stile.
+            Some(at) => {
+                bore(&hole, json!({ "operation": "cut", "targets": [stile] }), "Peg hole")?;
+                let mut at = at;
+                at[peg.axis] -= boards::OVERCUT;
+                bore(&Bore { base: at, ..hole }, json!({ "operation": "cut", "targets": [rail] }), "Drawbore hole")?;
+            }
+        }
         let body = Bore { base: peg.base, axis: peg.axis, dir: 1.0, diameter: peg.diameter, height: peg.height };
         bore(&body, json!({ "operation": "new", "body_name": name }), "Peg")?;
     }
@@ -502,6 +517,10 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
     sizes["wedges"] = json!(plan.wedges.len());
 
     sizes["moved_rail_mm"] = json!(moved);
+    for w in &plan.warnings {
+        warn(w);
+    }
+    sizes["warnings"] = json!(plan.warnings);
     Ok(sizes.to_string())
 }
 
@@ -749,7 +768,8 @@ fn housing(params: &str) -> Result<String, PluginError> {
 fn miter(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), finger::align)?;
-    let options = miter::Options { spline: length(&p, "spline")?, spline_depth: length(&p, "spline_depth")? };
+    let keys = count(&p, "keys")?.unwrap_or(0);
+    let options = miter::Options { spline: length(&p, "spline")?, spline_depth: length(&p, "spline_depth")?, keys };
     let plan = miter::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
     let names = free_names("Miter tool", 2)?;
     let mut grown_by = [0.0; 2];
@@ -763,9 +783,10 @@ fn miter(params: &str) -> Result<String, PluginError> {
         slanted_cut(board, &tool, &names[i], "Miter")?;
     }
     landed(&[(&first, Want::Cut(volume_a + grown_by[0])), (&second, Want::Cut(volume_b + grown_by[1]))])?;
-    // A loose spline: a body turned square to the cut, which then cuts its slot in both boards.
-    if let Some((body, _)) = &plan.spline {
-        let name = free_names("Miter spline", 1)?.remove(0);
+    // A loose spline, or keys: each a body turned square to the cut, which then cuts its slot in
+    // both boards.
+    let names = free_names(if keys > 0 { "Miter key" } else { "Miter spline" }, plan.splines.len())?;
+    for ((body, _), name) in plan.splines.iter().zip(names) {
         let r = |v: f64| (v * 1e6).round() / 1e6;
         body_from(&body.block, &name, "Miter spline")?;
         run(
@@ -779,7 +800,8 @@ fn miter(params: &str) -> Result<String, PluginError> {
     Ok(json!({
         "first": first,
         "second": second,
-        "spline": plan.spline.is_some(),
+        "spline": !plan.splines.is_empty(),
+        "keys": keys,
         "angle_deg": plan.angle,
         "extended_first": plan.extend_first.is_some(),
         "extended_second": plan.extend_second.is_some(),
@@ -790,19 +812,35 @@ fn miter(params: &str) -> Result<String, PluginError> {
 
 fn tongue_groove(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let Pair { first, second, a, b, volume_b, moved, .. } = pair(&p, ("first", "second"), boards::align_end)?;
+    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
     let options = tongue::Options {
         thickness: length(&p, "thickness")?,
         depth: length(&p, "depth")?,
         glue_relief: length(&p, "glue_relief")?,
+        spline: flag(&p, "spline", false)?,
     };
     let plan = tongue::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    let mut spline = None;
     add(&plan.groove, "cut", &second, "Groove")?;
-    add(&plan.tongue, "join", &first, "Tongue")?;
-    landed(&[(&first, Want::Bounds(grown(&a, &[plan.tongue]))), (&second, Want::Cut(volume_b))])?;
+    match &plan.groove_first {
+        // A loose spline: both boards grooved, then the strip as a body of its own.
+        Some(groove) => {
+            add(groove, "cut", &first, "Groove")?;
+            landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
+            let name = free_names("Spline", 1)?.remove(0);
+            body_from(&plan.tongue, &name, "Spline")?;
+            spline = Some(name);
+        }
+        None => {
+            add(&plan.tongue, "join", &first, "Tongue")?;
+            landed(&[(&first, Want::Bounds(grown(&a, &[plan.tongue]))), (&second, Want::Cut(volume_b))])?;
+        }
+    }
     Ok(json!({
         "first": first,
         "second": second,
+        "spline": spline,
+        "bastard": plan.bastard,
         "thickness_mm": plan.thickness,
         "depth_mm": plan.depth,
         "groove_depth_mm": plan.groove_depth,

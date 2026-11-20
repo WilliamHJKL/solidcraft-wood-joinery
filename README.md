@@ -107,18 +107,23 @@ glue relief, no clearance, no offset.
 | Field | Script name | Empty means |
 |---|---|---|
 | Tenon thickness | `thickness` | A third of the rail thickness |
-| Tenon length | `length` | Two thirds of the stile, to the nearest 5 mm. The whole stile for Through and Bridle |
+| Tenon length | `length` | Three quarters of the stile, to the nearest 5 mm; the mortise is 2 mm deeper (glue relief). The whole stile for Through and Bridle |
 | Shoulder | `shoulder` | The cheek width, at most a fifth of the rail width. None for Bridle |
-| Haunch width | `haunch_width` | A fifth of the rail width |
+| Haunch width | `haunch_width` | A quarter of the rail width |
 | Haunch depth | `haunch_depth` | The tenon thickness |
 | Glue relief | `glue_relief` | 2 mm under a blind tenon |
 | Clearance | `clearance` | None |
 | Offset | `offset` | The tenon is centred in the rail thickness |
 | Double tenon | `double` | Off. On: two tenons side by side across the rail, each a fifth of its thickness, each in its own mortise |
 | Tenon position | `position` | `centre`. `low` or `high` puts the tenon level with a face of the rail (a bare-faced tenon). The stile must then be wider than the rail on that side |
-| Pegs through the tenon | `pegs` | 0. Otherwise 1 or 2 pegs through the stile and the tenon, half way along the tenon. Each peg is a new body named `Peg 1`, `Peg 2`… |
+| Pegs through the tenon | `pegs` | 0. Otherwise 1 peg half way along the tenon, or 2 on a diagonal, at a third and two thirds of it, so they do not split the stile along one line. Each peg is a new body named `Peg 1`, `Peg 2`… |
 | Peg diameter | `peg_diameter` | 6 mm, 8 mm when the tenon is 30 mm long or more |
+| Drawbore | `drawbore` | 0: plain pegs. Otherwise the hole in the tenon sits that much nearer the shoulder than the hole in the stile (1 to 2 mm), so the peg pulls the joint tight as it goes in |
 | Wedges in a through tenon | `wedges` | 0. Otherwise 1 or 2 wedges in the end of a `through` tenon, three quarters of its length deep. Each wedge is a new body named `Wedge 1`, `Wedge 2`… A script may set `wedge_thickness`, 4 mm by default |
+
+The reply warns, without refusing, of two things common practice avoids: a mortise cheek under
+8 mm, and a mortise across the grain of the stile (a rail lying flat). SolidCraft's plugin log
+shows the warnings too.
 
 Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets a 6 x 33 x 25 mm tenon in a
 27 mm deep mortise.
@@ -192,6 +197,8 @@ along the longer side of the contact, and adds each dowel as a new body named `D
 | Number of dowels | `count` | Two when there is room, then one every 96 mm or so |
 | Glue relief | `glue_relief` | 1 mm at the bottom of each hole |
 | Add the dowels | `dowel_bodies` | On. Off drills the holes only |
+
+Boards under 11 mm thick are refused: they leave less than 3 to 5 mm of wood beside a dowel.
 
 Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets two 8 x 40 mm dowels, 20 mm in each
 board, in holes 21 mm deep.
@@ -270,6 +277,7 @@ Each cut adds three features to the timeline: a tool box, the move that turns it
 |---|---|---|
 | Spline thickness | `spline` | 0: no spline. Otherwise a loose spline of that thickness across the cut, half way along it. It is a new body named `Miter spline 1`… |
 | Spline depth in each board | `spline_depth` | A third of the thinner board |
+| Loose tenons in place of the spline | `keys` | 0: one spline the length of the cut. Otherwise that many keys (up to 8), each half its share of the cut long, named `Miter key 1`… |
 
 ![A miter with a loose spline across the cut, the boards drawn see-through](docs/miter-spline.png)
 
@@ -282,9 +290,10 @@ along the whole edge, the second one the matching groove.
 
 | Field | Script name | Empty means |
 |---|---|---|
-| Tongue thickness | `thickness` | A third of the thickness of the boards. The tongue is centred |
+| Tongue thickness | `thickness` | A third of the thickness of the boards, centred. A tongue board thinner than the other and level with it on one face gets a bastard tongue: half its thickness, against its other face, with one shoulder only |
 | Tongue length | `depth` | Half the thickness of the boards, to the nearest millimetre, at most 10 mm |
 | Glue relief | `glue_relief` | 1 mm at the bottom of the groove |
+| Loose spline | `spline` | Off. On: both boards are grooved, and a separate strip, `Spline 1`, fills the two grooves, 2 mm short of them |
 
 Example: two 18 mm boards get a 6 x 9 mm tongue in a groove 10 mm deep.
 
@@ -328,9 +337,9 @@ the matching sockets, with a half pin at each edge. Give a **Lap** for half-blin
 | Field | Script name | Empty means |
 |---|---|---|
 | Number of tails | `count` | One every two and a half thicknesses or so |
-| Slope 1:N | `slope` | 8, the usual hardwood slope. Use 6 for softwood |
+| Slope 1:N | `slope` | 6, about 80°. French practice uses 5 (about 78°); 8 is a fine hardwood slope |
 | Pin width | `pin` | Half the thickness of the tail board, at the narrow end of a pin |
-| Lap | `lap` | 0: through dovetails. Otherwise the wood left in front of the tails, for half-blind dovetails |
+| Lap | `lap` | 0: through dovetails. Otherwise the wood left in front of the tails, for half-blind dovetails: 4 or 5 mm on a drawer front |
 
 Example: two 18 x 100 mm boards get two tails, 41 mm wide at the end and 36.5 mm at the base,
 between pins 9 mm wide at their narrow end.

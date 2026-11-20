@@ -7,7 +7,7 @@ use crate::boards::{measurable, FIT, TOUCH};
 use crate::joint::{Aabb, Block};
 use crate::slant::{beyond, cross, dot, Tool};
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Plan {
     /// Wood added first to a board that stops at the other one, so that it reaches the corner.
     pub extend_first: Option<Block>,
@@ -19,10 +19,13 @@ pub struct Plan {
     /// Volume the cut takes from each board, in mm3.
     pub cut_first: f64,
     pub cut_second: f64,
-    /// A loose spline across the cut: its body, built along the axes and then turned like a
-    /// tool, and the volume of the slot it leaves in each board.
-    pub spline: Option<(Tool, f64)>,
+    /// Loose splines across the cut, one or one per key: each body, built along the axes and then
+    /// turned like a tool, and the volume of the slot it leaves in each board.
+    pub splines: Vec<(Tool, f64)>,
 }
+
+/// The most keys one cut takes.
+pub const MAX_KEYS: u32 = 8;
 
 fn thin(b: &Aabb) -> usize {
     (0..3).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(0)
@@ -86,7 +89,13 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     if !(thickness.is_finite() && thickness >= 0.0) {
         return Err("spline must be zero or a positive thickness".into());
     }
-    let spline = if thickness > 0.0 {
+    if o.keys > 0 && thickness <= 0.0 {
+        return Err("keys need a spline thickness".into());
+    }
+    if o.keys > MAX_KEYS {
+        return Err(format!("at most {MAX_KEYS} keys"));
+    }
+    let splines = if thickness > 0.0 {
         let depth = o.spline_depth.unwrap_or(ta.min(tb) / 3.0);
         // Half way along the cut, the wood on each side is half the diagonal deep at most.
         let most = 0.5 * diagonal * (ta / tb).min(tb / ta) - 2.0;
@@ -110,20 +119,32 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
         let along = if dot(cross(u, d), w) > 0.0 { 1.0 } else { -1.0 } * across[b];
         let (from, to) = (along * (0.5 * diagonal - 0.5 * thickness), along * (0.5 * diagonal + 0.5 * thickness));
         let (l_lo, l_hi) = (first.min[l].max(second.min[l]), first.max[l].min(second.max[l]));
-        let mut corner = outer;
-        let mut size = [0.0; 3];
-        corner[a] = outer[a] - depth;
-        size[a] = 2.0 * depth;
-        corner[b] = outer[b] + from.min(to);
-        size[b] = thickness;
-        corner[l] = l_lo;
-        size[l] = l_hi - l_lo;
-        Some((Tool { block: Block { corner, size }, ..tool }, thickness * depth * (l_hi - l_lo)))
+        // One spline over all the boards share, or `keys` keys, each half its share long.
+        let pieces: Vec<(f64, f64)> = if o.keys == 0 {
+            vec![(l_lo, l_hi)]
+        } else {
+            let share = (l_hi - l_lo) / f64::from(o.keys);
+            (0..o.keys).map(|i| l_lo + share * (f64::from(i) + 0.25)).map(|s| (s, s + 0.5 * share)).collect()
+        };
+        pieces
+            .into_iter()
+            .map(|(s0, s1)| {
+                let mut corner = outer;
+                let mut size = [0.0; 3];
+                corner[a] = outer[a] - depth;
+                size[a] = 2.0 * depth;
+                corner[b] = outer[b] + from.min(to);
+                size[b] = thickness;
+                corner[l] = s0;
+                size[l] = s1 - s0;
+                (Tool { block: Block { corner, size }, ..tool }, thickness * depth * (s1 - s0))
+            })
+            .collect()
     } else {
-        None
+        Vec::new()
     };
     Ok(Plan {
-        spline,
+        splines,
         extend_first: extend(&first, a, b),
         extend_second: extend(&second, b, a),
         tool_first: tool(&first),
@@ -141,6 +162,9 @@ pub struct Options {
     pub spline: Option<f64>,
     /// How far the spline goes into each board. Default: a third of the thinner board.
     pub spline_depth: Option<f64>,
+    /// Loose tenons (keys) in place of one spline the whole length of the cut: 0, one spline.
+    /// Each key is half the length its share of the cut gives it, in the middle of that share.
+    pub keys: u32,
 }
 
 #[cfg(test)]
@@ -206,7 +230,7 @@ mod tests {
     fn a_spline_lies_square_to_the_cut_half_way_along_it() {
         let (x, y) = corner();
         let p = plan(x, y, &Options { spline: Some(4.0), ..Options::default() }).unwrap();
-        let (body, slot) = p.spline.unwrap();
+        let (body, slot) = p.splines[0].clone();
         // 6 mm into each board, 4 thick, over the 100 mm the boards share.
         assert_eq!(slot, 4.0 * 6.0 * 100.0);
         assert_eq!((body.block.size[1], body.block.size[2]), (12.0, 100.0));
@@ -216,7 +240,19 @@ mod tests {
         // The middle of the cut is 12.73 mm from the outer corner.
         let middle = body.block.corner[0].abs() + 2.0;
         assert!((middle - 0.5 * (2.0_f64 * 18.0 * 18.0).sqrt()).abs() < 1e-9);
-        assert!(plan(x, y, &Options { spline: Some(4.0), spline_depth: Some(12.0) }).unwrap_err().contains("at most"));
+        assert!(plan(x, y, &Options { spline: Some(4.0), spline_depth: Some(12.0), keys: 0 }).unwrap_err().contains("at most"));
+    }
+
+    #[test]
+    fn keys_take_the_place_of_one_spline() {
+        let (x, y) = corner();
+        // Two keys over the 100 mm the boards share: 25 mm long each, at 12.5 and 62.5.
+        let p = plan(x, y, &Options { spline: Some(4.0), keys: 2, ..Options::default() }).unwrap();
+        assert_eq!(p.splines.len(), 2);
+        assert_eq!((p.splines[0].0.block.corner[2], p.splines[0].0.block.size[2]), (12.5, 25.0));
+        assert_eq!((p.splines[1].0.block.corner[2], p.splines[1].0.block.size[2]), (62.5, 25.0));
+        assert_eq!(p.splines[1].1, 4.0 * 6.0 * 25.0);
+        assert!(plan(x, y, &Options { keys: 2, ..Options::default() }).unwrap_err().contains("need a spline"));
     }
 
     #[test]

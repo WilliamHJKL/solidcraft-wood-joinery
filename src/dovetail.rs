@@ -71,7 +71,7 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
         return Err(format!("a lap of {lap:.3} mm leaves no room for the tails in the {:.3} mm board", second.size(n)));
     }
 
-    let slope = o.slope.unwrap_or(8.0);
+    let slope = o.slope.unwrap_or(6.0);
     if !(slope.is_finite() && slope >= 1.0) {
         return Err("slope must be 1 or more: 8 means a slope of 1:8".into());
     }
@@ -148,16 +148,16 @@ mod tests {
     fn defaults_for_a_drawer_side() {
         let (side, front) = corner();
         let p = plan(side, front, &Options::default()).unwrap();
-        // Two tails, pins 9 mm at their narrow end, slope 1:8 over 18 mm: 2.25 mm each side.
-        assert_eq!((p.tails.len(), p.slope, p.pin, p.tail_wide, p.tail_narrow, p.tail_length), (2, 8.0, 9.0, 41.0, 36.5, 18.0));
-        assert_eq!(p.tail_volume, 0.5 * (41.0 + 36.5) * 18.0 * 18.0);
+        // Two tails, pins 9 mm at their narrow end, slope 1:6 over 18 mm: 3 mm each side.
+        assert_eq!((p.tails.len(), p.slope, p.pin, p.tail_wide, p.tail_narrow, p.tail_length), (2, 6.0, 9.0, 41.0, 35.0, 18.0));
+        assert_eq!(p.tail_volume, 0.5 * (41.0 + 35.0) * 18.0 * 18.0);
         // The first blank: 41 wide around Z = 25, through the front, lapping 0.1 mm into the side.
         assert_eq!(p.tails[0].blank, Block { corner: [0.0, 0.0, 4.5], size: [18.1, 18.0, 41.0] });
-        // Its sides turn about lines along Y at the base of the tail, 36.5 mm apart.
-        assert_eq!((p.tails[0].sides[0].origin, p.tails[0].sides[1].origin), ([18.0, 0.0, 6.75], [18.0, 0.0, 43.25]));
+        // Its sides turn about lines along Y at the base of the tail, 35 mm apart.
+        assert_eq!((p.tails[0].sides[0].origin, p.tails[0].sides[1].origin), ([18.0, 0.0, 7.5], [18.0, 0.0, 42.5]));
         assert_eq!(p.tails[0].sides[0].axis, [0.0, 1.0, 0.0]);
         // The two sides lean the same amount, opposite ways.
-        let lean = (1.0_f64 / 8.0).atan().to_degrees();
+        let lean = (1.0_f64 / 6.0).atan().to_degrees();
         assert!((p.tails[0].sides[0].angle.abs() - lean).abs() < 1e-9 || (p.tails[0].sides[0].angle.abs() - (180.0 - lean)).abs() < 1e-9);
     }
 
@@ -186,8 +186,9 @@ mod tests {
     fn a_lap_makes_half_blind_dovetails() {
         let (side, front) = corner();
         let p = plan(side, front, &Options { lap: Some(5.0), ..Options::default() }).unwrap();
-        // The tails stop 5 mm short of the face of the front: 13 mm long, leaning 1.625 mm.
-        assert_eq!((p.tail_length, p.tail_wide, p.tail_narrow), (13.0, 41.0, 37.75));
+        // The tails stop 5 mm short of the face of the front: 13 mm long, leaning 13 / 6 mm.
+        assert_eq!((p.tail_length, p.tail_wide), (13.0, 41.0));
+        assert!((p.tail_narrow - (41.0 - 2.0 * 13.0 / 6.0)).abs() < 1e-9, "{}", p.tail_narrow);
         let blank = p.tails[0].blank;
         assert_eq!((blank.corner, blank.size[1], blank.size[2]), ([5.0, 0.0, 4.5], 18.0, 41.0));
         assert!((blank.size[0] - 13.1).abs() < 1e-9);

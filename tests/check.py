@@ -172,7 +172,7 @@ def main():
         # 2. The four variants. Tenon 6 thick; classic: 33 wide, 25 long, mortise 27 deep.
         c.expect("classic", "classic", mid, both, 6 * 33 * 25, 6 * 33 * 27)
         # Rail 20 mm under the top of the stile: haunch 9 wide and 6 deep, main tenon 30 wide.
-        c.expect("haunched", "haunched", boards([35, 0, 765]), {**both, "variant": "haunched"}, 6 * (30 * 25 + 9 * 6), 6 * (30 * 27 + 9 * 6))
+        c.expect("haunched", "haunched", boards([35, 0, 765]), {**both, "variant": "haunched"}, 6 * (27.75 * 25 + 11.25 * 6), 6 * (27.75 * 27 + 11.25 * 6))
         c.expect("through", "through", mid, {**both, "variant": "through"}, 6 * 33 * 35, 6 * 33 * 35)
         # Rail flush with the top of the stile: tongue 45 wide, right through.
         c.expect("bridle", "bridle", boards([35, 0, 785]), {**both, "variant": "bridle"}, 6 * 45 * 35, 6 * 45 * 35)
@@ -182,14 +182,22 @@ def main():
 
         # The reply lists the sizes that were used, the defaults included.
         made = c.cli("sizes", [*mid, c.joint({**both, "variant": "haunched"})])[-1]["result"]
-        want = {"tenon_thickness_mm": 6, "tenon_length_mm": 25, "tenon_width_mm": 30, "shoulder_mm": 6, "glue_relief_mm": 2, "mortise_depth_mm": 27, "haunch_width_mm": 9, "haunch_depth_mm": 6}
+        want = {"tenon_thickness_mm": 6, "tenon_length_mm": 25, "tenon_width_mm": 27.75, "shoulder_mm": 6, "glue_relief_mm": 2, "mortise_depth_mm": 27, "haunch_width_mm": 11.25, "haunch_depth_mm": 6}
         c.report(all(abs(made.get(k, -1) - v) < 1e-9 for k, v in want.items()), f"the reply lists the sizes used: {({k: made.get(k) for k in want})}")
+        # The rail is flush with a face of the 35 mm stile: a 6 mm cheek, under the usual 8, is
+        # warned of in the reply, and the joint is still made.
+        c.report(any("6.0 mm cheek" in w for w in made.get("warnings", [])), f"a thin cheek is warned of: {made.get('warnings')}")
+        # A draw-bored peg: the hole in the tenon is 1.5 mm nearer the shoulder, so the peg runs
+        # into the tenon; with a plain peg it does not.
+        overlap = lambda name, extra: sum(i["volume_mm3"] for i in c.cli(name, [*mid, c.joint({**both, "pegs": 1, **extra}), {"command": "inspect.interference", "params": {}}])[-1].get("interferences", []))
+        plain, drawn = overlap("peg_plain", {}), overlap("peg_drawbore", {"drawbore": 1.5})
+        c.report(plain < 0.5 and drawn > 1, f"a draw-bored peg bears on the tenon ({drawn:.1f} mm3), a plain one does not ({plain:.1f})")
         # The form sends its shown defaults (glue relief 2, clearance 0, offset 0): same joint.
         c.expect("form_defaults", "the defaults the form shows", mid, {**both, "variant": "classic", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("form_through", "a through tenon with the form defaults", mid, {**both, "variant": "through", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 35, 6 * 33 * 35)
 
         # A translated package sends the value it shows, with the script value in brackets.
-        c.expect("fr_value", "a translated choice, à renfort (haunched)", boards([35, 0, 765]), {**both, "variant": "à renfort (haunched)"}, 6 * (30 * 25 + 9 * 6), 6 * (30 * 27 + 9 * 6))
+        c.expect("fr_value", "a translated choice, à renfort (haunched)", boards([35, 0, 765]), {**both, "variant": "à renfort (haunched)"}, 6 * (27.75 * 25 + 11.25 * 6), 6 * (27.75 * 27 + 11.25 * 6))
         c.groove("fr_face", "a translated face and direction", {"body": "Stile", "face": "droite (+x)", "along": "y"}, 6 * 8 * 35)
         french = json.loads((ROOT / "dist" / "fr" / "wood-joinery" / "plugin.json").read_text())["runtime"]["entries"][0]["input_schema"]["properties"]["variant"]
         c.report(french["enum"][1] == "à renfort (haunched)" and french["default"] == "classique (classic)", f"the fr package lists translated choices: {french['enum']}")
@@ -210,7 +218,7 @@ def main():
         # 4. One undo removes the whole joint, one redo brings it back.
         steps = c.cli("undo", [*mid, c.joint({**both, "variant": "haunched"}), MEASURE, {"command": "edit.undo", "params": {}}, MEASURE, {"command": "edit.redo", "params": {}}, MEASURE])
         totals = [round(steps[i]["total"]["volume_mm3"]) for i in (3, 5, 7)]
-        joined = STILE + RAIL + 6 * (30 * 25 + 9 * 6) - 6 * (30 * 27 + 9 * 6)
+        joined = STILE + RAIL + 6 * (27.75 * 25 + 11.25 * 6) - 6 * (27.75 * 27 + 11.25 * 6)
         c.report(totals == [joined, STILE + RAIL, joined], f"one undo and one redo: total volumes {totals}")
 
         # 5. Refusals leave a message that says what to change.
@@ -273,6 +281,8 @@ def main():
         c.change("dowel_long", "long dowel, mostly in the rail", mid, "dowels", long, {"Rail": -math.pi * 16 * 50, "Stile": -math.pi * 16 * 32})
         c.refuse_entry("dowel_apart", "boards that do not touch", boards([45, 0, 400]), "dowels", rs, "do not touch")
         c.refuse_entry("dowel_fat", "dowel as thick as the rail", mid, "dowels", {**rs, "diameter": 17}, "no wood beside")
+        thin = [box("A", [0, 0, 0], (300, 10, 200), first=True), box("B", [0, 10, 0], (300, 10, 200))]
+        c.refuse_entry("dowel_thin", "dowels in 10 mm boards", thin, "dowels", two, "too thin for dowels")
         # More than one call can make before SolidCraft's 30 s limit: refused before any cut.
         c.refuse_entry("dowels_too_many", "31 dowels, one over the limit", mid, "dowels", {**rs, "count": 31}, "30 or fewer")
 
@@ -390,6 +400,13 @@ def main():
         # Tongue and groove: two 600 x 100 x 18 boards edge to edge. Tongue 6 x 9, groove 1 mm deeper.
         planks = [box("A", [0, 0, 0], (600, 100, 18), first=True), box("B", [0, 100, 0], (600, 100, 18))]
         c.change("tongue", "tongue and groove", planks, "tongue-groove", two, {"A": 6 * 9 * 600, "B": -6 * 10 * 600})
+        # A bastard tongue: an 18 mm board level with a 27 mm one on their low face. The tongue is
+        # half the thin board (9), against its high face; the groove 9 x 10 in the thick one.
+        uneven = [box("A", [0, 0, 0], (600, 100, 18), first=True), box("B", [0, 100, 0], (600, 100, 27))]
+        got = c.change("tongue_bastard", "bastard tongue, boards of 18 and 27", uneven, "tongue-groove", two, {"A": 9 * 9 * 600, "B": -9 * 10 * 600})
+        c.report(got[-2]["result"]["bastard"] is True, "the reply says the tongue is a bastard one")
+        # A loose spline: a 6 x 10 groove in each board, and an 18 x 6 strip, 2 mm short of them.
+        got = c.change("tongue_spline", "loose spline", planks, "tongue-groove", {**two, "spline": True}, {"A": -6 * 10 * 600, "B": -6 * 10 * 600, "Spline 1": 6 * 18 * 600})
         c.change("tongue_sizes", "tongue sizes set by hand", planks, "tongue-groove", {**two, "thickness": 8, "depth": 12, "glue_relief": 0}, {"A": 8 * 12 * 600, "B": -8 * 12 * 600})
         c.refuse_entry("tongue_apart", "boards that do not touch", [planks[0], box("B", [0, 120, 0], (600, 100, 18))], "tongue-groove", two, "do not touch")
 
@@ -412,8 +429,8 @@ def main():
         c.change("scarf_gap", "scarf of boards 20 mm apart", [ends[0], box("B", [420, 0, 0], (400, 45, 18))], "scarf", two, {"A": -slope, "B": -slope})
         c.refuse_entry("scarf_apart", "boards that are not in line", [ends[0], box("B", [420, 60, 0], (400, 45, 18))], "scarf", two, "do not overlap")
 
-        # Dovetails at a drawer corner: two tails, 41 mm wide at the end and 36.5 at the base.
-        tail = (41 + 36.5) / 2 * 18 * 18
+        # Dovetails at a drawer corner: two tails at 1:6, 41 mm wide at the end and 35 at the base.
+        tail = (41 + 35) / 2 * 18 * 18
         got = c.change("dovetail", "two dovetails", drawer, "dovetail", sf, {"Side": 2 * tail, "Front": -2 * tail})
         c.report(len(got[-1]["bodies"]) == 2, f"no tool or blank body is left: {[b['name'] for b in got[-1]['bodies']]}")
         one = (91 + 91 - 2 * 18 / 6) / 2 * 18 * 18
@@ -424,7 +441,7 @@ def main():
         c.report(back == {"Side": 540000, "Front": 540000}, f"one undo removes the dovetails: {back}")
 
         # Half-blind dovetails: a 5 mm lap leaves the face of the front whole. Tails 13 mm long.
-        blind = (41 + 41 - 2 * 13 / 8) / 2 * 13 * 18
+        blind = (41 + 41 - 2 * 13 / 6) / 2 * 13 * 18
         got = c.change("dovetail_blind", "half-blind dovetails", drawer, "dovetail", {**sf, "lap": 5}, {"Side": 2 * blind, "Front": -2 * blind})
         side = next(b for b in got[-1]["bodies"] if b["name"] == "Side")["bbox"]
         c.report(abs(side["min"][0] - 5) < 1e-3, f"the tails stop 5 mm short of the face: the side starts at X = {side['min'][0]:.3f}")
@@ -469,6 +486,9 @@ def main():
         # A miter with a loose spline: 4 thick, 6 mm into each board, over the 100 mm of the boards.
         slot = 4 * 6 * 100
         c.change("miter_spline", "miter with a loose spline", frame, "miter", {**two, "spline": 4}, {"A": -half - slot, "B": -half - slot, "Miter spline 1": 2 * slot})
+        # Two keys (loose tenons) in place of the spline: 25 mm each, at a quarter of each half.
+        key = 4 * 6 * 25
+        c.change("miter_keys", "miter with two keys", frame, "miter", {**two, "spline": 4, "keys": 2}, {"A": -half - 2 * key, "B": -half - 2 * key, "Miter key 1": 2 * key, "Miter key 2": 2 * key})
         c.refuse_entry("miter_spline_deep", "a spline too deep", frame, "miter", {**two, "spline": 4, "spline_depth": 12}, "at most")
 
         # Biscuits: four size 20 biscuits along a 600 mm joint. Each slot is the segment a 100 mm

@@ -73,6 +73,9 @@ pub struct Options {
     pub pegs: u32,
     /// Default: 6 mm, 8 mm when the tenon is 30 mm long or more.
     pub peg_diameter: Option<f64>,
+    /// Draw-boring: the peg hole in the tenon sits this much nearer the shoulder than the hole in
+    /// the stile, so the peg pulls the shoulder tight as it goes in. 0: a plain peg.
+    pub drawbore: f64,
     /// Wedges driven into the end of a through tenon: 0, 1 or 2 per tenon.
     pub wedges: u32,
     /// Thickness of a wedge at the end of the tenon. Default: 4 mm.
@@ -115,6 +118,8 @@ pub struct Peg {
     pub axis: usize,
     pub diameter: f64,
     pub height: f64,
+    /// Where the hole in the tenon is, when it is draw-bored: `base` moved towards the shoulder.
+    pub tenon_base: Option<[f64; 3]>,
 }
 
 /// An axis-aligned block to add to the rail or remove from the stile.
@@ -141,6 +146,9 @@ pub struct Plan {
     pub pegs: Vec<Peg>,
     /// Each wedge fills a slot of its own shape in the end of the tenon.
     pub wedges: Vec<Wedge>,
+    /// What is made, but against common practice: a thin mortise cheek, a mortise across the
+    /// grain of the stile.
+    pub warnings: Vec<String>,
     /// Volume of one wedge, in mm3.
     pub wedge_volume: f64,
 }
@@ -231,9 +239,10 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     let length = match o.length {
         Some(l) => l,
         None if o.variant.blind() => {
-            // Two thirds of the stile, to the nearest 5 mm, leaving wood behind the mortise.
+            // Three quarters of the stile, to the nearest 5 mm, the mortise 2 mm deeper (glue
+            // relief), leaving wood behind it.
             let most = (stile_depth - relief - 2.0).max(stile_depth * 0.5);
-            ((stile_depth * 2.0 / 3.0 / 5.0).round() * 5.0).clamp(5.0_f64.min(most), most)
+            ((stile_depth * 0.75 / 5.0).round() * 5.0).clamp(5.0_f64.min(most), most)
         }
         None => stile_depth,
     };
@@ -294,7 +303,7 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     type Made = (Vec<Block>, Vec<Block>, f64, Option<(f64, f64)>, (f64, f64));
     let make = |e_lo: f64, e_hi: f64| -> Result<Made, String> {
         Ok(if o.variant == Variant::Haunched {
-        let hw = positive("haunch_width", o.haunch_width.unwrap_or((w_rail * 0.2).max(t)))?;
+        let hw = positive("haunch_width", o.haunch_width.unwrap_or((w_rail * 0.25).max(t)))?;
         let hd = positive("haunch_depth", o.haunch_depth.unwrap_or(t.min(length * 0.4)))?;
         if hd >= length - FIT {
             return Err(format!("haunch_depth ({hd:.3} mm) must be less than the tenon length ({length:.3} mm)"));
@@ -413,10 +422,14 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         wedge_volume = 0.5 * thick * deep * t;
     }
 
-    // Pegs: through the stile and the tenon, half way along the tenon.
+    // Pegs: through the stile and the tenon. One sits half way along the tenon; two sit on a
+    // diagonal, at a third and two thirds of it, so they do not split the stile along one line.
     let mut pegs = Vec::new();
     if o.pegs > 2 {
         return Err("pegs must be 0, 1 or 2".into());
+    }
+    if !(o.drawbore.is_finite() && o.drawbore >= 0.0) || (o.drawbore > FIT && o.pegs == 0) {
+        return Err("drawbore must be 0 or more, and needs pegs".into());
     }
     if o.pegs > 0 {
         let diameter = positive("peg_diameter", o.peg_diameter.unwrap_or(if length >= 30.0 - FIT { 8.0 } else { 6.0 }))?;
@@ -426,11 +439,28 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         }
         for i in 0..o.pegs {
             let mut base = [0.0; 3];
-            base[a] = contact + dir * 0.5 * reach;
+            let along = if o.pegs == 1 { 0.5 } else { (f64::from(i) + 1.0) / 3.0 };
+            base[a] = contact + dir * along * reach;
             base[w] = across.0 + (across.1 - across.0) * (f64::from(i) + 0.5) / f64::from(o.pegs);
             base[e] = stile.min[e];
-            pegs.push(Peg { base, axis: e, diameter, height: stile.size(e) });
+            let tenon_base = (o.drawbore > FIT).then(|| {
+                let mut b = base;
+                b[a] -= dir * o.drawbore;
+                b
+            });
+            pegs.push(Peg { base, axis: e, diameter, height: stile.size(e), tenon_base });
         }
+    }
+
+    // Common practice, checked but not enforced: a mortise cheek of 8 mm at least, and a mortise
+    // that runs along the grain of the stile (its length), whatever the rail.
+    let mut warnings = Vec::new();
+    let cheek = (e_lo - clr - stile.min[e]).min(stile.max[e] - e_hi - clr);
+    if cheek < 8.0 - FIT {
+        warnings.push(format!("the mortise leaves a {cheek:.1} mm cheek in the stile, under the usual 8 mm; offset the tenon or use a thinner one"));
+    }
+    if crate::boards::long_axis(&stile) == Some(e) {
+        warnings.push("the mortise runs across the grain of the stile and may split it; a rail lying flat would rather have its tenon on edge, or dowels".into());
     }
 
     Ok(Plan {
@@ -446,6 +476,7 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         pegs,
         wedges,
         wedge_volume,
+        warnings,
     })
 }
 
@@ -505,13 +536,40 @@ mod tests {
     }
 
     #[test]
+    fn a_drawbored_peg_hole_sits_nearer_the_shoulder_in_the_tenon() {
+        let (rail, stile) = cabinet(400.0);
+        let p = plan(rail, stile, &Options { pegs: 1, drawbore: 1.5, ..Options::default() }).unwrap();
+        // The shoulder is at X = 35; the tenon runs towards X = 0. Its hole is 1.5 mm nearer X = 35.
+        assert_eq!(p.pegs[0].tenon_base, Some([24.0, 0.0, 422.5]));
+        assert!(plan(rail, stile, &Options { drawbore: 1.5, ..Options::default() }).unwrap_err().contains("needs pegs"));
+    }
+
+    #[test]
+    fn thin_cheeks_and_mortises_across_the_grain_are_warned_of() {
+        // The rail is flush with a face of the 35 mm stile: the cheek on that side is (18 - 6) / 2 = 6 mm.
+        let (rail, stile) = cabinet(400.0);
+        let p = plan(rail, stile, &Options::default()).unwrap();
+        assert_eq!(p.warnings.len(), 1, "{:?}", p.warnings);
+        assert!(p.warnings[0].contains("6.0 mm cheek"));
+        // A rail lying flat: its tenon lies across the stile, so the mortise crosses the grain.
+        let flat = bx([35.0, 0.0, 400.0], [360.0, 35.0, 18.0]);
+        let p = plan(flat, stile, &Options::default()).unwrap();
+        assert!(p.warnings.iter().any(|w| w.contains("across the grain")), "{:?}", p.warnings);
+        // Centred in a 45 mm stile, an 18 mm rail leaves 19.5 mm cheeks, on edge: no warning.
+        let wide = bx([0.0, -5.0, 0.0], [35.0, 45.0, 830.0]);
+        assert!(plan(rail, wide, &Options::default()).unwrap().warnings.is_empty());
+    }
+
+    #[test]
     fn pegs_go_through_the_stile_half_way_along_the_tenon() {
         let (rail, stile) = cabinet(400.0);
         let p = plan(rail, stile, &Options { pegs: 1, ..Options::default() }).unwrap();
         // 6 mm, across the 35 mm stile along Y, 12.5 mm from the shoulder, in the middle of the tenon.
-        assert_eq!(p.pegs, vec![Peg { base: [22.5, 0.0, 422.5], axis: 1, diameter: 6.0, height: 35.0 }]);
+        assert_eq!(p.pegs, vec![Peg { base: [22.5, 0.0, 422.5], axis: 1, diameter: 6.0, height: 35.0, tenon_base: None }]);
+        // Two pegs on a diagonal: a third and two thirds along the 25 mm tenon, low and high.
         let two = plan(rail, stile, &Options { pegs: 2, ..Options::default() }).unwrap();
         assert_eq!((two.pegs[0].base[2], two.pegs[1].base[2]), (414.25, 430.75));
+        assert!((two.pegs[0].base[0] - (35.0 - 25.0 / 3.0)).abs() < 1e-9 && (two.pegs[1].base[0] - (35.0 - 50.0 / 3.0)).abs() < 1e-9);
         assert!(plan(rail, stile, &Options { pegs: 3, ..Options::default() }).unwrap_err().contains("0, 1 or 2"));
         assert!(plan(rail, stile, &Options { pegs: 1, peg_diameter: Some(20.0), ..Options::default() }).unwrap_err().contains("too little wood"));
     }
@@ -565,8 +623,8 @@ mod tests {
         let (rail, stile) = cabinet(20.0);
         let p = plan(rail, stile, &o).unwrap();
         assert!((p.tenon[1].corner[2] - 20.0).abs() < 1e-9, "{:?}", p.tenon[1]);
-        // Default haunch: 9 mm wide (a fifth of 45), 6 mm deep; main tenon 45 - 6 - 9 = 30 wide.
-        assert_eq!(p.width, 30.0);
+        // Default haunch: 11.25 mm wide (a quarter of 45), 6 mm deep; main tenon 45 - 6 - 11.25 = 27.75 wide.
+        assert_eq!(p.width, 27.75);
     }
 
     #[test]
