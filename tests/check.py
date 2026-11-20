@@ -242,6 +242,14 @@ def main():
         corner = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [0, 0, 0], (45, 300, 18))]
         c.change("lap_corner", "corner lap", corner, "half-lap", two, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
         c.refuse_entry("lap_apart", "boards that do not overlap", [cross[0], box("B", [100, 45, 0], (45, 300, 18))], "half-lap", two, "do not overlap")
+        # Boards end to end that only touch: the lap needs them to overlap.
+        ends = [box("A", [0, 0, 0], (300, 45, 18), first=True), box("B", [300, 0, 0], (300, 45, 18))]
+        c.refuse_entry("lap_butt", "boards end to end that only touch", ends, "half-lap", two, "overlap by the length of the lap")
+        # An egg-crate divider: two 300 x 18 x 100 boards on edge, crossing. Each loses half its
+        # height (50) over the other's thickness (18): never a cut through its thickness.
+        crate = [box("A", [0, 141, 0], (300, 18, 100), first=True), box("B", [141, 0, 0], (18, 300, 100))]
+        got = c.change("lap_on_edge", "egg-crate lap of boards on edge", crate, "half-lap", two, {"A": -18 * 18 * 50, "B": -18 * 18 * 50})
+        c.report(len(got[-1]["bodies"]) == 2, f"no board is cut in two: {[b['name'] for b in got[-1]['bodies']]}")
 
         # Dowels in the rail end: two of 8 x 40, 20 mm in each board, holes 1 mm deeper.
         rs = {"first": "Rail", "second": "Stile"}
@@ -308,7 +316,7 @@ def main():
         # A half lap whose first board lies 30 mm above the second one.
         above = [box("A", [0, 0, 30], (300, 45, 18), first=True), cross[1]]
         c.change("align_lap", "half lap that aligns the boards first", above, "half-lap", {**two, "align": True}, {"A": -45 * 45 * 9, "B": -45 * 45 * 9})
-        c.refuse_entry("align_lap_off", "the same boards without align", above, "half-lap", two, "do not overlap")
+        c.refuse_entry("align_lap_off", "the same boards without align", above, "half-lap", two, "Align the boards first")
         c.refuse_entry("align_lap_beside", "align on boards that do not cross", [box("A", [0, 300, 30], (300, 45, 18), first=True), cross[1]], "half-lap", {**two, "align": True}, "do not cross")
 
         # Two cabinet panels, taller than they are long. The side is drawn along X, turned 90 degrees

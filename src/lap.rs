@@ -22,12 +22,32 @@ pub struct Plan {
     pub depth_second: f64,
 }
 
-/// How far to move `first` across its thickness so that it lies in the plane of `second`: on the
+/// The axis along which a board is longest, or `None` when two of its sides are about equal (a
+/// square panel has no length).
+fn long_axis(b: &Aabb) -> Option<usize> {
+    let mut axes = [0, 1, 2];
+    axes.sort_by(|&x, &y| b.size(y).total_cmp(&b.size(x)));
+    (b.size(axes[0]) > b.size(axes[1]) + FIT).then_some(axes[0])
+}
+
+/// The axis the notches go down. Boards that cross (their lengths along two axes) are notched
+/// along the third: through the thickness when they lie flat, through the height when they stand
+/// on edge, as in an egg-crate divider. Boards along one axis (an end lap, or edge to edge) are
+/// notched through the thickness of the first.
+pub fn lap_axis(first: &Aabb, second: &Aabb) -> usize {
+    let thinnest = |b: &Aabb, but: Option<usize>| (0..3).filter(|a| Some(*a) != but).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(2);
+    match (long_axis(first), long_axis(second)) {
+        (Some(x), Some(y)) if x != y => 3 - x - y,
+        (la, _) => thinnest(first, la),
+    }
+}
+
+/// How far to move `first` along the lap axis so that it lies level with `second` there: on the
 /// nearer of the two faces when the boards are not equally thick.
 pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     measurable(first)?;
     measurable(second)?;
-    let n = (0..3).min_by(|&a, &b| first.size(a).total_cmp(&first.size(b))).unwrap_or(2);
+    let n = lap_axis(first, second);
     for a in (0..3).filter(|a| *a != n) {
         if first.min[a].max(second.min[a]) >= first.max[a].min(second.max[a]) - FIT {
             return Err("the two boards do not cross; move one over the other, where the joint goes".into());
@@ -43,17 +63,24 @@ pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
 pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
     measurable(&second)?;
+    let n = lap_axis(&first, &second);
     let mut lo = [0.0; 3];
     let mut hi = [0.0; 3];
     for a in 0..3 {
         lo[a] = first.min[a].max(second.min[a]);
         hi[a] = first.max[a].min(second.max[a]);
-        if hi[a] - lo[a] <= FIT {
-            return Err("the two boards do not overlap; move one into the other, where the joint goes".into());
-        }
     }
-    // The boards are thinnest across the joint.
-    let n = (0..3).min_by(|&a, &b| (hi[a] - lo[a]).total_cmp(&(hi[b] - lo[b]))).unwrap_or(2);
+    let apart: Vec<usize> = (0..3).filter(|&a| hi[a] - lo[a] <= FIT).collect();
+    match apart.as_slice() {
+        [] => {}
+        [a] if *a == n => {
+            return Err("the two boards lie one on the other: tick \"Align the boards first\", or move one into the other, where the joint goes".into())
+        }
+        [a] if Some(*a) == long_axis(&first) && long_axis(&first) == long_axis(&second) => {
+            return Err("the two boards meet end to end without overlapping: a half lap needs them to overlap by the length of the lap, so move one along the other by that length (often the width of the boards)".into())
+        }
+        _ => return Err("the two boards do not overlap; move one into the other, where the joint goes".into()),
+    }
     let thickness = hi[n] - lo[n];
     let depth = o.depth.unwrap_or(0.5 * thickness);
     if !(depth.is_finite() && depth > FIT && depth < thickness - FIT) {
@@ -127,6 +154,53 @@ mod tests {
         // Beside it: they do not cross, so there is nowhere to put the joint.
         let beside = bx([0.0, 300.0, 30.0], [300.0, 45.0, 18.0]);
         assert!(align(&beside, &b).unwrap_err().contains("do not cross"));
+    }
+
+    #[test]
+    fn boards_on_edge_are_notched_through_their_height() {
+        // An egg-crate divider: two 300 x 18 x 100 boards standing on edge, crossing.
+        let a = bx([0.0, 141.0, 0.0], [300.0, 18.0, 100.0]);
+        let b = bx([141.0, 0.0, 0.0], [18.0, 300.0, 100.0]);
+        let p = plan(a, b, &Options::default()).unwrap();
+        assert_eq!((p.thickness, p.depth_first, p.depth_second), (100.0, 50.0, 50.0));
+        // The first board: a slot from the top, the full 18 mm of the second's thickness wide.
+        assert_eq!(p.cut_first, Block { corner: [141.0, 140.5, 50.0], size: [18.0, 19.0, 50.5] });
+        assert_eq!(p.cut_second, Block { corner: [140.5, 141.0, -0.5], size: [19.0, 18.0, 50.5] });
+    }
+
+    #[test]
+    fn an_upright_crosses_a_rail_through_their_thickness() {
+        // A post along Z and a rail along X, both 45 x 18 across Y: the third axis is Y.
+        let post = bx([100.0, 0.0, 0.0], [45.0, 18.0, 500.0]);
+        let rail = bx([0.0, 0.0, 200.0], [300.0, 18.0, 45.0]);
+        assert_eq!(lap_axis(&post, &rail), 1);
+        let p = plan(post, rail, &Options::default()).unwrap();
+        assert_eq!(p.thickness, 18.0);
+    }
+
+    #[test]
+    fn boards_along_one_axis_are_notched_through_the_thickness() {
+        // An end lap: two flat boards overlapping by 45 at their ends.
+        let a = bx([0.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
+        let b = bx([255.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
+        assert_eq!(lap_axis(&a, &b), 2);
+        // Edge to edge, overlapping by 10 across their width: a shiplap, still through the thickness.
+        let c = bx([0.0, 35.0, 0.0], [300.0, 45.0, 18.0]);
+        let p = plan(a, c, &Options::default()).unwrap();
+        assert_eq!(p.thickness, 18.0);
+    }
+
+    #[test]
+    fn boards_that_only_touch_are_told_what_to_do() {
+        let a = bx([0.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
+        let on_top = bx([100.0, -100.0, 18.0], [45.0, 300.0, 18.0]);
+        assert!(plan(a, on_top, &Options::default()).unwrap_err().contains("Align the boards first"));
+        let end_to_end = bx([300.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
+        assert!(plan(a, end_to_end, &Options::default()).unwrap_err().contains("overlap by the length of the lap"));
+        // Stacked boards on edge are aligned along their height.
+        let low = bx([0.0, 141.0, 0.0], [300.0, 18.0, 100.0]);
+        let high = bx([141.0, 0.0, 100.0], [18.0, 300.0, 100.0]);
+        assert_eq!(align(&low, &high).unwrap(), [0.0, 0.0, 100.0]);
     }
 
     #[test]

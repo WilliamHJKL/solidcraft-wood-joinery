@@ -170,7 +170,11 @@ Sur une face plus large que longue, la même commande réalise une entaille en t
 
 Sélectionnez, ou saisissez les noms de deux pièces qui se croisent. Chacune perd la moitié de son épaisseur à
 l'endroit du croisement : elles se retrouvent dans le même plan. La même commande réalise un
-mi-bois en croix, en T ou d'angle.
+mi-bois en croix, en T ou d'angle. Des pièces posées sur chant qui se croisent, comme les
+croisillons d'un casier, perdent chacune la moitié de leur hauteur. Deux pièces dans le
+prolongement l'une de l'autre donnent un mi-bois en bout : faites chevaucher leurs extrémités
+de la longueur du mi-bois (souvent la largeur des pièces) ; elles sont entaillées dans leur
+épaisseur.
 
 Les deux corps doivent se chevaucher dans le modèle avant de lancer la commande : dessinez
 chaque pièce à sa taille complète, l'une à travers l'autre. **Aligner d'abord les pièces**

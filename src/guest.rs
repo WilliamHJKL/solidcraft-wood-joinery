@@ -29,6 +29,7 @@ export!(Plugin);
 
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
+        BEFORE.with(|b| *b.borrow_mut() = None);
         match entry.as_str() {
             "mortise-tenon" => mortise_tenon(&params),
             "groove" => groove(&params),
@@ -184,6 +185,7 @@ enum Want {
 /// the frame of the active component, so a joint planned from world sizes can land beside the
 /// boards. The error undoes the whole entry.
 fn landed(checks: &[(&str, Want)]) -> Result<(), PluginError> {
+    whole(checks.iter().map(|(name, _)| *name))?;
     let names: Vec<&str> = checks.iter().map(|(name, _)| *name).collect();
     let measured = run("inspect.measure", json!({ "bodies": names }))?;
     for (name, want) in checks {
@@ -209,6 +211,40 @@ fn landed(checks: &[(&str, Want)]) -> Result<(), PluginError> {
     Ok(())
 }
 
+thread_local! {
+    /// The bodies of the design when the entry began, to tell a board that a cut split in two.
+    static BEFORE: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn body_names() -> Result<Vec<String>, PluginError> {
+    let listed = run("inspect.measure", json!({ "names_only": true }))?;
+    Ok(listed
+        .get("bodies")
+        .and_then(Value::as_array)
+        .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str).map(str::to_owned)).collect())
+        .unwrap_or_default())
+}
+
+/// Checks that no board was cut in two: SolidCraft names the pieces of a split body `Name (1)`,
+/// `Name (2)`… A joint that would leave a board in pieces is refused, and nothing is changed.
+fn whole<'a>(boards: impl Iterator<Item = &'a str>) -> Result<(), PluginError> {
+    let Some(before) = BEFORE.with(|b| b.borrow().clone()) else { return Ok(()) };
+    let now = body_names()?;
+    for board in boards {
+        let piece = format!("{board} (");
+        if now.iter().any(|n| n.starts_with(&piece) && !before.contains(n)) {
+            return Err(invalid(
+                "body",
+                format!(
+                    "the joint would cut `{board}` in two pieces, so nothing was changed. The boards are \
+                     not placed as this joint needs: check which board is first and how they meet"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// The box around `body` and the blocks added to it.
 fn grown(body: &Aabb, blocks: &[Block]) -> Aabb {
     let mut all = *body;
@@ -224,12 +260,11 @@ fn grown(body: &Aabb, blocks: &[Block]) -> Aabb {
 /// Checks that each name is a body of the design, and names the bodies when one is not: the
 /// name may be mistyped, or a cut may have split the board in two bodies with new names.
 fn known(names: &[(&str, &str)]) -> Result<(), PluginError> {
-    let listed = run("inspect.measure", json!({ "names_only": true }))?;
-    let bodies: Vec<&str> = listed
-        .get("bodies")
-        .and_then(Value::as_array)
-        .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str)).collect())
-        .unwrap_or_default();
+    let listed = body_names()?;
+    BEFORE.with(|b| {
+        b.borrow_mut().get_or_insert_with(|| listed.clone());
+    });
+    let bodies: Vec<&str> = listed.iter().map(String::as_str).collect();
     for (field, name) in names {
         if !bodies.contains(name) {
             let mut shown = bodies.iter().take(12).map(|b| format!("`{b}`")).collect::<Vec<_>>().join(", ");

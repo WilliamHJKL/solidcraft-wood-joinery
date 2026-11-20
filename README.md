@@ -159,6 +159,9 @@ On a face that is wider than it is long, the same command makes a dado.
 
 Select, or type the names of two boards that cross. Each loses half its thickness where they overlap, so
 they end up in one plane. The same command makes a cross lap, a T lap and a corner lap.
+Boards standing on edge that cross, as in an egg-crate divider, each lose half their height
+instead. Two boards along the same line make an end lap: overlap their ends by the length of
+the lap (often the width of the boards); they are notched through their thickness.
 
 The two bodies must overlap in the model before you run the command: draw each board at its
 full size, one through the other. **Align the boards first** brings a board that lies above or
