@@ -3,7 +3,7 @@
 //! Each tail is first made as a body of its own: a block whose two sides are cut at the slope.
 //! That body cuts its socket in the pin board, then joins the tail board.
 
-use crate::boards::{contact, measurable, FIT, too_many};
+use crate::boards::{across, contact, measurable, FIT, too_many};
 use crate::joint::{Aabb, Block};
 use crate::slant::{beyond, Tool};
 
@@ -51,9 +51,16 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
         "the end of the first board does not lie on a face of the second; move it against the second board first",
     )?;
     let n = c.axis;
-    let (p, q) = ((n + 1) % 3, (n + 2) % 3);
-    // The tails are counted along the width of the joint; `m` is the thickness of the tail board.
-    let (l, m) = if c.hi[p] - c.lo[p] >= c.hi[q] - c.lo[q] { (p, q) } else { (q, p) };
+    // The tails are counted across the joint, the width of the boards in a drawer corner; `m` is
+    // the thickness of the tail board. Boards lying flat would have their tails cut across their
+    // thickness: that is no dovetail.
+    let (l, m) = across(&c, &second);
+    let thinnest = (0..3).min_by(|&x, &y| first.size(x).total_cmp(&first.size(y))).unwrap_or(0);
+    if l == thinnest {
+        return Err("dovetails join boards that meet on edge, as in a drawer corner: these lie flat, so their \
+                    tails would cross the thickness. Use a box joint or a half lap instead"
+            .into());
+    }
     let (width, thickness) = (c.hi[l] - c.lo[l], c.hi[m] - c.lo[m]);
     let lap = o.lap.unwrap_or(0.0);
     if !(lap.is_finite() && lap >= 0.0) {
@@ -165,6 +172,14 @@ mod tests {
         assert!(err(Options { pin: Some(1.0), ..Options::default() }).contains("at least 2"));
         assert!(err(Options { count: Some(0), ..Options::default() }).contains("at least 1"));
         assert!(err(Options { lap: Some(16.0), ..Options::default() }).contains("no room"));
+    }
+
+    #[test]
+    fn boards_lying_flat_are_refused() {
+        let side = bx([100.0, 0.0, 0.0], [300.0, 100.0, 18.0]);
+        let front = bx([0.0, 0.0, 0.0], [100.0, 300.0, 18.0]);
+        let err = plan(side, front, &Options::default()).unwrap_err();
+        assert!(err.contains("box joint or a half lap"), "{err}");
     }
 
     #[test]

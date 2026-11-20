@@ -1,6 +1,6 @@
 //! A half lap: two boards that cross, each notched so they sit in one plane.
 
-use crate::boards::{cut_block, measurable, FIT};
+use crate::boards::{cut_block, long_axis, measurable, FIT};
 use crate::joint::{Aabb, Block};
 
 /// What the user may set.
@@ -20,14 +20,6 @@ pub struct Plan {
     pub thickness: f64,
     pub depth_first: f64,
     pub depth_second: f64,
-}
-
-/// The axis along which a board is longest, or `None` when two of its sides are about equal (a
-/// square panel has no length).
-fn long_axis(b: &Aabb) -> Option<usize> {
-    let mut axes = [0, 1, 2];
-    axes.sort_by(|&x, &y| b.size(y).total_cmp(&b.size(x)));
-    (b.size(axes[0]) > b.size(axes[1]) + FIT).then_some(axes[0])
 }
 
 /// The axis the notches go down. Boards that cross (their lengths along two axes) are notched

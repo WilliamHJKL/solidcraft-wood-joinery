@@ -273,6 +273,12 @@ def main():
         drawer = [box("Side", [18, 0, 0], (300, 18, 100), first=True), box("Front", [0, 0, 0], (18, 300, 100))]
         sf = {"first": "Side", "second": "Front"}
         c.change("box", "box joint", drawer, "box-joint", sf, {"Side": 2 * 20 * 18 * 18, "Front": -2 * 20 * 18 * 18})
+        # Two 100 x 18 boards lying flat in an L, the side's end against the front's edge: a comb
+        # of three 6 mm layers through the thickness, the middle one 100 x 100 into the front.
+        flat = [box("Side", [100, 0, 0], (300, 100, 18), first=True), box("Front", [0, 0, 0], (100, 300, 18))]
+        got = c.change("box_flat", "box joint of boards lying flat (a comb)", flat, "box-joint", sf, {"Side": 100 * 100 * 6, "Front": -100 * 100 * 6})
+        c.report(len(got[-1]["bodies"]) == 2, f"the front of the flat comb is in one piece: {[b['name'] for b in got[-1]['bodies']]}")
+        c.refuse_entry("dovetail_flat", "dovetails on boards lying flat", flat, "dovetail", sf, "box joint or a half lap")
         c.change("box_swap", "box joint starting with a finger", drawer, "box-joint", {**sf, "swap": True}, {"Side": 3 * 20 * 18 * 18, "Front": -3 * 20 * 18 * 18})
         c.change("box_four", "box joint in four divisions", drawer, "box-joint", {**sf, "count": 4}, {"Side": 2 * 25 * 18 * 18, "Front": -2 * 25 * 18 * 18})
         c.refuse_entry("box_apart", "boards that do not touch", [drawer[0], box("Front", [-20, 0, 0], (18, 300, 100))], "box-joint", sf, "does not lie on a face")

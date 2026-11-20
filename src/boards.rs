@@ -15,6 +15,25 @@ pub fn too_many(count: u32, max: u32, what: &str) -> String {
     format!("{count} {what} are more than the {max} one call can make before SolidCraft stops it; give {max} or fewer")
 }
 
+/// The axis along which a board is longest, or `None` when two of its sides are about equal (a
+/// square panel has no length).
+pub fn long_axis(b: &Aabb) -> Option<usize> {
+    let mut axes = [0, 1, 2];
+    axes.sort_by(|&x, &y| b.size(y).total_cmp(&b.size(x)));
+    (b.size(axes[0]) > b.size(axes[1]) + FIT).then_some(axes[0])
+}
+
+/// The two sides of a contact, `(across, other)`, for joints whose sockets go right through the
+/// second board (box joints, dovetails). A socket runs through that board along the contact's
+/// axis and spans the whole contact along `other`: it must not span the board there too, or it
+/// would cut the board in two. In a drawer corner `across` is the height; with the boards lying
+/// flat, end against edge, it is their thickness. Of two sides that would do, the longer.
+pub fn across(c: &Contact, second: &Aabb) -> (usize, usize) {
+    let (p, q) = ((c.axis + 1) % 3, (c.axis + 2) % 3);
+    let longer = if c.hi[p] - c.lo[p] >= c.hi[q] - c.lo[q] { [(p, q), (q, p)] } else { [(q, p), (p, q)] };
+    longer.into_iter().find(|&(_, m)| c.hi[m] - c.lo[m] < second.size(m) - FIT).unwrap_or(longer[0])
+}
+
 pub fn measurable(b: &Aabb) -> Result<(), String> {
     for a in 0..3 {
         if !(b.min[a].is_finite() && b.max[a].is_finite() && b.size(a) > FIT) {

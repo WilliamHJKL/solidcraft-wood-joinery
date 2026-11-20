@@ -471,6 +471,7 @@ Le script écrit un paquet par langue : `dist/wood-joinery-en.zip` (anglais) et
 ```sh
 cargo test                                   # le calcul de chaque usinage
 tests/check.py /chemin/vers/solidcraft-cli   # le plugin emballé, dans un vrai SolidCraft
+tests/shapes.py /chemin/vers/solidcraft-cli  # chaque assemblage, pièces tournées de 12 façons, reste le même
 ```
 
 `tests/check.py` lance chaque commande, compare les volumes mesurés à des

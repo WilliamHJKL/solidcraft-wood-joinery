@@ -440,6 +440,7 @@ This writes one package per language: `dist/wood-joinery-en.zip` (English) and
 ```sh
 cargo test                                   # the arithmetic of each cut
 tests/check.py /path/to/solidcraft-cli       # the packed plugin in a real SolidCraft
+tests/shapes.py /path/to/solidcraft-cli      # every joint, its boards turned 12 ways, makes the same joint
 ```
 
 `tests/check.py` runs every command, compares the measured volumes with values worked

@@ -1,6 +1,6 @@
 //! A box joint: the end of one board meets the face of another in a row of square fingers.
 
-use crate::boards::{contact, cut_block, measurable, FIT, too_many};
+use crate::boards::{across, contact, cut_block, measurable, FIT, too_many};
 use crate::joint::{Aabb, Block};
 
 /// The most divisions one call makes: see `boards::too_many`.
@@ -59,9 +59,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
         "the end of the first board does not lie on a face of the second; move it against the second board first",
     )?;
     let n = c.axis;
-    let (p, q) = ((n + 1) % 3, (n + 2) % 3);
-    // The fingers are counted along the width of the joint, the longer side of the contact.
-    let (l, m) = if c.hi[p] - c.lo[p] >= c.hi[q] - c.lo[q] { (p, q) } else { (q, p) };
+    // The fingers are counted across the joint: the height of a drawer corner, the thickness of
+    // boards lying flat (a comb joint).
+    let (l, m) = across(&c, &second);
     let (width, thickness) = (c.hi[l] - c.lo[l], c.hi[m] - c.lo[m]);
 
     let count = match o.count {
@@ -118,6 +118,17 @@ mod tests {
         assert_eq!(p.fingers[0], Block { corner: [0.0, 0.0, 20.0], size: [18.1, 18.0, 20.0] });
         // The sockets are open on both faces of the front and at its end.
         assert_eq!(p.sockets[1], Block { corner: [-0.5, -0.5, 60.0], size: [19.0, 18.5, 20.0] });
+    }
+
+    #[test]
+    fn boards_lying_flat_make_a_comb_through_their_thickness() {
+        // An L of two 100 x 18 boards lying flat: the side's end against the front's edge.
+        let side = bx([100.0, 0.0, 0.0], [300.0, 100.0, 18.0]);
+        let front = bx([0.0, 0.0, 0.0], [100.0, 300.0, 18.0]);
+        let p = plan(side, front, &Options { count: None, swap: false }).unwrap();
+        // Three layers of 6 mm across the thickness, each the front's 100 mm width long.
+        assert_eq!((p.count, p.finger_width, p.finger_length), (3, 6.0, 100.0));
+        assert!(p.sockets.iter().all(|s| s.size[2] < 18.0), "{:?}", p.sockets);
     }
 
     #[test]
