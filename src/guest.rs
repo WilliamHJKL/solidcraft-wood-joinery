@@ -814,7 +814,17 @@ fn tongue_groove(params: &str) -> Result<String, PluginError> {
 
 fn scarf(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), scarf::align)?;
+    let Pair { first, second, mut a, b, volume_a, volume_b, mut moved } = pair(&p, ("first", "second"), scarf::align)?;
+    // Boards end to end that only meet: the first slides over the second by the slope's length.
+    if let Some(by) = scarf::slide(&a, &b, length(&p, "slope")?).map_err(|reason| invalid("slope", reason))? {
+        run("solid.move", json!({ "bodies": [first], "translate": by }))?;
+        for i in 0..3 {
+            a.min[i] += by[i];
+            a.max[i] += by[i];
+            moved[i] += by[i];
+        }
+        landed(&[(&first, Want::Bounds(a))])?;
+    }
     let options = scarf::Options { flip: flag(&p, "flip", false)?, key: flag(&p, "key", false)?, key_width: length(&p, "key_width")? };
     let plan = scarf::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
     match &plan.tabled {

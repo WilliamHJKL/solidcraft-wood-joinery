@@ -74,6 +74,35 @@ pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     Ok(shift)
 }
 
+/// Boards end to end that touch, or lie a little apart, are slid over each other before they are
+/// cut: this is how far to move `first`, so that they overlap by `slope` thicknesses (empty: 8).
+/// `None` when they already overlap, or are not level across their width and thickness (then
+/// Align brings them together).
+pub fn slide(first: &Aabb, second: &Aabb, slope: Option<f64>) -> Result<Option<[f64; 3]>, String> {
+    measurable(first)?;
+    measurable(second)?;
+    let Ok((along, thick, _)) = axes(first, second) else { return Ok(None) };
+    let apart: Vec<usize> = (0..3).filter(|&i| first.min[i].max(second.min[i]) >= first.max[i].min(second.max[i]) - FIT).collect();
+    if apart != [along] {
+        return Ok(None);
+    }
+    let slope = slope.unwrap_or(8.0);
+    if !(slope.is_finite() && slope >= 1.0) {
+        return Err("slope must be 1 or more: 8 means a slope of 1:8".into());
+    }
+    let length = slope * first.size(thick);
+    if length >= first.size(along) - FIT || length >= second.size(along) - FIT {
+        return Err(format!("a slope of 1:{slope} is {length:.3} mm long, as long as a board; give a smaller slope"));
+    }
+    let mut shift = [0.0; 3];
+    shift[along] = if first.max[along] <= second.min[along] + FIT {
+        second.min[along] + length - first.max[along]
+    } else {
+        second.max[along] - length - first.min[along]
+    };
+    Ok(Some(shift))
+}
+
 /// Plan the two slopes where `first` and `second` overlap.
 pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
@@ -165,6 +194,21 @@ mod tests {
     /// Two 400 x 45 x 18 boards end to end along X, overlapping by 144 mm (eight thicknesses).
     fn boards() -> (Aabb, Aabb) {
         (bx([0.0, 0.0, 0.0], [400.0, 45.0, 18.0]), bx([256.0, 0.0, 0.0], [400.0, 45.0, 18.0]))
+    }
+
+    #[test]
+    fn boards_end_to_end_slide_by_the_slope() {
+        // Two 400 x 45 x 18 boards that touch end to end: the first slides 8 x 18 = 144 mm.
+        let a = bx([0.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
+        let b = bx([400.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
+        assert_eq!(slide(&a, &b, None).unwrap(), Some([144.0, 0.0, 0.0]));
+        // 20 mm apart, on the far side, at 1:6: 20 + 108 the other way.
+        let c = bx([-420.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
+        assert_eq!(slide(&a, &c, Some(6.0)).unwrap(), Some([-128.0, 0.0, 0.0]));
+        // Already overlapping, or not level: not slid.
+        assert_eq!(slide(&a, &bx([256.0, 0.0, 0.0], [400.0, 45.0, 18.0]), None).unwrap(), None);
+        assert_eq!(slide(&a, &bx([400.0, 0.0, 30.0], [400.0, 45.0, 18.0]), None).unwrap(), None);
+        assert!(slide(&a, &b, Some(30.0)).unwrap_err().contains("give a smaller slope"));
     }
 
     #[test]

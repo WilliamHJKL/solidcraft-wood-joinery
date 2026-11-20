@@ -64,6 +64,7 @@
   "Screw length (empty = 2.5 x the first board)": "Longueur de la vis (vide = 2,5 × la première pièce)",
   "Screws": "Vis",
   "Second board (empty = selection)": "Deuxième pièce (vide = sélection)",
+  "Slope 1:N for boards that only meet (empty = 8)": "Pente 1:N de pièces jointives (vide = 8)",
   "Shelf (empty = selection)": "Étagère (vide = sélection)",
   "Shoulder (empty = the cheek width)": "Épaulement (vide = largeur de la joue)",
   "Side (empty = selection)": "Côté (vide = sélection)",

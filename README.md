@@ -296,10 +296,15 @@ Select, or type the names of two boards that run the same way and overlap, end o
 is cut along one slope that runs over the whole overlap, from one face to the other. The length
 of the overlap sets the slope: eight thicknesses give 1:8.
 
+Boards drawn end to end that only touch, or lie a little apart, in line, need not overlap: the
+first slides over the second by the length of the **slope**, 1:8 unless you give another, then
+both are cut. The two boards are then shorter end to end by that length.
+
 | Field | Script name | Empty means |
 |---|---|---|
 | Turn the slope over | `flip` | Off: the slope starts on the face away from the origin |
 | Tabled, with a key | `key` | Off: one plain slope. On: a tabled scarf, see below |
+| Slope 1:N for boards that only meet | `slope` | 8. Boards that already overlap keep their overlap |
 
 With **Align the boards first**, the first board is moved so that the two overlap by eight
 thicknesses, level across their width and thickness.

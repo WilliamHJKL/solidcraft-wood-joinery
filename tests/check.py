@@ -398,11 +398,19 @@ def main():
         slope = 144 * 18 / 2 * 45
         c.change("scarf", "scarf at 1:8", ends, "scarf", two, {"A": -slope, "B": -slope})
         c.change("scarf_flip", "scarf turned over", ends, "scarf", {**two, "flip": True}, {"A": -slope, "B": -slope})
+        # Boards that only touch end to end: the first slides 144 mm (1:8) over the second, then
+        # the same scarf; at 1:6 it slides 108 mm and each loses 108 x 18 / 2 x 45.
+        butt = [box("A", [0, 0, 0], (400, 45, 18), first=True), box("B", [400, 0, 0], (400, 45, 18))]
+        got = c.change("scarf_butt", "scarf of boards that only touch", butt, "scarf", two, {"A": -slope, "B": -slope})
+        c.report(got[-2]["result"]["moved_first_mm"] == [144, 0, 0], f"the first board slid 144 mm: {got[-2]['result']['moved_first_mm']}")
+        c.change("scarf_butt_6", "scarf of boards that only touch, at 1:6", butt, "scarf", {**two, "slope": 6}, {"A": -108 * 9 * 45, "B": -108 * 9 * 45})
         apart = [box("A", [-194, 10, 5], (400, 45, 18), first=True), ends[1]]
         got = c.change("scarf_align", "scarf that aligns the boards first", apart, "scarf", {**two, "align": True}, {"A": -slope, "B": -slope})
         total = max(b["bbox"]["max"][0] for b in got[-1]["bodies"]) - min(b["bbox"]["min"][0] for b in got[-1]["bodies"])
         c.report(abs(total - 656) < 1e-3, f"the two scarfed boards are {total:.1f} mm long together (expected 656)")
-        c.refuse_entry("scarf_apart", "boards that do not overlap", [ends[0], box("B", [420, 0, 0], (400, 45, 18))], "scarf", two, "do not overlap")
+        # 20 mm apart end to end, they slide together too; off to the side, they are refused.
+        c.change("scarf_gap", "scarf of boards 20 mm apart", [ends[0], box("B", [420, 0, 0], (400, 45, 18))], "scarf", two, {"A": -slope, "B": -slope})
+        c.refuse_entry("scarf_apart", "boards that are not in line", [ends[0], box("B", [420, 60, 0], (400, 45, 18))], "scarf", two, "do not overlap")
 
         # Dovetails at a drawer corner: two tails, 41 mm wide at the end and 36.5 at the base.
         tail = (41 + 36.5) / 2 * 18 * 18

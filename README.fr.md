@@ -315,10 +315,15 @@ Sélectionnez, ou saisissez les noms de deux pièces de même direction qui se c
 sur bout. Chacune est coupée selon une pente qui court sur tout le chevauchement, d'une face à
 l'autre. La longueur du chevauchement fixe la pente : huit épaisseurs donnent 1:8.
 
+Des pièces dessinées bout à bout, jointives ou un peu écartées, dans l'alignement, n'ont pas
+besoin de se chevaucher : la première glisse sur la seconde de la longueur de la **pente**, 1:8
+sauf si vous en donnez une autre, puis les deux sont coupées. L'ensemble perd d'autant en longueur.
+
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Retourner la pente | `flip` | Décoché : la pente part de la face opposée à l'origine |
 | À redans, avec une clef | `key` | Décoché : une pente simple. Coché : une enture à redans, voir plus bas |
+| Pente 1:N de pièces jointives | `slope` | 8. Des pièces qui se chevauchent déjà gardent leur chevauchement |
 
 Avec **Aligner d'abord les pièces**, la première pièce est déplacée pour que les deux se
 chevauchent de huit épaisseurs, alignées en largeur et en épaisseur.

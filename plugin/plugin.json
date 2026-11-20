@@ -514,6 +514,11 @@
               "type": "boolean",
               "title": "Turn the slope over"
             },
+            "slope": {
+              "type": "number",
+              "title": "Slope 1:N for boards that only meet (empty = 8)",
+              "minimum": 1
+            },
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
