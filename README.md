@@ -344,10 +344,14 @@ Select, or type the name of the board the screw goes through, then the name of t
 bites into. The two must touch. The plugin drills a clearance hole through the first board,
 with a countersink for the head, and a pilot hole in the second one. It adds no screw body.
 
+Two boards with their faces the same way, such as two planks lying flat, that overlap seen from
+above need not touch: drawn in one plane or apart, the first is laid on the second, face on
+face, before it is screwed.
+
 | Field | Script name | Empty means |
 |---|---|---|
 | Screw diameter | `diameter` | 4 mm. The clearance hole is 0.5 mm wider, the pilot hole 0.7 of the screw |
-| Screw length | `length` | Two and a half times the first board, to the nearest 5 mm |
+| Screw length | `length` | Two and a half times the first board, to the nearest 5 mm, but no longer than both boards less 3 mm |
 | Number of screws | `count` | One, two from 60 mm, then one every 150 mm or so |
 | Countersink the heads | `countersink` | On: a 90 degree countersink as wide as two diameters |
 

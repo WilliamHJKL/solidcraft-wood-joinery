@@ -367,10 +367,14 @@ elle mord. Les deux doivent se toucher. Le plugin perce un trou de passage dans 
 pièce, avec une fraisure pour la tête, et un avant-trou dans la deuxième. Il n'ajoute pas de
 corps de vis.
 
+Deux pièces dont les faces regardent dans le même sens, comme deux planches à plat, qui se
+chevauchent vues de dessus n'ont pas besoin de se toucher : dessinées dans le même plan ou
+écartées, la première est posée sur la seconde, face contre face, avant d'être vissée.
+
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Diamètre de la vis | `diameter` | 4 mm. Le trou de passage fait 0,5 mm de plus, l'avant-trou 0,7 fois la vis |
-| Longueur de la vis | `length` | Deux fois et demie la première pièce, arrondie à 5 mm |
+| Longueur de la vis | `length` | Deux fois et demie la première pièce, arrondie à 5 mm, sans dépasser les deux pièces moins 3 mm |
 | Nombre de vis | `count` | Une, deux à partir de 60 mm, puis une tous les 150 mm environ |
 | Fraiser les têtes | `countersink` | Coché : une fraisure à 90 degrés, large de deux diamètres |
 

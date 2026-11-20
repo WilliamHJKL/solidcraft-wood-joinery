@@ -893,7 +893,17 @@ fn dovetail(params: &str) -> Result<String, PluginError> {
 
 fn screws(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
-    let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    let Pair { first, second, mut a, b, volume_a, volume_b, mut moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    // Boards with their faces the same way, overlapping seen from above: the first is laid on the second.
+    if let Some(by) = screw::stack(&a, &b) {
+        run("solid.move", json!({ "bodies": [first], "translate": by }))?;
+        for i in 0..3 {
+            a.min[i] += by[i];
+            a.max[i] += by[i];
+            moved[i] += by[i];
+        }
+        landed(&[(&first, Want::Bounds(a))])?;
+    }
     let options = screw::Options {
         diameter: length(&p, "diameter")?,
         length: length(&p, "length")?,

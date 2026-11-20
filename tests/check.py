@@ -437,7 +437,17 @@ def main():
         c.change("screws", "two countersunk screws", cabinet, "screws", fixed, {"Side": -2 * through, "Shelf": -2 * pilot})
         plain = {**fixed, "diameter": 5, "length": 50, "count": 3, "countersink": False}
         c.change("screws_plain", "three 5 x 50 screws, no countersink", cabinet, "screws", plain, {"Side": -3 * math.pi * 2.75 ** 2 * 18, "Shelf": -3 * math.pi * 1.75 ** 2 * 32})
-        c.refuse_entry("screws_wrong_way", "screws through the long board", cabinet, "screws", {"first": "Shelf", "second": "Side", "length": 45}, "does not reach through")
+        c.refuse_entry("screws_wrong_way", "screws through the long board", cabinet, "screws", {"first": "Shelf", "second": "Side", "length": 45}, "the long way")
+        # Two 220 x 1360 x 22 planks lying flat, drawn in one plane, overlapping by 205 mm: the
+        # first is laid on the second, and the default screw is 40 mm (2 x 22 - 3, to 5 mm), not 55.
+        flat = [box("Bottom", [843, 0, 0], (220, 1360, 22), first=True), box("Top", [858, 0, 0], (220, 1360, 22))]
+        got = c.cli("screws_planks", [*flat, c.run("screws", {"first": "Top", "second": "Bottom"}), MEASURE])
+        r = got[-2]["result"]
+        tops = [b for b in got[-1]["bodies"] if b["name"] == "Top"]
+        c.report(r["moved_first_mm"] == [0, 0, 22] and r["length_mm"] == 40 and abs(tops[0]["bbox"]["min"][2] - 22) < 1e-6,
+                 f"planks in one plane: the top one laid on the other ({r['moved_first_mm']}, bottom at {tops[0]['bbox']['min'][2]:.3f}), {r['count']} screws of {r['length_mm']} mm")
+        c.refuse_entry("screws_edge", "screws edge to edge through a plank's width",
+                       [flat[0], box("Top", [1063, 0, 0], (220, 1360, 22))], "screws", {"first": "Top", "second": "Bottom", "length": 20}, "the long way")
 
         # Mortise and tenon variants. A double tenon: two tenons 4 thick, each in its own mortise.
         c.expect("double", "double tenon", mid, {**both, "double": True, "thickness": 4, "shoulder": 6}, 2 * 4 * 33 * 25, 2 * 4 * 33 * 27)

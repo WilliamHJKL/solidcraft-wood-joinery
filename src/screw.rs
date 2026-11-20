@@ -48,6 +48,34 @@ pub struct Plan {
     pub sink_depth: f64,
 }
 
+/// Two boards with their faces the same way (both lying flat, say) that overlap seen from above,
+/// drawn in one plane or apart, are laid one on the other before they are screwed: this is how
+/// far to move `first`, the board under the heads, onto the face of `second`. `None` when they
+/// already lie face on face, or do not have their faces the same way.
+pub fn stack(first: &Aabb, second: &Aabb) -> Option<[f64; 3]> {
+    let thin = |b: &Aabb| (0..3).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(2);
+    let n = thin(first);
+    if thin(second) != n {
+        return None;
+    }
+    let shares = |a: usize| first.min[a].max(second.min[a]) < first.max[a].min(second.max[a]) - FIT;
+    if !(0..3).filter(|&a| a != n).all(shares) {
+        return None;
+    }
+    let face_on_face = (first.min[n] - second.max[n]).abs() <= FIT || (first.max[n] - second.min[n]).abs() <= FIT;
+    if face_on_face {
+        return None;
+    }
+    // Onto the side it is on; drawn in the same plane, on top.
+    let mut shift = [0.0; 3];
+    shift[n] = if first.min[n] + first.max[n] >= second.min[n] + second.max[n] {
+        second.max[n] - first.min[n]
+    } else {
+        second.min[n] - first.max[n]
+    };
+    Some(shift)
+}
+
 /// Plan screws through `first` into `second`, where the two touch.
 pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
@@ -59,6 +87,13 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     let (l, m) = if c.hi[p] - c.lo[p] >= c.hi[q] - c.lo[q] { (p, q) } else { (q, p) };
     let (long, short) = (c.hi[l] - c.lo[l], c.hi[m] - c.lo[m]);
     let through = first.size(n);
+    let thinnest = (0..3).map(|a| first.size(a)).fold(f64::INFINITY, f64::min);
+    if through > 2.5 * thinnest + FIT {
+        return Err(format!(
+            "the screws would run {through:.3} mm through the first board, the long way; lay it on the other \
+             board face on face, where the screws go, or take the thinner board as the first one"
+        ));
+    }
 
     let diameter = o.diameter.unwrap_or(4.0);
     if !(diameter.is_finite() && diameter > FIT) {
@@ -70,7 +105,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     if (if countersink { head } else { clearance_diameter }) > short - 2.0 + FIT {
         return Err(format!("a {diameter:.3} mm screw leaves no wood beside it: the boards touch over {short:.3} mm only"));
     }
-    let length = o.length.unwrap_or((2.5 * through / 5.0).round() * 5.0);
+    // Empty: 2.5 times the first board, to 5 mm, but never through the second one.
+    let longest = through + second.size(n) - 3.0;
+    let length = o.length.unwrap_or(((2.5 * through / 5.0).round() * 5.0).min((longest / 5.0).floor() * 5.0));
     if !(length.is_finite() && length > FIT) {
         return Err("length must be a positive length".into());
     }
@@ -156,6 +193,35 @@ mod tests {
     }
 
     #[test]
+    fn planks_overlapping_in_one_plane_are_laid_one_on_the_other() {
+        // Two 220 x 1360 x 22 planks lying flat, drawn in one plane, overlapping by 205 mm.
+        let bottom = bx([843.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
+        let top = bx([858.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
+        assert_eq!(stack(&top, &bottom), Some([0.0, 0.0, 22.0]));
+        // 68 mm apart, the top one above: it comes down onto the other.
+        let low = bx([843.0, 0.0, -90.0], [220.0, 1360.0, 22.0]);
+        assert_eq!(stack(&top, &low), Some([0.0, 0.0, -68.0]));
+        // Already face on face, or a side on a shelf: left as they are.
+        let on = bx([858.0, 0.0, 22.0], [220.0, 1360.0, 22.0]);
+        assert_eq!(stack(&on, &bottom), None);
+        let (side, shelf) = side_and_shelf();
+        assert_eq!(stack(&side, &shelf), None);
+        // Laid on it, 22 + 22 mm: the default screw is 40 mm, not 55, so it stays in the wood.
+        let mut moved = top;
+        moved.min[2] += 22.0;
+        moved.max[2] += 22.0;
+        assert_eq!(plan(moved, bottom, &Options::default()).unwrap().length, 40.0);
+    }
+
+    #[test]
+    fn screws_never_go_the_long_way_through_a_board() {
+        let bottom = bx([843.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
+        let beside = bx([1063.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
+        let err = plan(beside, bottom, &Options { length: Some(20.0), ..Options::default() }).unwrap_err();
+        assert!(err.contains("the long way"), "{err}");
+    }
+
+    #[test]
     fn defaults_for_a_side_on_a_shelf_end() {
         let (side, shelf) = side_and_shelf();
         let p = plan(side, shelf, &Options::default()).unwrap();
@@ -172,8 +238,8 @@ mod tests {
     fn bad_screws_are_refused_with_a_reason() {
         let (side, shelf) = side_and_shelf();
         let err = |o: Options| plan(side, shelf, &o).unwrap_err();
-        // The other way round, the screw would have to go through the 300 mm shelf.
-        assert!(plan(shelf, side, &Options { length: Some(45.0), ..Options::default() }).unwrap_err().contains("does not reach through"));
+        // The other way round, the screw would have to go 300 mm through the shelf, the long way.
+        assert!(plan(shelf, side, &Options { length: Some(45.0), ..Options::default() }).unwrap_err().contains("the long way"));
         assert!(err(Options { length: Some(400.0), ..Options::default() }).contains("come through"));
         assert!(err(Options { diameter: Some(10.0), ..Options::default() }).contains("no wood beside"));
         // 15 heads of 8 mm in a 100 mm deep shelf: under 7 mm apart.
