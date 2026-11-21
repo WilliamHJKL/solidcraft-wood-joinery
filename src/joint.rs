@@ -136,7 +136,14 @@ pub struct Plan {
     pub mortise: Vec<Block>,
     pub thickness: f64,
     pub length: f64,
+    /// Width of one tenon across the rail.
     pub width: f64,
+    /// Tenons across the width of the rail: 1, or 2 twin tenons when one would be over
+    /// [`WIDEST`] times as wide as it is thick.
+    pub twins: u32,
+    /// One per block of `tenon` and of `mortise`, in the same order: true for a haunch or the
+    /// stub between twin tenons, false for a tenon.
+    pub short: Vec<bool>,
     pub mortise_depth: f64,
     pub shoulder: f64,
     pub glue_relief: f64,
@@ -157,6 +164,21 @@ const TOUCH: f64 = 1e-2;
 const FIT: f64 = 1e-6;
 /// How far a cutting block runs past the face it enters, so no skin is left on that face.
 const OVERCUT: f64 = 0.5;
+/// A tenon is at most this many times as wide as it is thick. A wider one is split into twin
+/// tenons with a short haunch between them, so each mortise stays short and the rail can move.
+pub const WIDEST: f64 = 6.0;
+
+/// The tenons across `lo..hi`: the whole span, or twin tenons a third of it wide each, with the
+/// middle third left for a haunch.
+/// `thick` is what the tenons take across the rail thickness: a double tenon counts as one.
+fn tenons_across(lo: f64, hi: f64, thick: f64) -> Vec<(f64, f64)> {
+    let span = hi - lo;
+    if span <= WIDEST * thick + FIT {
+        return vec![(lo, hi)];
+    }
+    let third = span / 3.0;
+    vec![(lo, lo + third), (hi - third, hi)]
+}
 
 fn positive(name: &str, v: f64) -> Result<f64, String> {
     if v.is_finite() && v > 0.0 {
@@ -312,10 +334,27 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     let back = -0.1_f64.min(e_rail * 0.05);
     let mortise_depth = if o.variant.blind() { length + relief } else { length.max(stile_depth) + OVERCUT };
 
-    type Made = (Vec<Block>, Vec<Block>, f64, Option<(f64, f64)>, (f64, f64));
+    // Tenons over `lo..hi` across the rail and their mortises: one, or twins with a stub `depth`
+    // deep between them (it laps a hair into each, so the rail stays one body).
+    let twin = |lo: f64, hi: f64, depth: f64, e_lo: f64, e_hi: f64, tenon: &mut Vec<Block>, mortise: &mut Vec<Block>| {
+        let parts = tenons_across(lo, hi, 2.0 * half);
+        for &(p_lo, p_hi) in &parts {
+            tenon.push(block(back, length, p_lo, p_hi, e_lo, e_hi));
+            mortise.push(block(-OVERCUT, mortise_depth, p_lo - clr, p_hi + clr, e_lo - clr, e_hi + clr));
+        }
+        if let [(_, g_lo), (g_hi, _)] = parts[..] {
+            let lap = 0.1_f64.min((g_hi - g_lo) * 0.1);
+            tenon.push(block(back, depth, g_lo - lap, g_hi + lap, e_lo, e_hi));
+            mortise.push(block(-OVERCUT, depth + clr, g_lo - clr, g_hi + clr, e_lo - clr, e_hi + clr));
+        }
+        parts
+    };
+
+    type Made = (Vec<Block>, Vec<Block>, Option<(f64, f64)>, Vec<(f64, f64)>);
     let make = |e_lo: f64, e_hi: f64| -> Result<Made, String> {
         Ok(if o.variant == Variant::Haunched {
-        let hw = positive("haunch_width", o.haunch_width.unwrap_or((w_rail * 0.25).max(t)))?;
+        // As wide as the tenon is thick, and a third of the rail at most.
+        let hw = positive("haunch_width", o.haunch_width.unwrap_or(t.min(w_rail / 3.0)))?;
         let hd = positive("haunch_depth", o.haunch_depth.unwrap_or(t.min(length * 0.4)))?;
         if hd >= length - FIT {
             return Err(format!("haunch_depth ({hd:.3} mm) must be less than the tenon length ({length:.3} mm)"));
@@ -334,16 +373,11 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         // The haunch block laps a hair into the main tenon so the join leaves one body.
         let lap = 0.1_f64.min(hw * 0.1);
         let (hj_lo, hj_hi) = if at_low { (h_lo, h_hi + lap) } else { (h_lo - lap, h_hi) };
-        (
-            vec![block(back, length, main_lo, main_hi, e_lo, e_hi), block(back, hd, hj_lo, hj_hi, e_lo, e_hi)],
-            vec![
-                block(-OVERCUT, mortise_depth, main_lo - clr, main_hi + clr, e_lo - clr, e_hi + clr),
-                block(-OVERCUT, hd + clr, h_lo - clr, h_hi + clr, e_lo - clr, e_hi + clr),
-            ],
-            main_hi - main_lo,
-            Some((hw, hd)),
-            (main_lo, main_hi),
-        )
+        let (mut tenon, mut mortise) = (Vec::new(), Vec::new());
+        let parts = twin(main_lo, main_hi, hd, e_lo, e_hi, &mut tenon, &mut mortise);
+        tenon.push(block(back, hd, hj_lo, hj_hi, e_lo, e_hi));
+        mortise.push(block(-OVERCUT, hd + clr, h_lo - clr, h_hi + clr, e_lo - clr, e_hi + clr));
+        (tenon, mortise, Some((hw, hd)), parts)
     } else {
         if 2.0 * shoulder >= w_rail - FIT {
             return Err("the two shoulders leave no tenon across the rail".into());
@@ -365,25 +399,34 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
             }
         }
         // A bridle slot is cut past the open end of the stile.
-        let m_lo = lo - clr - if bridle && open_lo { OVERCUT } else { 0.0 };
-        let m_hi = hi + clr + if bridle && open_hi { OVERCUT } else { 0.0 };
-        (
-            vec![block(back, length, lo, hi, e_lo, e_hi)],
-            vec![block(-OVERCUT, mortise_depth, m_lo, m_hi, e_lo - clr, e_hi + clr)],
-            hi - lo,
-            None,
-            (lo, hi),
-        )
+        if bridle {
+            let m_lo = lo - clr - if open_lo { OVERCUT } else { 0.0 };
+            let m_hi = hi + clr + if open_hi { OVERCUT } else { 0.0 };
+            (
+                vec![block(back, length, lo, hi, e_lo, e_hi)],
+                vec![block(-OVERCUT, mortise_depth, m_lo, m_hi, e_lo - clr, e_hi + clr)],
+                None,
+                vec![(lo, hi)],
+            )
+        } else {
+            let (mut tenon, mut mortise) = (Vec::new(), Vec::new());
+            let parts = twin(lo, hi, t.min(length * 0.4), e_lo, e_hi, &mut tenon, &mut mortise);
+            (tenon, mortise, None, parts)
+        }
         })
     };
-    let (mut tenon, mut mortise) = (Vec::new(), Vec::new());
-    let (mut width, mut haunch, mut across) = (0.0, None, (0.0, 0.0));
+    let (mut tenon, mut mortise, mut short) = (Vec::new(), Vec::new(), Vec::new());
+    let (mut haunch, mut parts) = (None, Vec::new());
     for (lo, hi) in cheeks.iter().copied() {
         let made = make(lo, hi)?;
+        // The tenons come first, then the stub between twins and the haunch.
+        short.extend((0..made.0.len()).map(|i| i >= made.3.len()));
         tenon.extend(made.0);
         mortise.extend(made.1);
-        (width, haunch, across) = (made.2, made.3, made.4);
+        (haunch, parts) = (made.2, made.3);
     }
+    // Every tenon across the rail is as wide as the others.
+    let width = parts[0].1 - parts[0].0;
 
     // Wedges: in the end of a through tenon, three quarters of its length deep. The wood is not
     // spread: each wedge fills a slot of its own shape, so the volumes stay true.
@@ -397,15 +440,15 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
             return Err("wedges go in a through tenon; choose the through joint".into());
         }
         let thick = positive("wedge_thickness", o.wedge_thickness.unwrap_or(4.0))?;
-        let (lo, hi) = across;
-        let room = (hi - lo) / f64::from(o.wedges + 1);
+        let room = width / f64::from(o.wedges + 1);
         if thick > 0.5 * room + FIT {
             return Err(format!("{} wedges {thick:.3} mm thick leave too little tenon between them; give fewer or thinner ones", o.wedges));
         }
         let deep = 0.75 * length;
         let (end, tip) = (contact + dir * length, contact + dir * (length - deep));
         let run = (deep * deep + 0.25 * thick * thick).sqrt();
-        for (e_lo, e_hi) in cheeks.iter().copied() {
+        // Each tenon gets its wedges, twin tenons as a single one.
+        for ((e_lo, e_hi), (lo, hi)) in cheeks.iter().copied().flat_map(|c| parts.iter().map(move |&p| (c, p))) {
             for i in 0..o.wedges {
                 // One wedge in the middle, or two a fifth of the width in from each edge.
                 let middle = if o.wedges == 1 { 0.5 * (lo + hi) } else { lo + (hi - lo) * (0.2 + 0.6 * f64::from(i)) };
@@ -446,7 +489,9 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     if o.pegs > 0 {
         let diameter = positive("peg_diameter", o.peg_diameter.unwrap_or(if length >= 30.0 - FIT { 8.0 } else { 6.0 }))?;
         let reach = length.min(stile_depth);
-        if diameter > reach - 6.0 + FIT || diameter * f64::from(o.pegs) > (across.1 - across.0) - 6.0 * f64::from(o.pegs) + FIT {
+        // Pegs go in the tenons, never in the stub between twins: one each in twin tenons.
+        let per_tenon = f64::from(o.pegs.div_ceil(parts.len() as u32));
+        if diameter > reach - 6.0 + FIT || diameter * per_tenon > width - 6.0 * per_tenon + FIT {
             return Err(format!("a {diameter:.3} mm peg leaves too little wood around it in this tenon; give a thinner peg"));
         }
         for i in 0..o.pegs {
@@ -463,7 +508,12 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
                     (0.5 * diameter).min(along * reach - 0.5 * diameter - 2.0).max(0.0)
                 ));
             }
-            base[w] = across.0 + (across.1 - across.0) * (f64::from(i) + 0.5) / f64::from(o.pegs);
+            base[w] = if let [(lo0, hi0), (lo1, hi1)] = parts[..] {
+                let (lo, hi) = if i == 0 { (lo0, hi0) } else { (lo1, hi1) };
+                0.5 * (lo + hi)
+            } else {
+                parts[0].0 + width * (f64::from(i) + 0.5) / f64::from(o.pegs)
+            };
             base[e] = stile.min[e];
             let tenon_base = (o.drawbore > FIT).then(|| {
                 let mut b = base;
@@ -481,6 +531,12 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
     if cheek < 8.0 - FIT {
         warnings.push(format!("the mortise leaves a {cheek:.1} mm cheek in the stile, under the usual 8 mm; offset the tenon or use a thinner one"));
     }
+    if o.variant != Variant::Bridle && width > WIDEST * 2.0 * half + FIT {
+        warnings.push(format!(
+            "each tenon is {width:.1} mm wide, over {WIDEST} times its {:.1} mm thickness: its mortise weakens the stile and the rail cannot move; give a thicker tenon",
+            2.0 * half
+        ));
+    }
     if crate::boards::long_axis(&stile) == Some(e) {
         warnings.push("the mortise runs across the grain of the stile and may split it; a rail lying flat would rather have its tenon on edge, or dowels".into());
     }
@@ -491,6 +547,8 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         thickness: t,
         length,
         width,
+        twins: parts.len() as u32,
+        short,
         mortise_depth: if o.variant.blind() { length + relief } else { stile_depth },
         shoulder,
         glue_relief: if o.variant.blind() { relief } else { 0.0 },
@@ -528,8 +586,10 @@ mod tests {
         let t = 22.0 / 3.0;
         assert!((p.thickness - t).abs() < 1e-9 && (p.shoulder - t).abs() < 1e-9);
         assert_eq!((p.length, p.mortise_depth), (15.0, 17.0));
-        // The tenon runs over the 250 mm of the lower panel, a shoulder in from each of its ends.
-        assert!((p.width - (250.0 - 2.0 * t)).abs() < 1e-9);
+        // The tenons run over the 250 mm of the lower panel, a shoulder in from each of its ends:
+        // too wide for one, so twin tenons a third of it each.
+        assert_eq!(p.twins, 2);
+        assert!((p.width - (250.0 - 2.0 * t) / 3.0).abs() < 1e-9);
         assert!((p.tenon[0].corner[1] - (25.0 + t)).abs() < 1e-9);
     }
 
@@ -651,8 +711,57 @@ mod tests {
         let (rail, stile) = cabinet(20.0);
         let p = plan(rail, stile, &o).unwrap();
         assert!((p.tenon[1].corner[2] - 20.0).abs() < 1e-9, "{:?}", p.tenon[1]);
-        // Default haunch: 11.25 mm wide (a quarter of 45), 6 mm deep; main tenon 45 - 6 - 11.25 = 27.75 wide.
-        assert_eq!(p.width, 27.75);
+        // Default haunch: as wide as the 6 mm tenon is thick, 6 mm deep; main tenon 45 - 6 - 6 = 33 wide.
+        assert_eq!((p.width, p.twins, p.haunch), (33.0, 1, Some((6.0, 6.0))));
+    }
+
+    /// The test cabinet with a rail `wide` mm wide, 20 mm under the top of the stile.
+    fn wide(wide: f64) -> (Aabb, Aabb) {
+        (bx([35.0, 7.5, 810.0 - wide], [300.0, 20.0, wide]), bx([0.0, 0.0, 0.0], [35.0, 35.0, 830.0]))
+    }
+
+    #[test]
+    fn a_wide_rail_gets_twin_tenons_with_a_haunch_between() {
+        let o = Options { variant: Variant::Haunched, ..Options::default() };
+        let t = 20.0 / 3.0;
+        // 120 mm: haunch t wide at the top, shoulder t at the bottom, 120 - 2t left: twin tenons
+        // a third of it each, the middle third a stub as deep as the haunch.
+        let (rail, stile) = wide(120.0);
+        let p = plan(rail, stile, &o).unwrap();
+        let third = (120.0 - 2.0 * t) / 3.0;
+        assert_eq!((p.twins, p.tenon.len(), p.short), (2, 4, vec![false, false, true, true]));
+        assert!((p.width - third).abs() < 1e-9, "{}", p.width);
+        assert!(p.warnings.is_empty(), "{:?}", p.warnings);
+        // From the bottom: shoulder, tenon, stub, tenon, haunch.
+        let lows: Vec<f64> = p.mortise.iter().map(|b| b.corner[2]).collect();
+        assert!((lows[0] - (690.0 + t)).abs() < 1e-9 && (lows[1] - (690.0 + t + 2.0 * third)).abs() < 1e-9, "{lows:?}");
+        assert!((p.tenon[2].size[0] - (t + 0.1)).abs() < 1e-9, "{:?}", p.tenon[2]);
+        // 45 mm: one tenon, as before.
+        let (rail, stile) = wide(45.0);
+        assert_eq!(plan(rail, stile, &o).unwrap().twins, 1);
+    }
+
+    #[test]
+    fn twin_tenons_still_too_wide_are_warned_of() {
+        // 300 mm: twins of (300 - 2t) / 3 = 95.6 mm, over 6 t = 40 mm.
+        let (rail, stile) = wide(300.0);
+        let p = plan(rail, stile, &Options { variant: Variant::Haunched, ..Options::default() }).unwrap();
+        assert_eq!(p.twins, 2);
+        assert!(p.warnings.iter().any(|w| w.contains("over 6 times")), "{:?}", p.warnings);
+    }
+
+    #[test]
+    fn pegs_in_twin_tenons_go_one_in_each() {
+        let (rail, stile) = wide(120.0);
+        let p = plan(rail, stile, &Options { pegs: 2, ..Options::default() }).unwrap();
+        assert_eq!(p.twins, 2);
+        for (peg, tenon) in p.pegs.iter().zip(&p.tenon) {
+            let mid = tenon.corner[2] + 0.5 * tenon.size[2];
+            assert!((peg.base[2] - mid).abs() < 1e-9, "{peg:?} {tenon:?}");
+        }
+        // A double tenon counts as one across the rail thickness: 3 x 4 = 12 mm, so 120 mm still splits.
+        let p = plan(rail, stile, &Options { double: true, ..Options::default() }).unwrap();
+        assert_eq!((p.twins, p.tenon.len()), (2, 6));
     }
 
     #[test]

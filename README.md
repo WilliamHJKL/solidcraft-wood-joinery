@@ -120,7 +120,7 @@ against the form: each board is one name, and a choice is given as the package l
 | Tenon thickness | `thickness` | A third of the rail thickness |
 | Tenon length | `length` | Three quarters of the stile, to the nearest 5 mm; the mortise is 2 mm deeper (glue relief). The whole stile for Through and Bridle |
 | Shoulder | `shoulder` | The cheek width, at most a fifth of the rail width. None for Bridle |
-| Haunch width | `haunch_width` | A quarter of the rail width, and never less than the tenon thickness |
+| Haunch width | `haunch_width` | The tenon thickness, at most a third of the rail width |
 | Haunch depth | `haunch_depth` | The tenon thickness, at most 0.4 of the tenon length |
 | Glue relief | `glue_relief` | 2 mm under a blind tenon |
 | Clearance | `clearance` | None |
@@ -133,9 +133,14 @@ against the form: each board is one name, and a choice is given as the package l
 | Wedges | `wedges` | 0. Otherwise 1 or 2 wedges in the end of a `through` tenon, three quarters of its length deep. Each wedge is a new body named `Wedge 1`, `Wedge 2`… |
 | Wedge thickness | `wedge_thickness` | 4 mm |
 
-The reply warns, without refusing, of two things common practice avoids: a mortise cheek under
-8 mm, and a mortise across the grain of the stile (a rail lying flat). SolidCraft's plugin log
-shows the warnings too.
+A tenon is at most 6 times as wide as it is thick (a double tenon counts as one). A wider rail
+gets twin tenons, each a third of the width left, with a stub as deep as a haunch between them:
+the mortises stay short and the rail can move. Every variant but `bridle` does this, and pegs and
+wedges go in each tenon. The reply then gives `twin_tenons: 2`.
+
+The reply warns, without refusing, of three things common practice avoids: a mortise cheek under
+8 mm, a mortise across the grain of the stile (a rail lying flat), and twin tenons still over 6
+times as wide as they are thick. SolidCraft's plugin log shows the warnings too.
 
 Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets a 6 x 33 x 25 mm tenon in a
 27 mm deep mortise.

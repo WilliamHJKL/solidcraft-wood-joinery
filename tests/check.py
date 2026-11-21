@@ -199,7 +199,7 @@ def main():
         # 2. The four variants. Tenon 6 thick; classic: 33 wide, 25 long, mortise 27 deep.
         c.expect("classic", "classic", mid, both, 6 * 33 * 25, 6 * 33 * 27)
         # Rail 20 mm under the top of the stile: haunch 9 wide and 6 deep, main tenon 30 wide.
-        c.expect("haunched", "haunched", boards([35, 0, 765]), {**both, "variant": "haunched"}, 6 * (27.75 * 25 + 11.25 * 6), 6 * (27.75 * 27 + 11.25 * 6))
+        c.expect("haunched", "haunched", boards([35, 0, 765]), {**both, "variant": "haunched"}, 6 * (33 * 25 + 6 * 6), 6 * (33 * 27 + 6 * 6))
         c.expect("through", "through", mid, {**both, "variant": "through"}, 6 * 33 * 35, 6 * 33 * 35)
         # Rail flush with the top of the stile: tongue 45 wide, right through.
         c.expect("bridle", "bridle", boards([35, 0, 785]), {**both, "variant": "bridle"}, 6 * 45 * 35, 6 * 45 * 35)
@@ -209,11 +209,16 @@ def main():
 
         # The reply lists the sizes that were used, the defaults included.
         made = c.cli("sizes", [*mid, c.joint({**both, "variant": "haunched"})])[-1]["result"]
-        want = {"tenon_thickness_mm": 6, "tenon_length_mm": 25, "tenon_width_mm": 27.75, "shoulder_mm": 6, "glue_relief_mm": 2, "mortise_depth_mm": 27, "haunch_width_mm": 11.25, "haunch_depth_mm": 6}
+        want = {"tenon_thickness_mm": 6, "tenon_length_mm": 25, "tenon_width_mm": 33, "shoulder_mm": 6, "glue_relief_mm": 2, "mortise_depth_mm": 27, "haunch_width_mm": 6, "haunch_depth_mm": 6}
         c.report(all(abs(made.get(k, -1) - v) < 1e-9 for k, v in want.items()), f"the reply lists the sizes used: {({k: made.get(k) for k in want})}")
         # The rail is flush with a face of the 35 mm stile: a 6 mm cheek, under the usual 8, is
         # warned of in the reply, and the joint is still made.
         c.report(any("6.0 mm cheek" in w for w in made.get("warnings", [])), f"a thin cheek is warned of: {made.get('warnings')}")
+        # A 120 mm rail 20 mm under the top: a 6 mm haunch, a 6 mm shoulder, and twin tenons of
+        # (120 - 12) / 3 = 36 mm with a 36 mm stub between them, 6 deep. The rail stays one body.
+        twins = c.change("twins", "twin haunched tenons in a 120 mm rail", boards([35, 0, 690], (360, 18, 120)), "mortise-tenon",
+                         {**both, "variant": "haunched"}, {"Rail": 6 * (2 * 36 * 25 + 36 * 6 + 6 * 6), "Stile": -6 * (2 * 36 * 27 + 36 * 6 + 6 * 6)})
+        c.report(len(twins[-1]["bodies"]) == 2, f"twin tenons leave one rail: {[b['name'] for b in twins[-1]['bodies']]}")
         # A draw-bored peg: the hole in the tenon is 1.5 mm nearer the shoulder, so the peg runs
         # into the tenon; with a plain peg it does not.
         overlap = lambda name, extra: sum(i["volume_mm3"] for i in c.cli(name, [*mid, c.joint({**both, "pegs": 1, **extra}), {"command": "inspect.interference", "params": {}}])[-1].get("interferences", []))
@@ -228,17 +233,20 @@ def main():
         english = c.approval
         c.package = ROOT / "dist" / "fr" / "wood-joinery"
         c.approval = c.cli("inspect_fr", [{"command": "plugin.inspect", "params": {"path": str(c.package)}}])[0]["approval"]
-        c.expect("fr_value", "a translated choice, à renfort (haunched)", boards([35, 0, 765]), {**both, "variant": "à renfort (haunched)"}, 6 * (27.75 * 25 + 11.25 * 6), 6 * (27.75 * 27 + 11.25 * 6))
+        c.expect("fr_value", "a translated choice, à renfort (haunched)", boards([35, 0, 765]), {**both, "variant": "à renfort (haunched)"}, 6 * (33 * 25 + 6 * 6), 6 * (33 * 27 + 6 * 6))
         c.groove("fr_face", "a translated face and direction", {"body": "Stile", "face": "droite (+x)", "along": "y"}, 6 * 8 * 35)
         c.package, c.approval = PLUGIN, english
         french = json.loads((ROOT / "dist" / "fr" / "wood-joinery" / "plugin.json").read_text())["runtime"]["entries"][0]["input_schema"]["properties"]["variant"]
         c.report(french["enum"][1] == "à renfort (haunched)" and french["default"] == "classique (classic)", f"the fr package lists translated choices: {french['enum']}")
 
-        # A rail wider than the stile: a 275 mm panel standing on a 250 mm one. The tenon runs over
-        # the 250 mm they share, a shoulder (22 / 3) in from each end: 15 long, in a 17 mm mortise.
+        # A rail wider than the stile: a 275 mm panel standing on a 250 mm one. The tenons run over
+        # the 250 mm they share, a shoulder (22 / 3) in from each end: too wide for one tenon, so
+        # twin tenons a third of it each, 15 long in 17 mm mortises, with a 6 mm stub between them
+        # (2 x 15 + 6 = 36 on the rail, 2 x 17 + 6 = 40 in the stile).
         panels = [box("Stile", [0, 25, 0], (350, 250, 22), first=True), box("Rail", [0, 12.5, 22], (22, 275, 250))]
         third = 22 / 3
-        got = c.change("wide_rail", "a rail wider than the stile", panels, "mortise-tenon", both, {"Rail": third * (250 - 2 * third) * 15, "Stile": -third * (250 - 2 * third) * 17})
+        twin = (250 - 2 * third) / 3
+        got = c.change("wide_rail", "a rail wider than the stile", panels, "mortise-tenon", both, {"Rail": third * twin * 36, "Stile": -third * twin * 40})
 
         # 3. Other directions: the rail on the -X side of the stile, then a rail along Y.
         c.expect("minus_x", "rail on the other side", boards([-360, 0, 400]), both, 6 * 33 * 25, 6 * 33 * 27)
@@ -255,7 +263,7 @@ def main():
         # 4. One undo removes the whole joint, one redo brings it back.
         steps = c.cli("undo", [*mid, c.joint({**both, "variant": "haunched"}), MEASURE, {"command": "edit.undo", "params": {}}, MEASURE, {"command": "edit.redo", "params": {}}, MEASURE])
         totals = [round(steps[i]["total"]["volume_mm3"]) for i in (3, 5, 7)]
-        joined = STILE + RAIL + 6 * (27.75 * 25 + 11.25 * 6) - 6 * (27.75 * 27 + 11.25 * 6)
+        joined = STILE + RAIL + 6 * (33 * 25 + 6 * 6) - 6 * (33 * 27 + 6 * 6)
         c.report(totals == [joined, STILE + RAIL, joined], f"one undo and one redo: total volumes {totals}")
 
         # 5. Refusals leave a message that says what to change.

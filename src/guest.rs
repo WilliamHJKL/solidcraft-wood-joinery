@@ -474,12 +474,15 @@ fn mortise_tenon(params: &str) -> Result<String, PluginError> {
         "glue_relief_mm": plan.glue_relief,
         "mortise_depth_mm": plan.mortise_depth,
     });
+    if plan.twins > 1 {
+        sizes["twin_tenons"] = json!(plan.twins);
+    }
     if let Some((width, depth)) = plan.haunch {
         sizes["haunch_width_mm"] = json!(width);
         sizes["haunch_depth_mm"] = json!(depth);
     }
-    // With a haunch, every second block is the haunch of the tenon before it.
-    let haunch = |i: usize| plan.haunch.is_some() && i % 2 == 1;
+    // A haunch, or the stub between twin tenons, is named a haunch.
+    let haunch = |i: usize| plan.short[i];
     for (i, block) in plan.tenon.iter().enumerate() {
         add(block, "join", &rail, if haunch(i) { "Haunch" } else { "Tenon" })?;
     }

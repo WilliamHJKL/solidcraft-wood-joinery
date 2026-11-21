@@ -56,7 +56,7 @@
             },
             "haunch_width": {
               "type": "number",
-              "title": "Haunch width (empty = 1/4 of the rail)",
+              "title": "Haunch width (empty = tenon thickness)",
               "unit": "mm",
               "exclusiveMinimum": 0,
               "x-solidcraft-visible-when": {

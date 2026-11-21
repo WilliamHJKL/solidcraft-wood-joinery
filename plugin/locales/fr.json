@@ -39,7 +39,7 @@
   "Groove board (empty = selection)": "Pièce à rainure (vide = sélection)",
   "Half lap": "Mi-bois",
   "Haunch depth (empty = tenon thickness)": "Profondeur du renfort (vide = épaisseur du tenon)",
-  "Haunch width (empty = 1/4 of the rail)": "Largeur du renfort (vide = 1/4 de la traverse)",
+  "Haunch width (empty = tenon thickness)": "Largeur du renfort (vide = épaisseur du tenon)",
   "Housing joint": "Entaille d'étagère",
   "Joint": "Assemblage",
   "Lap (0 = through; 4 or 5 for a drawer front)": "Recouvrement (0 = traversantes ; 4 ou 5 pour une devanture)",

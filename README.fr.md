@@ -132,7 +132,7 @@ menuiserie :
 | Épaisseur du tenon | `thickness` | Un tiers de l'épaisseur de la traverse |
 | Longueur du tenon | `length` | Trois quarts du montant, arrondis à 5 mm ; la mortaise a 2 mm de plus (dégagement de colle). Tout le montant pour Traversant et Enfourchement |
 | Épaulement | `shoulder` | La largeur de la joue, au plus un cinquième de la largeur de la traverse. Aucun pour Enfourchement |
-| Largeur du renfort | `haunch_width` | Un quart de la largeur de la traverse, jamais moins que l'épaisseur du tenon |
+| Largeur du renfort | `haunch_width` | L'épaisseur du tenon, au plus un tiers de la largeur de la traverse |
 | Profondeur du renfort | `haunch_depth` | L'épaisseur du tenon, au plus 0,4 fois sa longueur |
 | Réserve de colle | `glue_relief` | 2 mm sous un tenon borgne |
 | Jeu | `clearance` | Aucun |
@@ -145,8 +145,15 @@ menuiserie :
 | Coins | `wedges` | 0. Sinon, 1 ou 2 coins dans le bout d'un tenon traversant, sur les trois quarts de sa longueur. Chaque coin est un nouveau corps nommé `Wedge 1`, `Wedge 2`… |
 | Épaisseur des coins | `wedge_thickness` | 4 mm |
 
-La réponse signale, sans refuser, deux choses que l'usage évite : une joue de mortaise de moins
-de 8 mm, et une mortaise en travers du fil du montant (traverse posée à plat). Le journal des
+Un tenon fait au plus 6 fois son épaisseur en largeur (un tenon double compte pour un). Une
+traverse plus large reçoit des tenons jumelés, chacun d'un tiers de la largeur restante, avec entre
+eux un renfort aussi profond qu'un renfort de bout : les mortaises restent courtes et la traverse
+peut travailler. Toutes les variantes sauf `bridle` le font, et chevilles et coins vont dans chaque
+tenon. La réponse indique alors `twin_tenons: 2`.
+
+La réponse signale, sans refuser, trois choses que l'usage évite : une joue de mortaise de moins
+de 8 mm, une mortaise en travers du fil du montant (traverse posée à plat), et des tenons jumelés
+encore plus larges que 6 fois leur épaisseur. Le journal des
 plugins de SolidCraft les affiche aussi.
 
 Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit un tenon de
