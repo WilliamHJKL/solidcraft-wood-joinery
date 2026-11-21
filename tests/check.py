@@ -526,6 +526,29 @@ def main():
         bodies = {b["name"]: round(b["volume_mm3"]) for b in reopened[-1]["bodies"]}
         c.report(bodies == {"Rail": RAIL + 6 * 33 * 25, "Stile": STILE - 6 * 33 * 27}, f"saved design reopened without the plugin: {bodies}")
 
+        # 6b. Regressions from the code review of v0.10.0, one per bug.
+        L = [box("A", [0, 0, 0], (300, 18, 100), first=True), box("B", [0, 0, 0], (18, 300, 100))]
+        c.refuse_entry("rev_miter_spline", "a 6 mm spline 10 mm deep in 18 mm boards", L, "miter", {**two, "spline": 6, "spline_depth": 10}, "at most 7.728")
+        tenoned = [box("Stile", [0, 0, 0], (45, 35, 830), first=True), box("Rail", [45, 0, 400], (360, 18, 45)), c.joint(both)]
+        c.refuse_entry("rev_screws_joined", "screws between boards joined by a tenon", tenoned, "screws", {"first": "Stile", "second": "Rail"}, "already joined")
+        thick = [box("A", [0, 127, 0], (300, 45, 18), first=True), box("B", [127, 0, 0], (45, 300, 30))]
+        c.change("rev_lap_thick", "half lap of 18 and 30 mm boards, swapped: open, no tunnel", thick, "half-lap", {**two, "flip": True}, {"A": -45 * 45 * 9, "B": -45 * 45 * 21})
+        c.refuse_entry("rev_scarf_thick", "a scarf of 18 and 40 mm boards", [box("A", [0, 0, 0], (400, 45, 18), first=True), box("B", [256, 0, 0], (260, 45, 40))], "scarf", {**two, "flip": True}, "one thickness")
+        flat_l = [box("A", [120, 15, 30], (300, 100, 18), first=True), box("B", [0, 0, 0], (100, 300, 18))]
+        got = c.cli("rev_box_flat_align", [*flat_l, c.run("box-joint", {**two, "align": True}), MEASURE])
+        c.report(got[-2]["result"]["moved_first_mm"] == [-20, -15, -30] and len(got[-1]["bodies"]) == 2, f"a box joint aligns boards lying flat into an L: {got[-2]['result']['moved_first_mm']}")
+        loose_ends = [box("A", [0, 10, 5], (400, 45, 18), first=True), box("B", [420, 0, 0], (400, 45, 18))]
+        got = c.cli("rev_scarf_align_slope", [*loose_ends, c.run("scarf", {**two, "align": True, "slope": 6})])
+        c.report(got[-1]["result"]["length_mm"] == 108, f"a scarf aligned at 1:6 overlaps by 108 mm: {got[-1]['result']['length_mm']}")
+        thin11 = [box("A", [0, 0, 11], (300, 45, 11), first=True), box("B", [0, 0, 0], (300, 45, 11))]
+        got = c.cli("rev_screws_11", [*thin11, c.run("screws", two)])
+        c.report(got[-1]["result"]["length_mm"] == 19, f"two 11 mm boards get a {got[-1]['result']['length_mm']} mm screw")
+        c.refuse_entry("rev_through_short", "a 20 mm through tenon in a 35 mm stile", mid, "mortise-tenon", {**both, "variant": "through", "length": 20, "wedges": 1}, "runs through the whole")
+        c.refuse_entry("rev_drawbore", "a 20 mm drawbore", mid, "mortise-tenon", {**both, "pegs": 1, "drawbore": 20}, "too much")
+        far = [box("A", [0, 0, 0], (220, 1360, 22), first=True), box("B", [330, 0, 0], (220, 1360, 22))]
+        c.refuse_entry("rev_lap_far", "a shiplap of planks 110 mm apart, without align", far, "half-lap", two, "110 mm apart")
+        c.change("rev_lap_far_align", "the same planks with align", far, "half-lap", {**two, "align": True}, {"A": -11 * 1360 * 11, "B": -11 * 1360 * 11})
+
         # 7. A picture, for a human to look at.
         picture = work / "joint.png"
         cam = json.dumps({"target": [35, 9, 422], "yaw": 0.9, "pitch": 0.35, "distance": 260})

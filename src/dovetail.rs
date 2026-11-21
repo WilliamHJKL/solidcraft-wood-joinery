@@ -15,7 +15,7 @@ pub const MAX: u32 = 20;
 pub struct Options {
     /// Number of tails. Default: one every two and a half thicknesses or so.
     pub count: Option<u32>,
-    /// The slope as 1:N. Default: 8, the usual hardwood slope; 6 for softwood.
+    /// The slope as 1:N. Default: 6, about 80 degrees (French practice: about 78, 1:5).
     pub slope: Option<f64>,
     /// Width of a pin at its narrow end. Default: half the thickness of the tail board.
     pub pin: Option<f64>,
@@ -73,7 +73,7 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
 
     let slope = o.slope.unwrap_or(6.0);
     if !(slope.is_finite() && slope >= 1.0) {
-        return Err("slope must be 1 or more: 8 means a slope of 1:8".into());
+        return Err("slope must be 1 or more: 6 means a slope of 1:6".into());
     }
     let count = match o.count {
         Some(0) => return Err("count must be at least 1".into()),

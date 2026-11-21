@@ -29,6 +29,7 @@ pub fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
 /// beyond the plane and `reach` each way along `w`, over `span` (low, high) along `u`. `e` is an
 /// axis other than `u`: the tool is built with its cutting face square to it.
 pub fn beyond(keep: [f64; 3], origin: [f64; 3], w: [f64; 3], u: usize, e: usize, span: (f64, f64), reach: f64) -> Tool {
+    debug_assert!(u != e && u < 3 && e < 3, "beyond needs two different axes");
     let f = 3 - u - e;
     let mut axis = [0.0; 3];
     axis[u] = 1.0;

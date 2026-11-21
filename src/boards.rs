@@ -7,6 +7,9 @@ pub const FIT: f64 = 1e-6;
 pub const TOUCH: f64 = 1e-2;
 /// How far a cutting block runs past a face it opens, so no skin is left there.
 pub const OVERCUT: f64 = 0.5;
+/// How far apart, in mm, two boards may lie for a joint to bring them together by itself;
+/// farther, only Align does.
+pub const FARTHEST: f64 = 100.0;
 
 /// SolidCraft stops a plugin call after 30 s, or at its 256th command. Each joint with a count
 /// has a `MAX` that stays well inside both on a Raspberry Pi 5: a count given above it is

@@ -80,12 +80,16 @@ jamais. Le déplacement et l'assemblage font une seule étape d'annulation.
 
 | Assemblage | Où va la première pièce |
 |---|---|
-| Tenon et mortaise, Tourillons | Contre la deuxième pièce : dans sa longueur s'il y a un écart dans ce sens, sinon en travers de l'écart. Sur les côtés, elle ne bouge que du nécessaire pour porter sur la deuxième pièce. Une pièce déjà en place ne bouge pas |
-| Queues droites, Queues d'aronde, Coupe d'onglet | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur. Chaque pièce est lue par son épaisseur, son plus petit côté : un panneau peut être plus haut que long |
+| Tenon et mortaise, Tourillons, Faux tenon, Entaille d'étagère, Rainure et languette, Vis, Lamelles | Contre la deuxième pièce : dans sa longueur s'il y a un écart dans ce sens, sinon en travers de l'écart. Sur les côtés, elle ne bouge que du nécessaire pour porter sur la deuxième pièce. Une pièce déjà en place ne bouge pas |
+| Queues droites, Queues d'aronde, Coupe d'onglet | Son bout sur la deuxième pièce, au bout le plus proche de celle-ci, centrée sur la largeur. Chaque pièce est lue par son épaisseur, son plus petit côté : un panneau peut être plus haut que long. Deux pièces à plat forment un L : le bout de la première contre le chant de la seconde, à fleur de son bout le plus proche |
 | Mi-bois | Dans le plan de la deuxième pièce. Les pièces doivent déjà se croiser, vues de dessus |
+| Enture | Bout à bout contre la deuxième pièce, de niveau avec elle ; puis elle glisse dessus de la longueur de la pente |
 
 Case décochée, les pièces doivent déjà être en place, et le plugin le dit quand elles ne le
-sont pas.
+sont pas, sauf dans trois cas où le plugin les rapproche lui-même quand elles sont à 100 mm au plus : le mi-bois
+de pièces chant contre chant ou bout à bout, l'enture de pièces bout à bout, et les vis entre
+pièces dont les faces regardent dans le même sens (posées l'une sur l'autre). Plus loin, cochez
+la case.
 
 ## Tenon et mortaise
 
@@ -120,8 +124,8 @@ menuiserie :
 | Épaisseur du tenon | `thickness` | Un tiers de l'épaisseur de la traverse |
 | Longueur du tenon | `length` | Trois quarts du montant, arrondis à 5 mm ; la mortaise a 2 mm de plus (dégagement de colle). Tout le montant pour Traversant et Enfourchement |
 | Épaulement | `shoulder` | La largeur de la joue, au plus un cinquième de la largeur de la traverse. Aucun pour Enfourchement |
-| Largeur du renfort | `haunch_width` | Un quart de la largeur de la traverse |
-| Profondeur du renfort | `haunch_depth` | L'épaisseur du tenon |
+| Largeur du renfort | `haunch_width` | Un quart de la largeur de la traverse, jamais moins que l'épaisseur du tenon |
+| Profondeur du renfort | `haunch_depth` | L'épaisseur du tenon, au plus 0,4 fois sa longueur |
 | Réserve de colle | `glue_relief` | 2 mm sous un tenon borgne |
 | Jeu | `clearance` | Aucun |
 | Décalage | `offset` | Le tenon est centré dans l'épaisseur de la traverse |
@@ -363,7 +367,7 @@ deuxième reçoit les entailles correspondantes, avec un demi-tenon à chaque bo
 | Recouvrement | `lap` | 0 : queues traversantes. Sinon, le bois laissé devant les queues, pour des queues semi-cachées : 4 ou 5 mm sur une devanture de tiroir |
 
 Exemple : deux pièces de 18 × 100 mm reçoivent deux queues, larges de 41 mm au bout et de
-36,5 mm à la base, entre des tenons de 9 mm à leur bout étroit.
+35 mm à la base, entre des tenons de 9 mm à leur bout étroit.
 
 Chaque queue ajoute neuf fonctions dans la timeline : la queue est d'abord réalisée comme un
 corps à part, ses deux flancs sont coupés à la pente, puis elle creuse son entaille et rejoint

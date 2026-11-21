@@ -53,7 +53,8 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     if !(thickness.is_finite() && thickness > FIT) {
         return Err("thickness must be a positive length".into());
     }
-    if thickness > short - 2.0 + FIT {
+    // 3 mm of wood at least on each side of the mortise.
+    if thickness > short - 6.0 + FIT {
         return Err(format!(
             "a {thickness:.3} mm tenon leaves no cheek beside it: the boards touch over {short:.3} mm only"
         ));

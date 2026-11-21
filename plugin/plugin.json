@@ -694,7 +694,8 @@
               "type": "number",
               "title": "Glue relief",
               "unit": "mm",
-              "minimum": 0
+              "minimum": 0,
+              "default": 1
             },
             "dowel_bodies": {
               "type": "boolean",
@@ -819,6 +820,7 @@
       }
     ],
     "commands": [
+      "inspect.interference",
       "inspect.measure",
       "selection.get",
       "solid.box",

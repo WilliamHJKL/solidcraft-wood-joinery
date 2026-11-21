@@ -52,19 +52,23 @@ pub struct Plan {
 /// drawn in one plane or apart, are laid one on the other before they are screwed: this is how
 /// far to move `first`, the board under the heads, onto the face of `second`. `None` when they
 /// already lie face on face, or do not have their faces the same way.
-pub fn stack(first: &Aabb, second: &Aabb) -> Option<[f64; 3]> {
+pub fn stack(first: &Aabb, second: &Aabb, unlimited: bool) -> Result<Option<[f64; 3]>, String> {
     let thin = |b: &Aabb| (0..3).min_by(|&x, &y| b.size(x).total_cmp(&b.size(y))).unwrap_or(2);
     let n = thin(first);
     if thin(second) != n {
-        return None;
+        return Ok(None);
     }
     let shares = |a: usize| first.min[a].max(second.min[a]) < first.max[a].min(second.max[a]) - FIT;
     if !(0..3).filter(|&a| a != n).all(shares) {
-        return None;
+        return Ok(None);
     }
     let face_on_face = (first.min[n] - second.max[n]).abs() <= FIT || (first.max[n] - second.min[n]).abs() <= FIT;
     if face_on_face {
-        return None;
+        return Ok(None);
+    }
+    let gap = (second.min[n] - first.max[n]).max(first.min[n] - second.max[n]);
+    if gap > crate::boards::FARTHEST + FIT && !unlimited {
+        return Err(crate::lap::far(gap));
     }
     // Onto the side it is on; drawn in the same plane, on top.
     let mut shift = [0.0; 3];
@@ -73,7 +77,7 @@ pub fn stack(first: &Aabb, second: &Aabb) -> Option<[f64; 3]> {
     } else {
         second.min[n] - first.max[n]
     };
-    Some(shift)
+    Ok(Some(shift))
 }
 
 /// Plan screws through `first` into `second`, where the two touch.
@@ -96,8 +100,8 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     }
 
     let diameter = o.diameter.unwrap_or(4.0);
-    if !(diameter.is_finite() && diameter > FIT) {
-        return Err("diameter must be a positive length".into());
+    if !(diameter.is_finite() && diameter >= 1.0 - FIT) {
+        return Err("diameter must be 1 mm or more".into());
     }
     let clearance_diameter = diameter + 0.5;
     let head = 2.0 * diameter;
@@ -105,9 +109,13 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     if (if countersink { head } else { clearance_diameter }) > short - 2.0 + FIT {
         return Err(format!("a {diameter:.3} mm screw leaves no wood beside it: the boards touch over {short:.3} mm only"));
     }
-    // Empty: 2.5 times the first board, to 5 mm, but never through the second one.
+    // Empty: 2.5 times the first board, to 5 mm, but never through the second one; when the
+    // 5 mm steps leave too short a bite in thin boards, the longest whole millimetre that fits.
     let longest = through + second.size(n) - 3.0;
-    let length = o.length.unwrap_or(((2.5 * through / 5.0).round() * 5.0).min((longest / 5.0).floor() * 5.0));
+    let length = o.length.unwrap_or_else(|| {
+        let stepped = ((2.5 * through / 5.0).round() * 5.0).min((longest / 5.0).floor() * 5.0);
+        if stepped - through >= 5.0 - FIT { stepped } else { longest.floor() }
+    });
     if !(length.is_finite() && length > FIT) {
         return Err("length must be a positive length".into());
     }
@@ -197,20 +205,32 @@ mod tests {
         // Two 220 x 1360 x 22 planks lying flat, drawn in one plane, overlapping by 205 mm.
         let bottom = bx([843.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
         let top = bx([858.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
-        assert_eq!(stack(&top, &bottom), Some([0.0, 0.0, 22.0]));
+        assert_eq!(stack(&top, &bottom, false).unwrap(), Some([0.0, 0.0, 22.0]));
         // 68 mm apart, the top one above: it comes down onto the other.
         let low = bx([843.0, 0.0, -90.0], [220.0, 1360.0, 22.0]);
-        assert_eq!(stack(&top, &low), Some([0.0, 0.0, -68.0]));
+        assert_eq!(stack(&top, &low, false).unwrap(), Some([0.0, 0.0, -68.0]));
         // Already face on face, or a side on a shelf: left as they are.
         let on = bx([858.0, 0.0, 22.0], [220.0, 1360.0, 22.0]);
-        assert_eq!(stack(&on, &bottom), None);
+        assert_eq!(stack(&on, &bottom, false).unwrap(), None);
         let (side, shelf) = side_and_shelf();
-        assert_eq!(stack(&side, &shelf), None);
+        assert_eq!(stack(&side, &shelf, false).unwrap(), None);
         // Laid on it, 22 + 22 mm: the default screw is 40 mm, not 55, so it stays in the wood.
         let mut moved = top;
         moved.min[2] += 22.0;
         moved.max[2] += 22.0;
         assert_eq!(plan(moved, bottom, &Options::default()).unwrap().length, 40.0);
+    }
+
+    #[test]
+    fn two_11_mm_boards_get_a_19_mm_screw() {
+        let top = bx([0.0, 0.0, 11.0], [300.0, 45.0, 11.0]);
+        let bottom = bx([0.0, 0.0, 0.0], [300.0, 45.0, 11.0]);
+        let p = plan(top, bottom, &Options::default()).unwrap();
+        assert_eq!((p.length, p.pilot_depth), (19.0, 8.0));
+        // Far apart, they are not laid together without Align.
+        let far = bx([0.0, 0.0, 150.0], [300.0, 45.0, 11.0]);
+        assert!(stack(&far, &bottom, false).unwrap_err().contains("139 mm apart"));
+        assert!(plan(top, bottom, &Options { diameter: Some(0.4), ..Options::default() }).unwrap_err().contains("1 mm or more"));
     }
 
     #[test]

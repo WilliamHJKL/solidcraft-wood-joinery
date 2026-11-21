@@ -231,9 +231,16 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         return Err("a tenon level with a face of the rail is single, and takes no offset".into());
     }
     if !off.is_finite() || off.abs() + half >= 0.5 * e_rail - FIT {
-        return Err(format!("offset ({off:.3} mm) puts the tenon outside the {e_rail:.3} mm rail; reduce thickness or offset"));
+        return Err(if off.abs() > FIT {
+            format!("offset ({off:.3} mm) puts the tenon outside the {e_rail:.3} mm rail; reduce thickness or offset")
+        } else {
+            format!("{} of {t:.3} mm do not fit in the {e_rail:.3} mm rail; give a thinner tenon", if o.double { "two tenons" } else { "a tenon" })
+        });
     }
     let clr = not_negative("clearance", o.clearance.unwrap_or(0.0))?;
+    if o.double && clr >= 0.5 * t - FIT {
+        return Err(format!("a clearance of {clr:.3} mm joins the two mortises of a double tenon into one; give less than {:.3} mm", 0.5 * t));
+    }
     let relief = not_negative("glue_relief", o.glue_relief.unwrap_or(if o.variant.blind() { 2.0 } else { 0.0 }))?;
 
     let length = match o.length {
@@ -247,6 +254,11 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
         None => stile_depth,
     };
     let length = positive("length", length)?;
+    if !o.variant.blind() && length < stile_depth - FIT {
+        return Err(format!(
+            "a through tenon or a bridle runs through the whole {stile_depth:.3} mm stile; leave length empty, or use the classic variant for a {length:.3} mm tenon"
+        ));
+    }
     if o.variant.blind() && length + relief >= stile_depth - FIT {
         return Err(format!(
             "the mortise ({:.3} mm with its glue relief) would come through the {stile_depth:.3} mm stile; \
@@ -441,6 +453,16 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
             let mut base = [0.0; 3];
             let along = if o.pegs == 1 { 0.5 } else { (f64::from(i) + 1.0) / 3.0 };
             base[a] = contact + dir * along * reach;
+            // A drawbore of half the peg at most, and its hole still in the tenon, 2 mm from the
+            // shoulder at least.
+            if o.drawbore > 0.5 * diameter + FIT || along * reach - o.drawbore - 0.5 * diameter < 2.0 - FIT {
+                return Err(format!(
+                    "a drawbore of {:.3} mm is too much for a {diameter:.3} mm peg {:.3} mm from the shoulder; give at most {:.3} mm",
+                    o.drawbore,
+                    along * reach,
+                    (0.5 * diameter).min(along * reach - 0.5 * diameter - 2.0).max(0.0)
+                ));
+            }
             base[w] = across.0 + (across.1 - across.0) * (f64::from(i) + 0.5) / f64::from(o.pegs);
             base[e] = stile.min[e];
             let tenon_base = (o.drawbore > FIT).then(|| {
@@ -542,6 +564,12 @@ mod tests {
         // The shoulder is at X = 35; the tenon runs towards X = 0. Its hole is 1.5 mm nearer X = 35.
         assert_eq!(p.pegs[0].tenon_base, Some([24.0, 0.0, 422.5]));
         assert!(plan(rail, stile, &Options { drawbore: 1.5, ..Options::default() }).unwrap_err().contains("needs pegs"));
+        assert!(plan(rail, stile, &Options { pegs: 1, drawbore: 20.0, ..Options::default() }).unwrap_err().contains("at most 3.000"));
+        // A through tenon shorter than the stile, or a double tenon whose clearance joins its mortises.
+        let through = Options { variant: Variant::Through, length: Some(20.0), ..Options::default() };
+        assert!(plan(rail, stile, &through).unwrap_err().contains("runs through the whole"));
+        let double = Options { double: true, clearance: Some(2.0), ..Options::default() };
+        assert!(plan(rail, stile, &double).unwrap_err().contains("into one"));
     }
 
     #[test]

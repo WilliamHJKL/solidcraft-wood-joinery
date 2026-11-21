@@ -97,8 +97,9 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     }
     let splines = if thickness > 0.0 {
         let depth = o.spline_depth.unwrap_or(ta.min(tb) / 3.0);
-        // Half way along the cut, the wood on each side is half the diagonal deep at most.
-        let most = 0.5 * diagonal * (ta / tb).min(tb / ta) - 2.0;
+        // Half way along the cut, the wood on each side is half the diagonal deep at most; the
+        // spline's outer face, half its thickness nearer the outer corner, must keep 2 mm of it.
+        let most = 0.5 * (diagonal - thickness) * (ta / tb).min(tb / ta) - 2.0;
         if !(depth.is_finite() && depth > FIT) || depth > most + FIT {
             return Err(format!("spline_depth must be more than zero and at most {:.3} mm for these boards", most.max(0.0)));
         }
@@ -241,6 +242,9 @@ mod tests {
         let middle = body.block.corner[0].abs() + 2.0;
         assert!((middle - 0.5 * (2.0_f64 * 18.0 * 18.0).sqrt()).abs() < 1e-9);
         assert!(plan(x, y, &Options { spline: Some(4.0), spline_depth: Some(12.0), keys: 0 }).unwrap_err().contains("at most"));
+        // A 6 mm spline in 18 mm boards: at most (25.456 - 6) / 2 - 2 = 7.728 mm into each, or it
+        // comes out of the outer faces.
+        assert!(plan(x, y, &Options { spline: Some(6.0), spline_depth: Some(10.0), keys: 0 }).unwrap_err().contains("at most 7.728"));
     }
 
     #[test]

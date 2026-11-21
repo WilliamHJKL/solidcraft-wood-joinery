@@ -53,21 +53,17 @@ fn axes(first: &Aabb, second: &Aabb) -> Result<(usize, usize, usize), String> {
     Ok((along, thick, 3 - along - thick))
 }
 
-/// How far to move `first` so that the two boards overlap by eight thicknesses, end over end,
-/// and lie level across their width and thickness.
+/// How far to move `first` so that it lies end to end against `second`, level across their width
+/// and thickness. `slide` then overlaps them by the slope the user asks for.
 pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     measurable(first)?;
     measurable(second)?;
     let (along, thick, width) = axes(first, second)?;
-    let length = 8.0 * first.size(thick);
-    if length >= first.size(along) - FIT || length >= second.size(along) - FIT {
-        return Err("a board is shorter than eight thicknesses; overlap the boards by hand instead".into());
-    }
     let mut shift = [0.0; 3];
     shift[along] = if first.min[along] + first.max[along] <= second.min[along] + second.max[along] {
-        second.min[along] + length - first.max[along]
+        second.min[along] - first.max[along]
     } else {
-        second.max[along] - length - first.min[along]
+        second.max[along] - first.min[along]
     };
     shift[thick] = second.min[thick] - first.min[thick];
     shift[width] = 0.5 * (second.min[width] + second.max[width] - first.min[width] - first.max[width]);
@@ -78,13 +74,17 @@ pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
 /// cut: this is how far to move `first`, so that they overlap by `slope` thicknesses (empty: 8).
 /// `None` when they already overlap, or are not level across their width and thickness (then
 /// Align brings them together).
-pub fn slide(first: &Aabb, second: &Aabb, slope: Option<f64>) -> Result<Option<[f64; 3]>, String> {
+pub fn slide(first: &Aabb, second: &Aabb, slope: Option<f64>, unlimited: bool) -> Result<Option<[f64; 3]>, String> {
     measurable(first)?;
     measurable(second)?;
     let Ok((along, thick, _)) = axes(first, second) else { return Ok(None) };
     let apart: Vec<usize> = (0..3).filter(|&i| first.min[i].max(second.min[i]) >= first.max[i].min(second.max[i]) - FIT).collect();
     if apart != [along] {
         return Ok(None);
+    }
+    let gap = (second.min[along] - first.max[along]).max(first.min[along] - second.max[along]);
+    if gap > crate::boards::FARTHEST + FIT && !unlimited {
+        return Err(crate::lap::far(gap));
     }
     let slope = slope.unwrap_or(8.0);
     if !(slope.is_finite() && slope >= 1.0) {
@@ -108,6 +108,13 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     measurable(&first)?;
     measurable(&second)?;
     let (along, thick, width) = axes(&first, &second)?;
+    if (first.size(thick) - second.size(thick)).abs() > 0.1 {
+        return Err(format!(
+            "a scarf joins two boards of one thickness, its slope running from face to face: these are {:.3} and {:.3} mm",
+            first.size(thick),
+            second.size(thick)
+        ));
+    }
     let mut lo = [0.0; 3];
     let mut hi = [0.0; 3];
     for i in 0..3 {
@@ -197,18 +204,40 @@ mod tests {
     }
 
     #[test]
+    fn boards_of_two_thicknesses_are_refused() {
+        let a = bx([0.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
+        let b = bx([256.0, 0.0, 0.0], [260.0, 45.0, 40.0]);
+        assert!(plan(a, b, &Options { flip: true, ..Options::default() }).unwrap_err().contains("18.000 and 40.000"));
+    }
+
+    #[test]
+    fn align_lays_the_boards_end_to_end_and_the_slope_sets_the_overlap() {
+        let a = bx([0.0, 10.0, 5.0], [400.0, 45.0, 18.0]);
+        let b = bx([420.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
+        assert_eq!(align(&a, &b).unwrap(), [20.0, -10.0, -5.0]);
+        let mut moved = a;
+        for i in 0..3 {
+            moved.min[i] += [20.0, -10.0, -5.0][i];
+            moved.max[i] += [20.0, -10.0, -5.0][i];
+        }
+        // At 1:6, 108 mm over 18 mm boards.
+        assert_eq!(slide(&moved, &b, Some(6.0), false).unwrap(), Some([108.0, 0.0, 0.0]));
+        assert!(slide(&a, &bx([700.0, 10.0, 5.0], [400.0, 45.0, 18.0]), None, false).unwrap_err().contains("300 mm apart"));
+    }
+
+    #[test]
     fn boards_end_to_end_slide_by_the_slope() {
         // Two 400 x 45 x 18 boards that touch end to end: the first slides 8 x 18 = 144 mm.
         let a = bx([0.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
         let b = bx([400.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
-        assert_eq!(slide(&a, &b, None).unwrap(), Some([144.0, 0.0, 0.0]));
+        assert_eq!(slide(&a, &b, None, false).unwrap(), Some([144.0, 0.0, 0.0]));
         // 20 mm apart, on the far side, at 1:6: 20 + 108 the other way.
         let c = bx([-420.0, 0.0, 0.0], [400.0, 45.0, 18.0]);
-        assert_eq!(slide(&a, &c, Some(6.0)).unwrap(), Some([-128.0, 0.0, 0.0]));
+        assert_eq!(slide(&a, &c, Some(6.0), false).unwrap(), Some([-128.0, 0.0, 0.0]));
         // Already overlapping, or not level: not slid.
-        assert_eq!(slide(&a, &bx([256.0, 0.0, 0.0], [400.0, 45.0, 18.0]), None).unwrap(), None);
-        assert_eq!(slide(&a, &bx([400.0, 0.0, 30.0], [400.0, 45.0, 18.0]), None).unwrap(), None);
-        assert!(slide(&a, &b, Some(30.0)).unwrap_err().contains("give a smaller slope"));
+        assert_eq!(slide(&a, &bx([256.0, 0.0, 0.0], [400.0, 45.0, 18.0]), None, false).unwrap(), None);
+        assert_eq!(slide(&a, &bx([400.0, 0.0, 30.0], [400.0, 45.0, 18.0]), None, false).unwrap(), None);
+        assert!(slide(&a, &b, Some(30.0), false).unwrap_err().contains("give a smaller slope"));
     }
 
     #[test]
@@ -223,11 +252,12 @@ mod tests {
     }
 
     #[test]
-    fn align_overlaps_the_boards_by_eight_thicknesses() {
+    fn align_lays_the_boards_end_to_end_level() {
         let (_, b) = boards();
-        // The first board lies 50 mm short of the second, 10 mm aside and 5 mm too high.
+        // The first board lies 50 mm short of the second, 10 mm aside and 5 mm too high: align
+        // closes the 50 mm and levels it; the slide then overlaps it by 144 (1:8), 194 in all.
         let loose = bx([-194.0, 10.0, 5.0], [400.0, 45.0, 18.0]);
-        assert_eq!(align(&loose, &b).unwrap(), [194.0, -10.0, -5.0]);
+        assert_eq!(align(&loose, &b).unwrap(), [50.0, -10.0, -5.0]);
         let across = bx([0.0, 0.0, 0.0], [45.0, 400.0, 18.0]);
         assert!(align(&across, &b).unwrap_err().contains("same way"));
     }

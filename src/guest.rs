@@ -88,7 +88,7 @@ fn choice(text: &str) -> &str {
 fn named(p: &Value, field: &str) -> Result<Option<String>, PluginError> {
     match p.get(field) {
         None | Some(Value::Null) => Ok(None),
-        Some(Value::String(name)) if name.is_empty() => Ok(None),
+        Some(Value::String(name)) if name.trim().is_empty() => Ok(None),
         Some(Value::Array(names)) if names.is_empty() => Ok(None),
         Some(_) => body(p, field).map(Some),
     }
@@ -151,8 +151,10 @@ fn length(p: &Value, field: &str) -> Result<Option<f64>, PluginError> {
 fn count(p: &Value, field: &str) -> Result<Option<u32>, PluginError> {
     match p.get(field) {
         None | Some(Value::Null) => Ok(None),
+        // A script may send 2.0 for 2.
         Some(v) => v
             .as_u64()
+            .or_else(|| v.as_f64().filter(|f| *f >= 0.0 && f.fract() == 0.0 && *f <= f64::from(u32::MAX)).map(|f| f as u64))
             .and_then(|k| u32::try_from(k).ok())
             .map(Some)
             .ok_or_else(|| invalid(field, "expected a whole number")),
@@ -203,7 +205,7 @@ fn landed(checks: &[(&str, Want)]) -> Result<(), PluginError> {
         };
         if !ok {
             return Err(invalid(
-                "body",
+                "boards",
                 format!(
                     "the joint did not land on `{name}` as planned, so nothing was changed. This happens when a \
                      component other than the top one is active, or when a board is in a component that was \
@@ -239,7 +241,7 @@ fn whole<'a>(boards: impl Iterator<Item = &'a str>) -> Result<(), PluginError> {
         let piece = format!("{board} (");
         if now.iter().any(|n| n.starts_with(&piece) && !before.contains(n)) {
             return Err(invalid(
-                "body",
+                "boards",
                 format!(
                     "the joint would cut `{board}` in two pieces, so nothing was changed. The boards are \
                      not placed as this joint needs: check which board is first and how they meet"
@@ -600,7 +602,7 @@ fn half_lap(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, mut a, b, volume_a, volume_b, mut moved } = pair(&p, ("first", "second"), lap::align)?;
     // Boards edge to edge or end to end: the first slides over the second by the overlap.
-    if let Some(by) = lap::slide(&a, &b, length(&p, "overlap")?).map_err(|reason| invalid("overlap", reason))? {
+    if let Some(by) = lap::slide(&a, &b, length(&p, "overlap")?, flag(&p, "align", false)?).map_err(|reason| invalid("overlap", reason))? {
         run("solid.move", json!({ "bodies": [first], "translate": by }))?;
         for i in 0..3 {
             a.min[i] += by[i];
@@ -797,6 +799,8 @@ fn miter(params: &str) -> Result<String, PluginError> {
             run("solid.combine", json!({ "target": board, "tools": [name], "operation": "cut", "keep_tools": true, "name": "Spline slot" }))?;
         }
     }
+    // The slots come after the landing check: they must not cut a board in two either.
+    whole([first.as_str(), second.as_str()].into_iter())?;
     Ok(json!({
         "first": first,
         "second": second,
@@ -854,7 +858,7 @@ fn scarf(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, mut a, b, volume_a, volume_b, mut moved } = pair(&p, ("first", "second"), scarf::align)?;
     // Boards end to end that only meet: the first slides over the second by the slope's length.
-    if let Some(by) = scarf::slide(&a, &b, length(&p, "slope")?).map_err(|reason| invalid("slope", reason))? {
+    if let Some(by) = scarf::slide(&a, &b, length(&p, "slope")?, flag(&p, "align", false)?).map_err(|reason| invalid("slope", reason))? {
         run("solid.move", json!({ "bodies": [first], "translate": by }))?;
         for i in 0..3 {
             a.min[i] += by[i];
@@ -932,8 +936,20 @@ fn dovetail(params: &str) -> Result<String, PluginError> {
 fn screws(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, mut a, b, volume_a, volume_b, mut moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    // Boards whose boxes overlap but whose wood does not are joined already (a tenon, a lap):
+    // their boxes no longer tell where their faces meet.
+    if (0..3).all(|i| a.min[i].max(b.min[i]) < a.max[i].min(b.max[i]) - 1e-6) {
+        let found = run("inspect.interference", json!({ "bodies": [first, second] }))?;
+        let shared: f64 = found.get("interferences").and_then(Value::as_array).into_iter().flatten().filter_map(|i| i.get("volume_mm3").and_then(Value::as_f64)).sum();
+        if shared < 1.0 {
+            return Err(invalid(
+                "first",
+                format!("`{first}` and `{second}` are already joined (a tenon, a lap…); screw them before cutting that joint, or pick two boards that lie face on face"),
+            ));
+        }
+    }
     // Boards with their faces the same way, overlapping seen from above: the first is laid on the second.
-    if let Some(by) = screw::stack(&a, &b) {
+    if let Some(by) = screw::stack(&a, &b, flag(&p, "align", false)?).map_err(|reason| invalid("first", reason))? {
         run("solid.move", json!({ "bodies": [first], "translate": by }))?;
         for i in 0..3 {
             a.min[i] += by[i];

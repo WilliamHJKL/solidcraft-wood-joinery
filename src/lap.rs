@@ -56,7 +56,7 @@ pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
 /// over each other before they are notched: this is how far to move `first`, so that the two
 /// overlap by `overlap` (empty: half the thickness edge to edge, the width of the first board end
 /// to end). `None` when the boards already overlap, or cross, or are not side by side.
-pub fn slide(first: &Aabb, second: &Aabb, overlap: Option<f64>) -> Result<Option<[f64; 3]>, String> {
+pub fn slide(first: &Aabb, second: &Aabb, overlap: Option<f64>, unlimited: bool) -> Result<Option<[f64; 3]>, String> {
     measurable(first)?;
     measurable(second)?;
     let length = long_axis(first);
@@ -75,6 +75,10 @@ pub fn slide(first: &Aabb, second: &Aabb, overlap: Option<f64>) -> Result<Option
         None if Some(j) == length => first.size(3 - n - j),
         None => 0.5 * first.size(n),
     };
+    let gap = (second.min[j] - first.max[j]).max(first.min[j] - second.max[j]);
+    if gap > crate::boards::FARTHEST + FIT && !unlimited {
+        return Err(far(gap));
+    }
     let most = first.size(j).min(second.size(j));
     if !(by.is_finite() && by > FIT && by < most - FIT) {
         return Err(format!("overlap must be more than zero and less than the {most:.3} mm of the boards along the joint"));
@@ -82,6 +86,14 @@ pub fn slide(first: &Aabb, second: &Aabb, overlap: Option<f64>) -> Result<Option
     let mut shift = [0.0; 3];
     shift[j] = if first.max[j] <= second.min[j] + FIT { second.min[j] + by - first.max[j] } else { second.max[j] - by - first.min[j] };
     Ok(Some(shift))
+}
+
+/// The refusal for boards too far apart to be moved without Align.
+pub fn far(gap: f64) -> String {
+    format!(
+        "the boards are {gap:.0} mm apart, more than the {:.0} mm the plugin closes by itself; tick \"Align the boards first\" to bring them together",
+        crate::boards::FARTHEST
+    )
 }
 
 /// Plan the two notches where `first` and `second` overlap.
@@ -114,12 +126,18 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     // The first board loses `depth` on one side, the second loses the rest on the other side.
     let split = if o.flip { lo[n] + depth } else { hi[n] - depth };
     let (mut first_lo, mut first_hi, mut second_lo, mut second_hi) = (lo, hi, lo, hi);
+    // Each notch runs out through the face of its own board, so a board thicker than the other
+    // is open over the joint, never left with a closed tunnel.
     if o.flip {
         first_hi[n] = split;
+        first_lo[n] = first.min[n];
         second_lo[n] = split;
+        second_hi[n] = second.max[n];
     } else {
         first_lo[n] = split;
+        first_hi[n] = first.max[n];
         second_hi[n] = split;
+        second_lo[n] = second.min[n];
     }
     Ok(Plan {
         cut_first: cut_block(&first, first_lo, first_hi),
@@ -220,32 +238,51 @@ mod tests {
         // Two 220 x 22 planks lying flat, edge to edge: the first slides 11 mm over the second.
         let a = bx([0.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
         let b = bx([220.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
-        assert_eq!(slide(&a, &b, None).unwrap(), Some([11.0, 0.0, 0.0]));
-        assert_eq!(slide(&a, &b, Some(10.0)).unwrap(), Some([10.0, 0.0, 0.0]));
+        assert_eq!(slide(&a, &b, None, false).unwrap(), Some([11.0, 0.0, 0.0]));
+        assert_eq!(slide(&a, &b, Some(10.0), false).unwrap(), Some([10.0, 0.0, 0.0]));
         // 10 mm apart, from the other side: it slides 20 the other way.
         let c = bx([-230.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
-        assert_eq!(slide(&c, &a, Some(10.0)).unwrap(), Some([20.0, 0.0, 0.0]));
+        assert_eq!(slide(&c, &a, Some(10.0), false).unwrap(), Some([20.0, 0.0, 0.0]));
         // Slid, they make a 10 x 11 lap along the whole length.
         let mut moved = a;
         moved.min[0] += 10.0;
         moved.max[0] += 10.0;
         let p = plan(moved, b, &Options::default()).unwrap();
         assert_eq!((p.thickness, p.depth_first), (22.0, 11.0));
-        assert!(slide(&a, &b, Some(220.0)).unwrap_err().contains("less than the 220"));
+        assert!(slide(&a, &b, Some(220.0), false).unwrap_err().contains("less than the 220"));
+    }
+
+    #[test]
+    fn a_thicker_board_is_notched_open_never_in_a_tunnel() {
+        // An 18 mm board across a 30 mm one, level underneath, the first notched underneath:
+        // the second loses all its wood above 9, not a slot from 9 to 18 under a roof.
+        let a = bx([0.0, 127.0, 0.0], [300.0, 45.0, 18.0]);
+        let b = bx([127.0, 0.0, 0.0], [45.0, 300.0, 30.0]);
+        let p = plan(a, b, &Options { flip: true, ..Options::default() }).unwrap();
+        assert_eq!((p.cut_first.corner[2], p.cut_first.size[2]), (-0.5, 9.5));
+        assert_eq!((p.cut_second.corner[2], p.cut_second.size[2]), (9.0, 21.5));
+    }
+
+    #[test]
+    fn boards_far_apart_need_align() {
+        let a = bx([0.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
+        let b = bx([330.0, 0.0, 0.0], [220.0, 1360.0, 22.0]);
+        assert!(slide(&a, &b, None, false).unwrap_err().contains("110 mm apart"));
+        assert_eq!(slide(&a, &b, None, true).unwrap(), Some([121.0, 0.0, 0.0]));
     }
 
     #[test]
     fn boards_end_to_end_slide_by_their_width() {
         let a = bx([0.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
         let b = bx([300.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
-        assert_eq!(slide(&b, &a, None).unwrap(), Some([-45.0, 0.0, 0.0]));
+        assert_eq!(slide(&b, &a, None, false).unwrap(), Some([-45.0, 0.0, 0.0]));
         // Boards that already overlap, or cross, or lie on each other are not slid.
         let over = bx([255.0, 0.0, 0.0], [300.0, 45.0, 18.0]);
-        assert_eq!(slide(&a, &over, None).unwrap(), None);
+        assert_eq!(slide(&a, &over, None, false).unwrap(), None);
         let cross = bx([100.0, -100.0, 0.0], [45.0, 300.0, 18.0]);
-        assert_eq!(slide(&a, &cross, None).unwrap(), None);
+        assert_eq!(slide(&a, &cross, None, false).unwrap(), None);
         let on_top = bx([0.0, 0.0, 18.0], [300.0, 45.0, 18.0]);
-        assert_eq!(slide(&a, &on_top, None).unwrap(), None);
+        assert_eq!(slide(&a, &on_top, None, false).unwrap(), None);
     }
 
     #[test]

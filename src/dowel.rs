@@ -70,7 +70,8 @@ pub fn plan(first: Aabb, second: Aabb, o: &Options) -> Result<Plan, String> {
     if !(diameter.is_finite() && diameter > FIT) {
         return Err("diameter must be a positive length".into());
     }
-    if diameter > short - 2.0 + FIT {
+    // 3 mm of wood at least on each side of the hole.
+    if diameter > short - 6.0 + FIT {
         return Err(format!(
             "a {diameter:.3} mm dowel leaves no wood beside it: the boards touch over {short:.3} mm only"
         ));

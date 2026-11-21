@@ -39,12 +39,23 @@ pub fn align(first: &Aabb, second: &Aabb) -> Result<[f64; 3], String> {
     // `n` is square to the face of the second board, `m` runs along that board towards its
     // end, and `l` is the width the two boards share.
     let (m, n) = (thin(first), thin(second));
-    if m == n {
-        return Err("the two boards lie flat on each other; turn one so they make a corner".into());
-    }
-    let l = 3 - n - m;
     let centre = |b: &Aabb, a: usize| 0.5 * (b.min[a] + b.max[a]);
     let mut shift = [0.0; 3];
+    if m == n {
+        // Both lying flat (or both on edge): an L in their plane. The end of the first goes
+        // against the edge of the second, level with it, flush with its nearest end.
+        let (Some(k), Some(r)) = (crate::boards::long_axis(first), crate::boards::long_axis(second)) else {
+            return Err("these boards have no clear length; turn one so they make a corner".into());
+        };
+        if k == r || k == m || r == m {
+            return Err("the two boards run the same way; a corner joins boards that cross".into());
+        }
+        shift[m] = second.min[m] - first.min[m];
+        shift[k] = if centre(first, k) >= centre(second, k) { second.max[k] - first.min[k] } else { second.min[k] - first.max[k] };
+        shift[r] = if centre(first, r) <= centre(second, r) { second.min[r] - first.min[r] } else { second.max[r] - first.max[r] };
+        return Ok(shift);
+    }
+    let l = 3 - n - m;
     shift[n] = if centre(first, n) >= centre(second, n) { second.max[n] - first.min[n] } else { second.min[n] - first.max[n] };
     shift[m] = if centre(first, m) <= centre(second, m) { second.min[m] - first.min[m] } else { second.max[m] - first.max[m] };
     shift[l] = centre(second, l) - centre(first, l);
@@ -121,6 +132,15 @@ mod tests {
     }
 
     #[test]
+    fn align_brings_boards_lying_flat_into_an_l() {
+        // The side lies 30 mm above, 20 mm short of the front's edge and 15 mm along: it comes
+        // down level, its end against the front's edge, flush with the front's near end.
+        let side = bx([120.0, 15.0, 30.0], [300.0, 100.0, 18.0]);
+        let front = bx([0.0, 0.0, 0.0], [100.0, 300.0, 18.0]);
+        assert_eq!(align(&side, &front).unwrap(), [-20.0, -15.0, -30.0]);
+    }
+
+    #[test]
     fn boards_lying_flat_make_a_comb_through_their_thickness() {
         // An L of two 100 x 18 boards lying flat: the side's end against the front's edge.
         let side = bx([100.0, 0.0, 0.0], [300.0, 100.0, 18.0]);
@@ -151,7 +171,7 @@ mod tests {
         let other = bx([-295.0, 270.0, 0.0], [300.0, 18.0, 100.0]);
         assert_eq!(align(&other, &front).unwrap(), [-5.0, 12.0, 0.0]);
         let parallel = bx([40.0, 0.0, 0.0], [18.0, 300.0, 100.0]);
-        assert!(align(&parallel, &front).unwrap_err().contains("flat on each other"));
+        assert!(align(&parallel, &front).unwrap_err().contains("same way"));
     }
 
     #[test]

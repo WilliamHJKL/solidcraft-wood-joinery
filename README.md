@@ -74,11 +74,16 @@ the joint are one undo step.
 
 | Joint | Where the first board goes |
 |---|---|
-| Mortise and tenon, Dowels | Against the second board: along its length when there is a gap that way, otherwise across the gap. Sideways, it moves only as far as it must to land on the second board. A board already in place does not move |
-| Box joint, Dovetails, Miter | Its end on the second board, at the nearest end of that board, centred across the width. Each board is read by its thickness, its smallest side, so a panel may be taller than it is long |
+| Mortise and tenon, Dowels, Loose tenon, Housing, Tongue and groove, Screws, Biscuits | Against the second board: along its length when there is a gap that way, otherwise across the gap. Sideways, it moves only as far as it must to land on the second board. A board already in place does not move |
+| Box joint, Dovetails, Miter | Its end on the second board, at the nearest end of that board, centred across the width. Each board is read by its thickness, its smallest side, so a panel may be taller than it is long. Two boards lying flat make an L: the end of the first against the edge of the second, flush with its nearest end |
 | Half lap | Into the plane of the second board. The boards must already cross when seen from above |
+| Scarf joint | End to end against the second board, level with it; then it slides over it by the slope |
 
-With the box off, the boards must be in place already, and the plugin says so when they are not.
+With the box off, the boards must be in place already, and the plugin says so when they are not,
+with three exceptions where the plugin brings them together by itself when they are at most
+100 mm apart: a half lap of boards edge to edge or end to end, a scarf of boards end to end, and
+screws between boards with their faces the same way (laid one on the other). Farther apart, tick
+the box.
 
 ## Mortise and tenon
 
@@ -109,8 +114,8 @@ glue relief, no clearance, no offset.
 | Tenon thickness | `thickness` | A third of the rail thickness |
 | Tenon length | `length` | Three quarters of the stile, to the nearest 5 mm; the mortise is 2 mm deeper (glue relief). The whole stile for Through and Bridle |
 | Shoulder | `shoulder` | The cheek width, at most a fifth of the rail width. None for Bridle |
-| Haunch width | `haunch_width` | A quarter of the rail width |
-| Haunch depth | `haunch_depth` | The tenon thickness |
+| Haunch width | `haunch_width` | A quarter of the rail width, and never less than the tenon thickness |
+| Haunch depth | `haunch_depth` | The tenon thickness, at most 0.4 of the tenon length |
 | Glue relief | `glue_relief` | 2 mm under a blind tenon |
 | Clearance | `clearance` | None |
 | Offset | `offset` | The tenon is centred in the rail thickness |
@@ -341,7 +346,7 @@ the matching sockets, with a half pin at each edge. Give a **Lap** for half-blin
 | Pin width | `pin` | Half the thickness of the tail board, at the narrow end of a pin |
 | Lap | `lap` | 0: through dovetails. Otherwise the wood left in front of the tails, for half-blind dovetails: 4 or 5 mm on a drawer front |
 
-Example: two 18 x 100 mm boards get two tails, 41 mm wide at the end and 36.5 mm at the base,
+Example: two 18 x 100 mm boards get two tails, 41 mm wide at the end and 35 mm at the base,
 between pins 9 mm wide at their narrow end.
 
 Each tail adds nine features to the timeline: the tail is first made as a body of its own, its
