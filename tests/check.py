@@ -43,6 +43,7 @@ def select(*items):
 class Check:
     def __init__(self, binary, work):
         self.binary, self.work, self.failed, self.n = binary, work, False, 0
+        self.package = PLUGIN
 
     def cli(self, name, commands, *extra, expect_error=False):
         script = self.work / f"{name}.json"
@@ -60,7 +61,7 @@ class Check:
         print(f"{'PASS' if ok else 'FAIL'}  {text}")
 
     def run(self, entry, params):
-        return {"command": "plugin.run", "params": {"path": str(PLUGIN), "approval": self.approval, "entry": entry, "params": params}}
+        return {"command": "plugin.run", "params": {"path": str(self.package), "approval": self.approval, "entry": entry, "params": params}}
 
     def joint(self, params):
         return self.run("mortise-tenon", params)
@@ -130,6 +131,30 @@ def main():
         if not binary.is_file():
             raise SystemExit(f"no solidcraft-cli at {binary}")
         c = Check(str(binary), work)
+        version = subprocess.run([str(binary), "--version"], capture_output=True, text=True).stdout.split()[-1]
+        c.conditions = tuple(int(n) for n in version.split("-")[0].split(".")[:2]) >= (0, 46)
+        print(f"SolidCraft {version}: {'fields hide by condition' if c.conditions else 'no field conditions (before 0.46)'}")
+
+        # Each condition names a field of its entry, and a value that field can take, in every
+        # package (the French one translates the choices).
+        for path in sorted((ROOT / "dist").glob("**/plugin.json")):
+            bad = []
+            for e in json.loads(path.read_text(encoding="utf-8"))["runtime"]["entries"]:
+                props = e["input_schema"]["properties"]
+
+                def walk(cond, field):
+                    for inner in cond.get("all", []) + cond.get("any", []) + ([cond["not"]] if "not" in cond else []):
+                        walk(inner, field)
+                    if "field" in cond:
+                        target = props.get(cond["field"])
+                        values = [cond["eq"]] if "eq" in cond else cond.get("in", [])
+                        if target is None or ("enum" in target and any(v not in target["enum"] for v in values)):
+                            bad.append(f"{e['name']}.{field}: {cond}")
+
+                for field, prop in props.items():
+                    if "x-solidcraft-visible-when" in prop:
+                        walk(prop["x-solidcraft-visible-when"], field)
+            c.report(not bad, f"field conditions name real fields and values in {path.relative_to(ROOT)}: {bad or 'ok'}")
 
         # 1. SolidCraft reads the manifest and the component without running anything.
         inspected = c.cli("inspect", [{"command": "plugin.inspect", "params": {"path": str(PLUGIN)}}])
@@ -139,9 +164,11 @@ def main():
         dry = c.cli("install", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / "wood-joinery-en.zip"), "dry_run": True}}])
         c.report(dry[0]["id"] == "wood-joinery" and dry[0]["installed"] is False, "plugin.install accepts the .zip in a dry run")
 
-        # Every form must be one SolidCraft 0.42.0 can draw: its dialog knows numbers, whole numbers,
-        # checkboxes, text and `enum` lists, and refuses the whole entry for any other keyword.
-        notes = {"type", "title", "description", "default", "unit"}
+        # Every form must be one SolidCraft 0.46.0 can draw: its dialog knows numbers, whole numbers,
+        # checkboxes, text, `enum` lists and fields shown by condition, and refuses the whole entry for
+        # any other keyword. Before 0.46 the dialog refuses `x-solidcraft-visible-when` too, so the
+        # forms of the mortise and tenon and the miter need 0.46.
+        notes = {"type", "title", "description", "default", "unit", "x-solidcraft-visible-when"}
         allowed = {"number": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"},
                    "integer": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"}, "boolean": set(), "string": {"minLength", "maxLength", "enum"}}
         for package in [PLUGIN, *sorted((ROOT / "dist").glob("*/wood-joinery"))]:
@@ -151,7 +178,7 @@ def main():
             # At the top of a schema, 0.42.0 and 0.43.0 refuse only $ref, oneOf, anyOf, allOf, if and
             # not; they ignore the icon that 0.44.0 draws.
             bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - {"type", "properties", "required", "x-solidcraft-icon"}]
-            c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by SolidCraft 0.42.0" + (f": not {bad}" if bad else ""))
+            c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by SolidCraft 0.46.0" + (f": not {bad}" if bad else ""))
             icons = [e["input_schema"].get("x-solidcraft-icon") for e in manifest["runtime"]["entries"]]
             missing = [i for i in icons if not i or not (package / i).is_file()]
             c.report(not missing, f"every command of {package.parent.name}/{package.name} has its icon in the package" + (f": not {missing}" if missing else ""))
@@ -196,9 +223,14 @@ def main():
         c.expect("form_defaults", "the defaults the form shows", mid, {**both, "variant": "classic", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("form_through", "a through tenon with the form defaults", mid, {**both, "variant": "through", "glue_relief": 2, "clearance": 0, "offset": 0}, 6 * 33 * 35, 6 * 33 * 35)
 
-        # A translated package sends the value it shows, with the script value in brackets.
+        # A translated package sends the value it shows, with the script value in brackets. Since
+        # 0.46, SolidCraft checks a choice that a condition names, so only the French package takes it.
+        english = c.approval
+        c.package = ROOT / "dist" / "fr" / "wood-joinery"
+        c.approval = c.cli("inspect_fr", [{"command": "plugin.inspect", "params": {"path": str(c.package)}}])[0]["approval"]
         c.expect("fr_value", "a translated choice, à renfort (haunched)", boards([35, 0, 765]), {**both, "variant": "à renfort (haunched)"}, 6 * (27.75 * 25 + 11.25 * 6), 6 * (27.75 * 27 + 11.25 * 6))
         c.groove("fr_face", "a translated face and direction", {"body": "Stile", "face": "droite (+x)", "along": "y"}, 6 * 8 * 35)
+        c.package, c.approval = PLUGIN, english
         french = json.loads((ROOT / "dist" / "fr" / "wood-joinery" / "plugin.json").read_text())["runtime"]["entries"][0]["input_schema"]["properties"]["variant"]
         c.report(french["enum"][1] == "à renfort (haunched)" and french["default"] == "classique (classic)", f"the fr package lists translated choices: {french['enum']}")
 
@@ -212,7 +244,12 @@ def main():
         c.expect("minus_x", "rail on the other side", boards([-360, 0, 400]), both, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("along_y", "rail along Y", boards([0, 35, 400], (18, 360, 45)), both, 6 * 33 * 25, 6 * 33 * 27)
         # A script may also give each body as a list with one name.
-        c.expect("lists", "bodies given as lists", mid, {"rail": ["Rail"], "stile": ["Stile"]}, 6 * 33 * 25, 6 * 33 * 27)
+        # Since 0.46, SolidCraft checks the input of an entry whose form has conditions against the
+        # form, so the mortise and tenon then takes names only.
+        if c.conditions:
+            c.refuse("lists", "bodies given as lists, which 0.46 checks against the form", mid, {"rail": ["Rail"], "stile": ["Stile"]}, "must be of type string")
+        else:
+            c.expect("lists", "bodies given as lists", mid, {"rail": ["Rail"], "stile": ["Stile"]}, 6 * 33 * 25, 6 * 33 * 27)
         c.refuse("empty", "empty body name", mid, {"rail": " ", "stile": "Stile"}, "name of one body")
 
         # 4. One undo removes the whole joint, one redo brings it back.
@@ -227,7 +264,8 @@ def main():
         c.refuse("bridle_mid", "bridle away from the stile end", mid, {**both, "variant": "bridle"}, "flush with the end")
         c.refuse("same", "the same body twice", mid, {"rail": "Rail", "stile": "Rail"}, "two different bodies")
         c.refuse("unknown", "unknown body", mid, {"rail": "Nope", "stile": "Stile"}, "unknown body name `Nope`. The bodies of this design are: `Stile`, `Rail`")
-        c.refuse("variant", "unknown variant", mid, {**both, "variant": "dovetail"}, "classic, haunched, through or bridle")
+        # Before 0.46 the plugin refuses it; since, SolidCraft does, from the form's list.
+        c.refuse("variant", "unknown variant", mid, {**both, "variant": "dovetail"}, '"classic", "haunched", "through", "bridle"' if c.conditions else "classic, haunched, through or bridle")
 
         # Grooves in the stile. Default: 6 wide, 8 deep, the whole 830 mm.
         c.groove("groove", "groove, default sizes", {"body": "Stile", "face": "+x"}, 6 * 8 * 830)
@@ -471,12 +509,16 @@ def main():
         # A tenon level with a face of the rail. The rail stands 10 mm in, so the mortise keeps a cheek.
         inset = boards([35, 10, 400])
         got = c.change("barefaced", "tenon level with a face of the rail", inset, "mortise-tenon", {**both, "position": "low"}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
-        c.change("barefaced_fr", "the same, as the French form sends it", inset, "mortise-tenon", {**both, "position": "à fleur, côté opposé (high)"}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
+        english = c.approval
+        c.package = ROOT / "dist" / "fr" / "wood-joinery"
+        c.approval = c.cli("inspect_fr2", [{"command": "plugin.inspect", "params": {"path": str(c.package)}}])[0]["approval"]
+        c.change("barefaced_fr", "the same, from the French package", inset, "mortise-tenon", {**both, "position": "à fleur, côté opposé (high)"}, {"Rail": 6 * 33 * 25, "Stile": -6 * 33 * 27})
+        c.package, c.approval = PLUGIN, english
         c.refuse("barefaced_flush", "level tenon on a rail flush with the stile", mid, {**both, "position": "low"}, "leaves no cheek")
         # One 6 mm peg through the 35 mm stile: 29 mm of stile around the 6 mm tenon.
         peg = math.pi * 9
         got = c.change("pegged", "pegged tenon", mid, "mortise-tenon", {**both, "pegs": 1}, {"Rail": 6 * 33 * 25 - peg * 6, "Stile": -6 * 33 * 27 - peg * 29, "Peg 1": peg * 35})
-        c.refuse("pegs_many", "three pegs", mid, {**both, "pegs": 3}, "0, 1 or 2")
+        c.refuse("pegs_many", "three pegs", mid, {**both, "pegs": 3}, "at most 2" if c.conditions else "0, 1 or 2")
 
         # A sliding dovetail: the housing at 1:6. The tongue is 18 wide at the bottom, 16 at the neck.
         slid = (18 + 16) / 2 * 6 * 250
@@ -509,7 +551,22 @@ def main():
         got = c.change("wedged", "wedged through tenon", mid, "mortise-tenon", {**both, "variant": "through", "wedges": 2},
                        {"Rail": 6 * 33 * 35 - 2 * wedge, "Stile": -6 * 33 * 35, "Wedge 1": wedge, "Wedge 2": wedge})
         c.report(len(got[-1]["bodies"]) == 4, f"no wedge tool is left: {[b['name'] for b in got[-1]['bodies']]}")
-        c.refuse("wedged_blind", "wedges in a blind tenon", mid, {**both, "wedges": 1}, "through tenon")
+        # A field shown only for some choices (x-solidcraft-visible-when): SolidCraft 0.46 and later
+        # leave it out of the input when it is hidden, so the joint is made without it; before 0.46
+        # the plugin gets it and refuses it.
+        hidden = [
+            ("wedged_blind", "wedges in a blind tenon", mid, "mortise-tenon", {**both, "wedges": 1}, {**both}, "through tenon"),
+            ("drawbore_no_pegs", "a drawbore without pegs", mid, "mortise-tenon", {**both, "drawbore": 1.5}, {**both}, "needs pegs"),
+            ("keys_no_spline", "miter keys without a spline", frame, "miter", {**two, "spline": 0, "keys": 2}, {**two, "spline": 0}, "spline thickness"),
+        ]
+        for name, text, setup, entry, params, plain, reason in hidden:
+            if c.conditions:
+                with_field = c.cli(name, [*setup, c.run(entry, params), MEASURE])[-1]["bodies"]
+                without = c.cli(f"{name}_plain", [*setup, c.run(entry, plain), MEASURE])[-1]["bodies"]
+                same = [(b["name"], round(b["volume_mm3"], 1)) for b in with_field] == [(b["name"], round(b["volume_mm3"], 1)) for b in without]
+                c.report(same, f"hidden field ignored, {text}: {[b['name'] for b in with_field]}")
+            else:
+                c.refuse_entry(name, text, setup, entry, params, reason)
 
         # A tabled scarf: each board keeps a hook, and a 9 x 4.5 key locks the two steps.
         table = (76.5 * 11.25 + 67.5 * 6.75) * 45

@@ -12,8 +12,11 @@ undo step. A design made with the plugin opens and rebuilds without it.
 
 ## Install
 
-You need the SolidCraft desktop application, version 0.42.0 or later. The web version runs no
-plugins.
+You need the SolidCraft desktop application, version 0.46.0 or later. The web version runs no
+plugins. On SolidCraft 0.42 to 0.45, install
+[version 0.10.1](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.10.1) of
+the plugin: from 0.11.0, the forms show a field only when it applies (the haunch fields only for a
+haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a form.
 
 1. **Download the package.** Open the
    [latest release](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest) and,
@@ -107,7 +110,10 @@ The list in the form shows these values as a script takes them.
 
 Every size is optional, in millimetres. An empty field follows common cabinetmaking practice.
 The form shows each rule in the field's title, and the fixed defaults in the fields: 2 mm of
-glue relief, no clearance, no offset.
+glue relief, no clearance, no offset. It shows a field only when it applies: the haunch for
+`haunched`, the wedges for `through`, the peg diameter and drawbore once there are pegs. A
+script that gives a hidden field has it left out. SolidCraft also checks a script's values
+against the form: each board is one name, and a choice is given as the package lists it.
 
 | Field | Script name | Empty means |
 |---|---|---|
@@ -121,10 +127,11 @@ glue relief, no clearance, no offset.
 | Offset | `offset` | The tenon is centred in the rail thickness |
 | Double tenon | `double` | Off. On: two tenons side by side across the rail, each a fifth of its thickness, each in its own mortise |
 | Tenon position | `position` | `centre`. `low` or `high` puts the tenon level with a face of the rail (a bare-faced tenon). The stile must then be wider than the rail on that side |
-| Pegs through the tenon | `pegs` | 0. Otherwise 1 peg half way along the tenon, or 2 on a diagonal, at a third and two thirds of it, so they do not split the stile along one line. Each peg is a new body named `Peg 1`, `Peg 2`… |
+| Pegs | `pegs` | 0. Otherwise 1 peg half way along the tenon, or 2 on a diagonal, at a third and two thirds of it, so they do not split the stile along one line. Each peg is a new body named `Peg 1`, `Peg 2`… |
 | Peg diameter | `peg_diameter` | 6 mm, 8 mm when the tenon is 30 mm long or more |
 | Drawbore | `drawbore` | 0: plain pegs. Otherwise the hole in the tenon sits that much nearer the shoulder than the hole in the stile (1 to 2 mm), so the peg pulls the joint tight as it goes in |
-| Wedges in a through tenon | `wedges` | 0. Otherwise 1 or 2 wedges in the end of a `through` tenon, three quarters of its length deep. Each wedge is a new body named `Wedge 1`, `Wedge 2`… A script may set `wedge_thickness`, 4 mm by default |
+| Wedges | `wedges` | 0. Otherwise 1 or 2 wedges in the end of a `through` tenon, three quarters of its length deep. Each wedge is a new body named `Wedge 1`, `Wedge 2`… |
+| Wedge thickness | `wedge_thickness` | 4 mm |
 
 The reply warns, without refusing, of two things common practice avoids: a mortise cheek under
 8 mm, and a mortise across the grain of the stile (a rail lying flat). SolidCraft's plugin log
@@ -277,12 +284,13 @@ one is first made to reach the outer corner. The command works for boards on edg
 of a box, and for boards lying flat, as the sides of a picture frame.
 
 Each cut adds three features to the timeline: a tool box, the move that turns it, and the cut.
+The spline depth and the loose tenons show only when there is a spline.
 
 | Field | Script name | Empty means |
 |---|---|---|
 | Spline thickness | `spline` | 0: no spline. Otherwise a loose spline of that thickness across the cut, half way along it. It is a new body named `Miter spline 1`… |
 | Spline depth in each board | `spline_depth` | A third of the thinner board |
-| Loose tenons in place of the spline | `keys` | 0: one spline the length of the cut. Otherwise that many keys (up to 8), each half its share of the cut long, named `Miter key 1`… |
+| Loose tenons instead | `keys` | 0: one spline the length of the cut. Otherwise that many keys (up to 8), each half its share of the cut long, named `Miter key 1`… |
 
 ![A miter with a loose spline across the cut, the boards drawn see-through](docs/miter-spline.png)
 

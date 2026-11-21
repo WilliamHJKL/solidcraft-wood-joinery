@@ -1,7 +1,7 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
     "commands@0.1"
@@ -58,13 +58,21 @@
               "type": "number",
               "title": "Haunch width (empty = 1/4 of the rail)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "field": "variant",
+                "eq": "haunched"
+              }
             },
             "haunch_depth": {
               "type": "number",
               "title": "Haunch depth (empty = tenon thickness)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "field": "variant",
+                "eq": "haunched"
+              }
             },
             "glue_relief": {
               "type": "number",
@@ -107,7 +115,7 @@
             },
             "pegs": {
               "type": "integer",
-              "title": "Pegs through the tenon (0 to 2)",
+              "title": "Pegs (0 to 2)",
               "minimum": 0,
               "maximum": 2,
               "default": 0
@@ -116,21 +124,49 @@
               "type": "number",
               "title": "Peg diameter (empty = 6 or 8)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "field": "pegs",
+                "in": [
+                  1,
+                  2
+                ]
+              }
             },
             "drawbore": {
               "type": "number",
-              "title": "Drawbore: tenon hole nearer the shoulder (0 = plain; 1 to 2)",
+              "title": "Drawbore (0 = plain; 1 to 2)",
               "unit": "mm",
               "minimum": 0,
-              "default": 0
+              "default": 0,
+              "x-solidcraft-visible-when": {
+                "field": "pegs",
+                "in": [
+                  1,
+                  2
+                ]
+              }
             },
             "wedges": {
               "type": "integer",
-              "title": "Wedges in a through tenon (0 to 2)",
+              "title": "Wedges (0 to 2)",
               "minimum": 0,
               "maximum": 2,
-              "default": 0
+              "default": 0,
+              "x-solidcraft-visible-when": {
+                "field": "variant",
+                "eq": "through"
+              }
+            },
+            "wedge_thickness": {
+              "type": "number",
+              "title": "Wedge thickness (empty = 4)",
+              "unit": "mm",
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "field": "variant",
+                "eq": "through"
+              }
             }
           }
         },
@@ -491,14 +527,26 @@
               "type": "number",
               "title": "Spline depth in each board (empty = 1/3)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "not": {
+                  "field": "spline",
+                  "eq": 0
+                }
+              }
             },
             "keys": {
               "type": "integer",
-              "title": "Loose tenons in place of the spline (0 = one spline)",
+              "title": "Loose tenons instead (0 = one spline)",
               "minimum": 0,
               "maximum": 8,
-              "default": 0
+              "default": 0,
+              "x-solidcraft-visible-when": {
+                "not": {
+                  "field": "spline",
+                  "eq": 0
+                }
+              }
             }
           }
         }

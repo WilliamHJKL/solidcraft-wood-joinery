@@ -14,8 +14,12 @@ reconstruit sans lui.
 
 ## Installer
 
-Il faut l'application de bureau SolidCraft, en version 0.42.0 ou plus récente. La version web
-n'exécute aucun plugin.
+Il faut l'application de bureau SolidCraft, en version 0.46.0 ou plus récente. La version web
+n'exécute aucun plugin. Avec SolidCraft 0.42 à 0.45, installez la
+[version 0.10.1](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.10.1) du
+plugin : depuis la 0.11.0, les formulaires n'affichent un champ que lorsqu'il sert (les champs du
+renfort seulement pour un tenon à renfort, par exemple), et SolidCraft 0.45 ou plus ancien ne sait
+pas dessiner un tel formulaire.
 
 1. **Télécharger le paquet.** Ouvrez la
    [dernière version publiée](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/latest)
@@ -114,7 +118,11 @@ par exemple « à renfort (haunched) ».
 | `bridle` : enfourchement | Une fente ouverte au bout du montant. La languette fait toute la largeur de la traverse. |
 
 Le formulaire affiche chaque règle dans le titre du champ, et les valeurs fixes dans les
-champs : 2 mm de réserve de colle, pas de jeu, pas de décalage.
+champs : 2 mm de réserve de colle, pas de jeu, pas de décalage. Il n'affiche un champ que
+lorsqu'il sert : le renfort pour `haunched`, les coins pour `through`, le diamètre des chevilles
+et la cheville à tire dès qu'il y a des chevilles. Un script qui donne un champ masqué le voit
+ignoré. SolidCraft vérifie aussi les valeurs d'un script d'après le formulaire : chaque pièce
+est un seul nom, et un choix s'écrit comme le paquet l'affiche.
 
 Toutes les cotes sont facultatives, en millimètres. Un champ vide suit les usages de la
 menuiserie :
@@ -131,10 +139,11 @@ menuiserie :
 | Décalage | `offset` | Le tenon est centré dans l'épaisseur de la traverse |
 | Tenon double | `double` | Décoché. Coché : deux tenons côte à côte dans l'épaisseur de la traverse, d'un cinquième de cette épaisseur, chacun dans sa mortaise |
 | Position du tenon | `position` | Centré. Les deux autres choix mettent le tenon à fleur d'une face de la traverse. Le montant doit alors dépasser la traverse de ce côté |
-| Chevilles à travers le tenon | `pegs` | 0. Sinon, 1 cheville à mi-longueur du tenon, ou 2 en diagonale, au tiers et aux deux tiers, pour ne pas fendre le montant sur une même ligne. Chaque cheville est un nouveau corps nommé `Peg 1`, `Peg 2`… |
+| Chevilles | `pegs` | 0. Sinon, 1 cheville à mi-longueur du tenon, ou 2 en diagonale, au tiers et aux deux tiers, pour ne pas fendre le montant sur une même ligne. Chaque cheville est un nouveau corps nommé `Peg 1`, `Peg 2`… |
 | Diamètre de la cheville | `peg_diameter` | 6 mm, 8 mm si le tenon fait 30 mm de long ou plus |
 | Cheville à tire | `drawbore` | 0 : cheville simple. Sinon, le trou du tenon est décalé d'autant vers l'épaulement par rapport à celui du montant (1 à 2 mm) : la cheville serre l'assemblage en entrant |
-| Coins dans un tenon traversant | `wedges` | 0. Sinon, 1 ou 2 coins dans le bout d'un tenon traversant, sur les trois quarts de sa longueur. Chaque coin est un nouveau corps nommé `Wedge 1`, `Wedge 2`… Un script peut fixer `wedge_thickness`, 4 mm par défaut |
+| Coins | `wedges` | 0. Sinon, 1 ou 2 coins dans le bout d'un tenon traversant, sur les trois quarts de sa longueur. Chaque coin est un nouveau corps nommé `Wedge 1`, `Wedge 2`… |
+| Épaisseur des coins | `wedge_thickness` | 4 mm |
 
 La réponse signale, sans refuser, deux choses que l'usage évite : une joue de mortaise de moins
 de 8 mm, et une mortaise en travers du fil du montant (traverse posée à plat). Le journal des
@@ -293,13 +302,14 @@ des pièces sur chant, comme les côtés d'une boîte, et pour des pièces à pl
 d'un cadre.
 
 Chaque coupe ajoute trois fonctions dans la timeline : une boîte outil, le déplacement qui la
-fait pivoter, et la coupe.
+fait pivoter, et la coupe. La profondeur de languette et les faux tenons n'apparaissent que s'il
+y a une languette.
 
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
 | Épaisseur de la languette | `spline` | 0 : pas de languette. Sinon, une languette rapportée de cette épaisseur en travers de la coupe, à mi-longueur. C'est un nouveau corps nommé `Miter spline 1`… |
 | Profondeur dans chaque pièce | `spline_depth` | Un tiers de la pièce la plus mince |
-| Faux tenons à la place de la languette | `keys` | 0 : une languette sur toute la coupe. Sinon, autant de faux tenons (8 au plus), chacun de la moitié de sa part de coupe, nommés `Miter key 1`… |
+| Faux tenons à la place | `keys` | 0 : une languette sur toute la coupe. Sinon, autant de faux tenons (8 au plus), chacun de la moitié de sa part de coupe, nommés `Miter key 1`… |
 
 ![Une coupe d'onglet avec une languette rapportée, les pièces dessinées en transparence](docs/miter-spline.png)
 

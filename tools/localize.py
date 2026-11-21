@@ -31,6 +31,22 @@ def texts(manifest):
                         yield option, key
 
 
+def translate_condition(cond, props, words):
+    """Turns the choice values a condition names into their translations, in place."""
+    if not isinstance(cond, dict):
+        return
+    for key in ("all", "any"):
+        for inner in cond.get(key, []):
+            translate_condition(inner, props, words)
+    translate_condition(cond.get("not"), props, words)
+    if "enum" not in props.get(cond.get("field"), {}):
+        return
+    if "eq" in cond:
+        cond["eq"] = words[cond["eq"]]
+    if "in" in cond:
+        cond["in"] = [words[v] for v in cond["in"]]
+
+
 def main():
     if len(sys.argv) != 4:
         raise SystemExit(__doc__)
@@ -59,6 +75,11 @@ def main():
                 if prop.get("default") == value:
                     prop["default"] = words[value]
                 prop["enum"][i] = words[value]
+    # A field shown only for some choices names the choice's value, which is translated above.
+    for entry in manifest["runtime"]["entries"]:
+        props = entry["input_schema"]["properties"]
+        for prop in props.values():
+            translate_condition(prop.get("x-solidcraft-visible-when"), props, words)
     unused = sorted(set(words) - used)
     if missing or unused:
         for text in missing:
