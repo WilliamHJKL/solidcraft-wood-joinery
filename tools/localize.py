@@ -89,10 +89,10 @@ def main():
         raise SystemExit(1)
     if len(manifest["name"]) > 80 or len(manifest["description"]) > 240:
         raise SystemExit(f"{locale}: name over 80 or description over 240 characters")
-    # Compact: SolidCraft refuses a manifest over 16 KiB, and nobody reads the packed copy.
+    # Compact: SolidCraft refuses a manifest over 64 KiB (16 KiB before 0.45), and nobody reads the packed copy.
     data = json.dumps(manifest, ensure_ascii=False, separators=(",", ":")) + "\n"
-    if len(data.encode()) > 16 * 1024:
-        raise SystemExit(f"{locale}: the manifest is over SolidCraft's 16 KiB limit")
+    if len(data.encode()) > 64 * 1024:
+        raise SystemExit(f"{locale}: the manifest is over SolidCraft's 64 KiB limit")
     with open(out, "w", encoding="utf-8") as f:
         f.write(data)
 

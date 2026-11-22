@@ -262,6 +262,8 @@ mortaises en vis-à-vis et ajoute chaque faux tenon comme un nouveau corps nomm�
 
 | Champ | Nom dans un script | Vide signifie |
 |---|---|---|
+| Domino Festool | `domino` | `custom` (sur mesure) : un tenon à bouts carrés, aux cotes ci-dessous. Une taille comme `8x40` (épaisseur × longueur) fait des Dominos Festool : voir plus bas |
+| Largeur de la 2e mortaise | `domino_fit` | `medium` (moyenne). Seulement pour un Domino : voir plus bas |
 | Épaisseur du tenon | `thickness` | 5, 6, 8 ou 10 mm : la plus grande qui ne dépasse pas le tiers du petit côté du contact |
 | Largeur du tenon | `width` | La largeur de l'assemblage, moins un épaulement de chaque côté |
 | Longueur du tenon | `length` | Cinq épaisseurs, arrondies aux 10 mm supérieurs. Une moitié dans chaque pièce. Une pièce mince garde 3 mm sous la mortaise, et l'autre pièce reçoit le reste |
@@ -271,6 +273,31 @@ mortaises en vis-à-vis et ajoute chaque faux tenon comme un nouveau corps nomm�
 
 Exemple : une traverse de 18 × 45 mm contre un montant de 35 × 35 mm reçoit un faux tenon de
 6 × 33 × 30 mm, 15 mm dans chaque pièce, dans des mortaises de 16 mm de profondeur.
+
+### Dominos Festool
+
+Choisissez une taille dans **Domino Festool** : les tenons sont alors des Dominos, aux cotes
+de Festool, et les mortaises comme les tenons ont des bouts en demi-cercle, comme les taille la
+machine. Les champs épaisseur, largeur et longueur sont alors masqués ; le nombre de tenons, la
+réserve de colle et les corps fonctionnent comme plus haut, et les corps s'appellent
+`Domino 1`, `Domino 2`, etc.
+
+| Domino | Largeur | Machine |
+|---|---|---|
+| `4x20`, `5x30`, `6x40` | 16,6, 18,8, 19,8 mm | DF 500, 28 mm de profondeur au plus |
+| `8x40`, `8x50`, `10x50` | 21,9, 21,9, 23,9 mm | DF 500 |
+| `8x80`, `8x100`, `10x80`, `10x100` | 21,9, 21,9, 23,9, 23,9 mm | DF 700, 70 mm de profondeur au plus |
+| `12x100`, `14x100`, `14x140` | 25,9, 27,9, 27,9 mm | DF 700 |
+
+La première mortaise est serrée, de la largeur du Domino. **Largeur de la 2e mortaise** règle
+l'autre, comme la molette de la machine : serrée ; moyenne, 6 mm de plus sur la DF 500 et 3 mm
+sur la DF 700 ; large, 10 mm de plus sur la DF 500 et 3 mm sur la DF 700 (qui n'a que deux
+réglages). Ce jeu permet d'aligner les pièces au collage.
+
+La longueur se partage comme pour tout faux tenon : moitié dans chaque pièce, moins dans une
+pièce mince. Un Domino qui demande une mortaise plus profonde que sa machine ne la taille est
+refusé : prenez-en un plus court. Le tenon est dessiné à sa longueur nominale ; un vrai Domino
+fait environ 2 mm de moins, ce que représente la réserve de colle.
 
 ## Entaille d'étagère
 
@@ -577,10 +604,10 @@ langue. Les textes anglais sont dans `plugin/plugin.json`. Une traduction tient 
 `plugin/locales/<langue>.json`, qui associe chaque texte anglais à sa traduction ;
 `plugin/locales/fr.json` sert de modèle.
 
-SolidCraft refuse un manifeste de plus de 16 Kio : les textes du formulaire restent donc
-courts. La règle d'un champ est dans son titre, comme « Épaisseur du tenon (vide = 1/3 de la
-traverse) », et ce README porte les explications longues. La construction échoue au-delà de
-13 Kio, pour garder de la place aux prochains assemblages.
+SolidCraft refuse un manifeste de plus de 64 Kio (16 Kio avant la 0.45). Les textes du
+formulaire restent courts quand même : la règle d'un champ est dans son titre, comme
+« Épaisseur du tenon (vide = 1/3 de la traverse) », et ce README porte les explications longues.
+La construction échoue au-delà de 56 Kio, pour garder de la place aux prochains assemblages.
 
 `./build.sh` écrit alors `dist/wood-joinery-<langue>.zip`. La construction échoue si un texte
 n'a pas de traduction, ou si une traduction ne sert plus : une langue ne peut pas prendre de

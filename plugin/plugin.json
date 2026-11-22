@@ -209,23 +209,134 @@
               "type": "string",
               "title": "Second board (empty = selection)"
             },
+            "domino": {
+              "type": "string",
+              "title": "Festool Domino",
+              "default": "custom",
+              "enum": [
+                "custom",
+                "4x20",
+                "5x30",
+                "6x40",
+                "8x40",
+                "8x50",
+                "10x50",
+                "8x80",
+                "8x100",
+                "10x80",
+                "10x100",
+                "12x100",
+                "14x100",
+                "14x140"
+              ],
+              "description": "A Domino gives the tenon's thickness, width and length, and rounded ends. custom: the sizes below."
+            },
+            "domino_fit": {
+              "type": "string",
+              "title": "Second mortise width",
+              "default": "medium",
+              "enum": [
+                "tight",
+                "medium",
+                "wide"
+              ],
+              "description": "The first mortise is tight. medium: 6 mm wider on the DF 500, 3 mm on the DF 700. wide: 10 mm, or 3 mm.",
+              "x-solidcraft-visible-when": {
+                "field": "domino",
+                "in": [
+                  "4x20",
+                  "5x30",
+                  "6x40",
+                  "8x40",
+                  "8x50",
+                  "10x50",
+                  "8x80",
+                  "8x100",
+                  "10x80",
+                  "10x100",
+                  "12x100",
+                  "14x100",
+                  "14x140"
+                ]
+              }
+            },
             "thickness": {
               "type": "number",
               "title": "Tenon thickness (empty = 5 to 10, by thickness)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "not": {
+                  "field": "domino",
+                  "in": [
+                    "4x20",
+                    "5x30",
+                    "6x40",
+                    "8x40",
+                    "8x50",
+                    "10x50",
+                    "8x80",
+                    "8x100",
+                    "10x80",
+                    "10x100",
+                    "12x100",
+                    "14x100",
+                    "14x140"
+                  ]
+                }
+              }
             },
             "width": {
               "type": "number",
               "title": "Tenon width (empty = by the joint)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "not": {
+                  "field": "domino",
+                  "in": [
+                    "4x20",
+                    "5x30",
+                    "6x40",
+                    "8x40",
+                    "8x50",
+                    "10x50",
+                    "8x80",
+                    "8x100",
+                    "10x80",
+                    "10x100",
+                    "12x100",
+                    "14x100",
+                    "14x140"
+                  ]
+                }
+              }
             },
             "length": {
               "type": "number",
               "title": "Tenon length (empty = 5 thicknesses)",
               "unit": "mm",
-              "exclusiveMinimum": 0
+              "exclusiveMinimum": 0,
+              "x-solidcraft-visible-when": {
+                "not": {
+                  "field": "domino",
+                  "in": [
+                    "4x20",
+                    "5x30",
+                    "6x40",
+                    "8x40",
+                    "8x50",
+                    "10x50",
+                    "8x80",
+                    "8x100",
+                    "10x80",
+                    "10x100",
+                    "12x100",
+                    "14x100",
+                    "14x140"
+                  ]
+                }
+              }
             },
             "count": {
               "type": "integer",

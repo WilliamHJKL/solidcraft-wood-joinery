@@ -851,6 +851,20 @@ fn add(block: &Block, operation: &str, target: &str, name: &str) -> Result<(), P
     .map(|_| ())
 }
 
+/// Cuts a mortise: a box, or a box and its two round ends.
+fn cut_shape(shape: &loose::Shape, target: &str, name: &str) -> Result<(), PluginError> {
+    match shape {
+        loose::Shape::Square(block) => add(block, "cut", target, name),
+        loose::Shape::Rounded { core, ends } => {
+            add(core, "cut", target, name)?;
+            for end in ends {
+                bore(end, json!({ "operation": "cut", "targets": [target] }), &format!("{name} end"))?;
+            }
+            Ok(())
+        }
+    }
+}
+
 /// `count` body names that are free, as `Dowel 1`, `Dowel 2`... SolidCraft renames a body whose
 /// name is taken, so the numbers go past the ones already there.
 fn free_names(prefix: &str, count: usize) -> Result<Vec<String>, PluginError> {
@@ -1188,25 +1202,49 @@ fn box_joint(params: &str) -> Result<String, PluginError> {
 fn loose_tenon(params: &str) -> Result<String, PluginError> {
     let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
     let Pair { first, second, a, b, volume_a, volume_b, moved } = pair(&p, ("first", "second"), boards::align_end)?;
+    let domino = match p.get("domino").and_then(Value::as_str).map(choice) {
+        None | Some("") | Some("custom") => None,
+        Some(name) => Some(loose::domino(name).ok_or_else(|| {
+            let names: Vec<&str> = loose::DOMINOS.iter().map(|(n, _)| *n).collect();
+            invalid("domino", format!("no Domino `{name}`; the sizes are {}", names.join(", ")))
+        })?),
+    };
+    let fit = match p.get("domino_fit").and_then(Value::as_str).map(choice) {
+        None | Some("") | Some("medium") => loose::Fit::Medium,
+        Some("tight") => loose::Fit::Tight,
+        Some("wide") => loose::Fit::Wide,
+        Some(other) => return Err(invalid("domino_fit", format!("`{other}` is not a width: tight, medium or wide"))),
+    };
     let options = loose::Options {
         thickness: length(&p, "thickness")?,
         width: length(&p, "width")?,
         length: length(&p, "length")?,
         count: count(&p, "count")?,
         glue_relief: length(&p, "glue_relief")?,
+        domino,
+        fit,
     };
     let with_bodies = flag(&p, "tenon_bodies", true)?;
     let plan = loose::plan(a, b, &options).map_err(|reason| invalid("first", reason))?;
+    let (label, body) = if domino.is_some() { ("Domino mortise", "Domino") } else { ("Loose tenon mortise", "Loose tenon") };
     for mortise in &plan.mortises_first {
-        add(mortise, "cut", &first, "Loose tenon mortise")?;
+        cut_shape(mortise, &first, label)?;
     }
     for mortise in &plan.mortises_second {
-        add(mortise, "cut", &second, "Loose tenon mortise")?;
+        cut_shape(mortise, &second, label)?;
     }
     landed(&[(&first, Want::Cut(volume_a)), (&second, Want::Cut(volume_b))])?;
     if with_bodies {
-        for (tenon, name) in plan.tenons.iter().zip(free_names("Loose tenon", plan.tenons.len())?) {
-            body_from(tenon, &name, "Loose tenon")?;
+        for (tenon, name) in plan.tenons.iter().zip(free_names(body, plan.tenons.len())?) {
+            match tenon {
+                loose::Shape::Square(block) => body_from(block, &name, body)?,
+                loose::Shape::Rounded { core, ends } => {
+                    body_from(core, &name, body)?;
+                    for end in ends {
+                        bore(end, json!({ "operation": "join", "targets": [name] }), &format!("{body} end"))?;
+                    }
+                }
+            }
         }
     }
     Ok(json!({
@@ -1215,7 +1253,9 @@ fn loose_tenon(params: &str) -> Result<String, PluginError> {
         "count": plan.tenons.len(),
         "thickness_mm": plan.thickness,
         "width_mm": plan.width,
+        "width_second_mm": plan.width_second,
         "length_mm": plan.length,
+        "domino": domino.map(|d| format!("{}x{}", d.thickness, d.length)),
         "in_first_mm": plan.in_first,
         "in_second_mm": plan.in_second,
         "tenon_bodies": with_bodies,

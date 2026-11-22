@@ -10,12 +10,12 @@ cargo build --release --target wasm32-unknown-unknown -p wood-joinery
 rm -rf dist
 mkdir -p dist/wood-joinery
 cargo run --release -q -p packager -- target/wasm32-unknown-unknown/release/wood_joinery.wasm dist/wood-joinery/plugin.wasm
-# The packed manifest is compact: SolidCraft refuses one over 16 KiB.
+# The packed manifest is compact: SolidCraft refuses one over 64 KiB (16 KiB before 0.45).
 python3 -c "
 import json, sys
 data = json.dumps(json.load(open(sys.argv[1], encoding='utf-8')), ensure_ascii=False, separators=(',', ':')) + '\n'
-if len(data.encode()) > 16 * 1024:
-    raise SystemExit('the manifest is over the 16 KiB limit of SolidCraft')
+if len(data.encode()) > 64 * 1024:
+    raise SystemExit('the manifest is over the 64 KiB limit of SolidCraft')
 open(sys.argv[2], 'w', encoding='utf-8').write(data)
 " plugin/plugin.json dist/wood-joinery/plugin.json
 # The command icons (SolidCraft 0.44 and later draw them; older versions ignore them).
@@ -39,12 +39,13 @@ for locale in plugin/locales/*.json; do
     cp -r plugin/icons "dist/$lang/wood-joinery/icons"
     pack "dist/$lang/wood-joinery" "dist/wood-joinery-$lang.zip"
 done
-# SolidCraft refuses a manifest over 16 KiB. Keep an eighth of it free for the next joints: a field's
-# rule goes in its title, and the README holds the longer explanations.
+# SolidCraft refuses a manifest over 64 KiB (16 KiB before 0.45; this plugin needs 0.46). Keep an
+# eighth of it free for the next joints: a field's rule goes in its title, and the README holds the
+# longer explanations.
 python3 -c "
 import glob, os, sys
 worst = max(os.path.getsize(f) for f in glob.glob('dist/**/plugin.json', recursive=True))
-print(f'largest manifest: {worst} of 16384 bytes ({100 * worst // 16384} %)')
-sys.exit(f'a manifest is over 14 KiB: shorten titles, or move a description to the README' if worst > 14 * 1024 else 0)
+print(f'largest manifest: {worst} of 65536 bytes ({100 * worst // 65536} %)')
+sys.exit(f'a manifest is over 56 KiB: shorten titles, or move a description to the README' if worst > 56 * 1024 else 0)
 "
 ls -l dist/*.zip

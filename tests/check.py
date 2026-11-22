@@ -410,6 +410,15 @@ def main():
         c.change("loose_align", "loose tenon that aligns the rail first", away, "loose-tenon", {**rs, "align": True}, {"Rail": -slot, "Stile": -slot, "Loose tenon 1": key})
         c.refuse_entry("loose_apart", "boards that do not touch", boards([45, 0, 400]), "loose-tenon", rs, "do not touch")
         c.refuse_entry("loose_fat", "tenon as thick as the rail", mid, "loose-tenon", {**rs, "thickness": 17}, "no cheek")
+        # Festool Dominos: Festool's sizes and half round ends. A 6 x 40 is 19.8 mm wide, 20 mm in each
+        # board, in mortises 21 mm deep; the second (the stile) at the middle setting, 6 mm wider.
+        oval = lambda w, d: (w - d) * d + math.pi * d * d / 4
+        c.change("domino", "one 6 x 40 Domino, second mortise medium", mid, "loose-tenon", {**rs, "domino": "6x40"},
+                 {"Rail": -oval(19.8, 6) * 21, "Stile": -oval(25.8, 6) * 21, "Domino 1": oval(19.8, 6) * 40})
+        c.change("domino_tight", "a tight 8 x 40 Domino, mortises only", mid, "loose-tenon", {**rs, "domino": "8x40", "domino_fit": "tight", "tenon_bodies": False},
+                 {"Rail": -oval(21.9, 8) * 21, "Stile": -oval(21.9, 8) * 21})
+        c.refuse_entry("domino_fat", "a 14 mm Domino in an 18 mm rail", mid, "loose-tenon", {**rs, "domino": "14x100"}, "no cheek")
+        c.refuse_entry("domino_unknown", "a Domino Festool does not make", mid, "loose-tenon", {**rs, "domino": "9x99"}, "must be one of")
 
         # A housing: an 18 mm shelf let 6 mm into an 18 mm side. The shelf grows by as much.
         cabinet = [box("Side", [0, 0, 0], (18, 250, 400), first=True), box("Shelf", [18, 0, 200], (300, 250, 18))]
@@ -649,6 +658,12 @@ def main():
         c.report(e["updated"] == 1 and not e.get("unchanged") and bodies_of(got[-1]) == fresh, f"force makes the joint again with nothing changed: {e['updated']}")
         got = c.cli("upd_undo", [*parametric(45), c.joint(both), set_h(60), MEASURE, update, {"command": "edit.undo", "params": {}}, MEASURE])
         c.report(bodies_of(got[-1]) == bodies_of(got[-4]), "one undo takes Update joints back whole")
+
+        # A Domino is made again with its size, rounded ends and second mortise width.
+        dom = c.run("loose-tenon", {"first": "Rail", "second": "Stile", "domino": "6x40", "domino_fit": "wide"})
+        fresh_dom = bodies_of(c.cli("upd_dom_fresh", [*parametric(60), dom, MEASURE])[-1])
+        got = c.cli("upd_dom", [*parametric(45), dom, set_h(60), update, MEASURE])
+        c.report(bodies_of(got[-1]) == fresh_dom and "Domino 1" in fresh_dom, f"a Domino updates with its size and fit: {sorted(bodies_of(got[-1]))}")
 
         # A joint made from the selection is made again without it.
         pick = [select("Rail", "Stile"), c.joint({}), {"command": "select.set", "params": {"items": []}}]

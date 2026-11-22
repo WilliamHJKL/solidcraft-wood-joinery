@@ -244,6 +244,8 @@ and adds each loose tenon as a new body named `Loose tenon 1`, `Loose tenon 2` a
 
 | Field | Script name | Empty means |
 |---|---|---|
+| Festool Domino | `domino` | `custom`: a square-ended tenon to the sizes below. A size such as `8x40` (thickness x length) makes Festool Dominos instead: see below |
+| Second mortise width | `domino_fit` | `medium`. Shown for a Domino only: see below |
 | Tenon thickness | `thickness` | 5, 6, 8 or 10 mm: the largest that is at most a third of the thinner side of the contact |
 | Tenon width | `width` | The width of the joint, less a shoulder on each side |
 | Tenon length | `length` | Five thicknesses, rounded up to 10 mm. Half goes in each board. A thin board keeps 3 mm under the mortise, and the other board takes the rest |
@@ -253,6 +255,30 @@ and adds each loose tenon as a new body named `Loose tenon 1`, `Loose tenon 2` a
 
 Example: an 18 x 45 mm rail against a 35 x 35 mm stile gets one 6 x 33 x 30 mm tenon, 15 mm in
 each board, in mortises 16 mm deep.
+
+### Festool Dominos
+
+Choose a size in **Festool Domino** and the tenons are Dominos: their thickness, width and length
+are Festool's, and their mortises and the tenons have half round ends, as the machine cuts them.
+The thickness, width and length fields are then hidden; the number of tenons, the glue relief and
+the bodies work as above, and the bodies are named `Domino 1`, `Domino 2` and so on.
+
+| Domino | Width | Machine |
+|---|---|---|
+| `4x20`, `5x30`, `6x40` | 16.6, 18.8, 19.8 mm | DF 500, 28 mm deep at most |
+| `8x40`, `8x50`, `10x50` | 21.9, 21.9, 23.9 mm | DF 500 |
+| `8x80`, `8x100`, `10x80`, `10x100` | 21.9, 21.9, 23.9, 23.9 mm | DF 700, 70 mm deep at most |
+| `12x100`, `14x100`, `14x140` | 25.9, 27.9, 27.9 mm | DF 700 |
+
+The first mortise is cut tight, as wide as the Domino. **Second mortise width** sets the other
+one, as the machine's width knob does: `tight`; `medium`, 6 mm wider on the DF 500 and 3 mm on
+the DF 700; `wide`, 10 mm wider on the DF 500 and 3 mm on the DF 700 (it has two settings only).
+The play lets the boards be lined up at glue-up.
+
+The length is shared as for any loose tenon, half in each board, less in a thin board. A Domino
+that needs a mortise deeper than its machine cuts is refused: take a shorter one. The tenon is
+drawn at its nominal length; a real Domino is about 2 mm shorter, which the glue relief stands
+for.
 
 ## Housing
 
@@ -539,9 +565,10 @@ that maps each English text to its translation; `plugin/locales/fr.json` is the 
 The values of a choice are translated too. A translated value ends with the script value in
 brackets, as in `à renfort (haunched)`: the plugin reads the brackets.
 
-SolidCraft refuses a manifest over 16 KiB, so the form texts are kept short: the rule of a
-field goes in its title, as in "Tenon thickness (empty = 1/3 of the rail)", and this README
-holds the longer explanations. The build fails above 13 KiB, to keep room for more joints.
+SolidCraft refuses a manifest over 64 KiB (16 KiB before 0.45). The form texts are kept short
+all the same: the rule of a field goes in its title, as in "Tenon thickness (empty = 1/3 of the
+rail)", and this README holds the longer explanations. The build fails above 56 KiB, to keep
+room for more joints.
 
 `./build.sh` then writes `dist/wood-joinery-<language>.zip`. The build fails when a text has no
 translation, or when a translation is no longer used, so a language cannot fall behind.
