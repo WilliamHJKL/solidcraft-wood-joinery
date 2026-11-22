@@ -32,9 +32,14 @@ pas dessiner un tel formulaire.
 2. **L'installer.** Dans SolidCraft, ouvrez *Preferences › Plugins*, cliquez sur
    *Install plugin…* et choisissez le fichier téléchargé.
 3. **Confirmer.** SolidCraft affiche le nom du plugin, sa version et ce qu'il demande. Le plugin
-   demande à lancer sept commandes de SolidCraft : `inspect.measure`, `selection.get`,
-   `solid.box`, `solid.cylinder`, `solid.cone`, `solid.move` et `solid.combine`. Il ne demande aucun accès aux
-   fichiers, à l'horloge ou au réseau. Acceptez.
+   demande à lancer treize commandes de SolidCraft : pour lire le fichier (`document.inspect`,
+   `inspect.measure`, `inspect.interference`, `selection.get`), pour faire les assemblages
+   (`solid.box`, `solid.cylinder`, `solid.cone`, `solid.move`, `solid.combine`), pour ranger
+   chaque assemblage dans son dossier d'historique (`timeline.group`, `timeline.delete`) et
+   garder ses réglages dans le fichier (`storage.get`, `storage.set`, avec la capacité
+   `storage`). La capacité `forms` permet à *Modifier un assemblage* d'ouvrir la fenêtre d'un
+   assemblage remplie avec ses réglages. Il ne demande aucun accès aux fichiers, à l'horloge ou
+   au réseau. Acceptez. Une nouvelle version du plugin redemande cet accord.
 4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Model*. À partir
    de SolidCraft 0.44, chaque commande y a sa propre icône. SolidCraft 0.42 et 0.43 affichent une
    icône générique, et listent aussi les commandes dans le menu *Plugins*, à côté de *File*.

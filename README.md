@@ -29,9 +29,13 @@ haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a
 2. **Install it.** In SolidCraft, open *Preferences › Plugins*, click *Install plugin…* and
    choose the file you downloaded.
 3. **Confirm.** SolidCraft shows the plugin's name, its version and what it asks for. The
-   plugin asks to run seven SolidCraft commands: `inspect.measure`, `selection.get`, `solid.box`,
-   `solid.cylinder`, `solid.cone`, `solid.move` and `solid.combine`. It asks for no file, clock or network
-   access. Accept.
+   plugin asks to run thirteen SolidCraft commands: to read the design (`document.inspect`,
+   `inspect.measure`, `inspect.interference`, `selection.get`), to make the joints (`solid.box`,
+   `solid.cylinder`, `solid.cone`, `solid.move`, `solid.combine`), to keep each joint in its
+   timeline folder (`timeline.group`, `timeline.delete`) and its settings in the design
+   (`storage.get`, `storage.set`, with the `storage` capability). The `forms` capability lets
+   *Edit a joint* open a joint's form filled with its settings. It asks for no file, clock or
+   network access. Accept. A new version of the plugin asks again.
 4. **Find the commands.** They are in the *Plugins* group of the *Model* tab. From SolidCraft
    0.44, each command has its own icon there. SolidCraft 0.42 and 0.43 show a generic icon, and
    also list the commands in the *Plugins* menu, next to *File*. Open a design, select two
