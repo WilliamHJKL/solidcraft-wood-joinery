@@ -638,6 +638,15 @@ def main():
         c.report(stale != fresh, f"a rail made 60 mm high after its joint keeps the old tenon: Rail {stale.get('Rail')} (made at 60 mm: {fresh['Rail']})")
         c.report(after == fresh and made["updated"] == 1, f"Update joints makes the tenon of a 60 mm rail: {after} (made at 60 mm: {fresh})")
         c.report(len(kept) == 1 and kept[0]["params"]["rail"] == "Rail" and kept[0]["entry"] == "mortise-tenon", f"the design keeps one joint record: {[(k['entry'], k['name']) for k in kept]}")
+        # An update with nothing changed since the last one does nothing; a change makes the joints
+        # again; force makes them again anyway.
+        force = c.run("update-joints", {"force": True})
+        got = c.cli("upd_settled", [*parametric(45), c.joint(both), update, update, set_h(60), update, MEASURE, force, MEASURE])
+        a, b, d, e = got[-7]["result"], got[-6]["result"], got[-4]["result"], got[-2]["result"]
+        c.report(a["updated"] == 1 and b.get("unchanged") is True and b["updated"] == 0,
+                 f"a second update with nothing changed makes no joint again: {a['updated']} then {b}")
+        c.report(d["updated"] == 1 and bodies_of(got[-3]) == fresh, f"after a change, the next update makes the joint again: {d['updated']}")
+        c.report(e["updated"] == 1 and not e.get("unchanged") and bodies_of(got[-1]) == fresh, f"force makes the joint again with nothing changed: {e['updated']}")
         got = c.cli("upd_undo", [*parametric(45), c.joint(both), set_h(60), MEASURE, update, {"command": "edit.undo", "params": {}}, MEASURE])
         c.report(bodies_of(got[-1]) == bodies_of(got[-4]), "one undo takes Update joints back whole")
 
@@ -695,11 +704,12 @@ def main():
         many = [box("Stile", [0, 0, 0], (35, 35, 830), first=True)]
         many += [c.run("groove", {"body": "Stile", "face": "+x", "along": "z", "width": 0.3, "depth": 1, "offset": 1 + 0.5 * k}) for k in range(60)]
         before = bodies_of(c.cli("upd_many_fresh", [*many, MEASURE])[-1])
-        got = c.cli("upd_many", [*many, update, update, MEASURE])
-        first, second = got[-3]["result"], got[-2]["result"]
+        got = c.cli("upd_many", [*many, update, update, update, MEASURE])
+        first, second, third = got[-4]["result"], got[-3]["result"], got[-2]["result"]
         c.report(first["remaining"] > 0 and first["updated"] + first["remaining"] == 60 and second["remaining"] == 0
                  and second["updated"] == first["remaining"] and bodies_of(got[-1]) == before,
                  f"60 grooves update in two runs, within the host's 256 calls: {first['updated']} then {second['updated']}")
+        c.report(third.get("unchanged") is True and bodies_of(got[-1]) == before, f"a third run, with nothing left or changed, takes nothing apart: {third}")
 
         # The joints are saved with the design.
         saved_upd = work / "update.sc"

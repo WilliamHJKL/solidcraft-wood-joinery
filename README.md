@@ -422,6 +422,10 @@ nothing selected. All of it is one undo step.
   more. Update joints then makes what fits and keeps the rest for the next run (a script reads
   `remaining` in its reply). Run from its window, the window opens again while joints are left:
   click Run again until it stays closed. Each run is its own undo step.
+- When nothing changed since the last update ran to its end (the same joints, and every body the
+  same size and in the same place), Update joints makes nothing again and leaves the design as it
+  is (a script reads `unchanged` in its reply). Tick **Make every joint again, even if nothing
+  changed** to make them all again anyway.
 - Joints made with versions before 0.12.0 are not kept: delete them and make them again to
   update them.
 

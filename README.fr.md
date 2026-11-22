@@ -451,6 +451,10 @@ en une fois.
   la passe suivante (un script lit `remaining` dans la réponse). Lancée depuis sa fenêtre, elle
   rouvre cette fenêtre tant qu'il reste des assemblages : recliquez Run jusqu'à ce qu'elle ne
   revienne plus. Chaque passe s'annule à part.
+- Quand rien n'a changé depuis la dernière mise à jour menée jusqu'au bout (les mêmes
+  assemblages, et chaque corps de même taille et à la même place), la mise à jour ne refait rien
+  et laisse le fichier tel quel (un script lit `unchanged` dans la réponse). Cochez **Refaire tous
+  les assemblages, même sans changement** pour tout refaire quand même.
 - Les assemblages faits avec une version antérieure à 0.12.0 ne sont pas gardés : supprimez-les
   et refaites-les pour pouvoir les mettre à jour.
 

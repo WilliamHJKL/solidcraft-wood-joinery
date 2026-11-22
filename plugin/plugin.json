@@ -914,6 +914,11 @@
               "type": "boolean",
               "title": "Open this window again while joints are left",
               "default": true
+            },
+            "force": {
+              "type": "boolean",
+              "title": "Make every joint again, even if nothing changed",
+              "default": false
             }
           }
         }

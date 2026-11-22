@@ -86,7 +86,8 @@ fn label(entry: &str) -> &str {
 /// Each joint's features sit in a timeline folder of their own. Each joint is kept as
 /// `{entry, params, boards, folder, features, name}`; `boards` maps each field that names a
 /// board (or a face) to what the joint used. While a form opened by "Edit a joint" is pending,
-/// `editing` names that joint's folder and entry.
+/// `editing` names that joint's folder and entry. An update that ran to its end leaves
+/// `settled`, the fingerprint of what it made, so that the next one does nothing if nothing changed.
 struct Joints {
     document: Value,
 }
@@ -327,21 +328,69 @@ fn feature_ids() -> Result<Vec<u64>, PluginError> {
         .unwrap_or_default())
 }
 
+/// What an update depends on, in one line: each joint's features, and the volume, area and box of
+/// every body, rounded to a thousandth. Equal after a parameter changed back, different after
+/// anything moved, grew or was cut. None when the bodies cannot be measured: then it is not known.
+fn fingerprint(kept: &mut Joints) -> Option<String> {
+    let measured = run("inspect.measure", json!({})).ok()?;
+    let mut text = String::new();
+    for joint in kept.list().iter() {
+        text.push_str(&format!("{:?};", features_of(joint)));
+    }
+    let round = |v: Option<&Value>| v.and_then(Value::as_f64).map_or(String::from("-"), |x| format!("{:.3}", x));
+    for body in measured.get("bodies").and_then(Value::as_array)? {
+        text.push_str(body.get("name").and_then(Value::as_str).unwrap_or_default());
+        text.push('|');
+        text.push_str(&round(body.get("volume_mm3")));
+        text.push('|');
+        text.push_str(&round(body.get("area_mm2")));
+        for corner in ["min", "max"] {
+            for i in 0..3 {
+                text.push('|');
+                text.push_str(&round(body.get("bbox").and_then(|b| b.get(corner)).and_then(|c| c.get(i))));
+            }
+        }
+        text.push(';');
+    }
+    // FNV-1a: a short, stable digest of that line, kept in the design instead of the line.
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in text.bytes() {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    Some(format!("{hash:016x}"))
+}
+
 /// Makes every joint again, in the order they were made, on the boards as they are now: deletes
 /// each joint's features and folder, then runs its entry with the params it was made with. A
 /// joint whose features were all deleted by hand (with its folder) is forgotten. All of it is one
 /// undo step, and a joint that no longer fits stops it with that joint's name, changing nothing.
+/// When nothing changed since the last update ran to its end, it does nothing, unless `force`.
 fn update_joints(params: &str) -> Result<String, PluginError> {
+    let p = serde_json::from_str::<Value>(params).unwrap_or(Value::Null);
     // The window sends its check box; a script that leaves it out never gets a window back.
-    let reopen = serde_json::from_str::<Value>(params).ok().and_then(|p| p.get("reopen").and_then(Value::as_bool)).unwrap_or(false);
+    let reopen = p.get("reopen").and_then(Value::as_bool).unwrap_or(false);
+    let force = p.get("force").and_then(Value::as_bool).unwrap_or(false);
     let mut kept = Joints::load()?;
     kept.take_editing();
     // An update that ran out of host calls left the rest of its joints here: finish those first,
     // in their order, without touching the ones it already made again.
     let pending = kept.take_pending();
+    let settled = kept.document.as_object_mut().and_then(|d| d.remove("settled"));
     let (queue, forgotten) = if pending.is_empty() {
         let total = kept.list().len();
         let live = kept.live()?;
+        // Nothing changed since the last update ran to its end: the same joints, all still there,
+        // on bodies of the same sizes. Making them again would only take the design apart for a
+        // while, run after run, to put it back as it was.
+        if !force && live.len() == total {
+            if let (Some(settled), Some(now)) = (settled.as_ref(), fingerprint(&mut kept)) {
+                if settled.as_str() == Some(now.as_str()) {
+                    craft::plugin::log::log(craft::plugin::log::Level::Info, "Nothing changed since the last update: no joint made again.");
+                    return Ok(json!({ "updated": 0, "remaining": 0, "forgotten": 0, "joints": [], "unchanged": true }).to_string());
+                }
+            }
+        }
         kept.unmake(&live)?;
         let joints: Vec<Value> = live.iter().map(|&i| kept.list()[i].clone()).collect();
         kept.list().clear();
@@ -373,6 +422,8 @@ fn update_joints(params: &str) -> Result<String, PluginError> {
             &format!("{} joints made again, {} left: run Update joints again to finish.", names.len(), left.len()),
         );
         kept.document["pending"] = json!(left);
+    } else if let Some(now) = fingerprint(&mut kept) {
+        kept.document["settled"] = json!(now);
     }
     kept.save()?;
     if reopen && !left.is_empty() {
