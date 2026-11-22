@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Edit joint</title>
+  <path d="M15.21 4.00L23.92 9.03L15.21 14.05L6.51 9.03Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M23.92 54.97L15.21 60.00L15.21 14.05L23.92 9.03Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M15.21 60.00L6.51 54.97L6.51 9.03L15.21 14.05Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M17.70 19.79L30.13 26.97L26.40 29.13L13.97 21.95Z" fill="#b9ddf8" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M30.13 38.46L26.40 40.62L26.40 29.13L30.13 26.97Z" fill="#236ead" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M26.40 40.62L13.97 33.44L13.97 21.95L26.40 29.13Z" fill="#328bd3" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M32.62 22.67L57.49 37.03L48.79 42.05L23.92 27.69Z" fill="#e2e8ef" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M57.49 54.26L48.79 59.28L48.79 42.05L57.49 37.03Z" fill="#8e9faf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M48.79 59.28L23.92 44.92L23.92 27.69L48.79 42.05Z" fill="#b8c3cf" stroke="#34465b" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

@@ -447,6 +447,21 @@ en une fois.
 - Les assemblages faits avec une version antérieure à 0.12.0 ne sont pas gardés : supprimez-les
   et refaites-les pour pouvoir les mettre à jour.
 
+## Modifier un assemblage
+
+**Modifier** rouvre la fenêtre d'un assemblage, remplie avec les réglages qui l'ont fait.
+Sélectionnez d'abord les pièces de l'assemblage (une seule suffit quand elle n'a qu'un
+assemblage), ou tapez une partie du nom de son dossier, puis Run. Dans la fenêtre de
+l'assemblage, changez ce qu'il faut et cliquez Appliquer : l'assemblage est refait à sa place, et
+la mise à jour garde ses nouveaux réglages.
+
+- La fenêtre ne remplace l'assemblage que si elle s'applique aux mêmes pièces. Changez le nom
+  d'une pièce et vous faites un nouvel assemblage à côté de l'ancien.
+- Une modification prend deux pas d'annulation : l'un pour l'assemblage refait, l'autre pour
+  l'ouverture de sa fenêtre.
+- Un script ne peut pas ouvrir de fenêtre. Il donne les champs à changer dans `settings`, et
+  l'assemblage est refait aussitôt : `{"joint": "Rail / Stile", "settings": {"length": 20}}`.
+
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
@@ -482,7 +497,7 @@ en une fois.
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
 `plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
 `dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
-`screws` et `biscuits`, plus `update-joints`, sans paramètre.
+`screws` et `biscuits`, plus `update-joints`, sans paramètre, et `edit-joint` (voir Modifier un assemblage).
 Tous les assemblages sauf les deux premiers reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 

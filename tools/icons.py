@@ -103,6 +103,12 @@ ICONS = {
         box(22, 2, 30, 26, 14, 33, BLUE),
         box(0, -6, 4, 4, 4, 7, BLUE),
     ]),
+    # "Edit joint": a post and a rail whose tenon (blue) is half out of the mortise, to be changed.
+    "edit-joint": ("Edit joint", [
+        box(0, 0, 0, 7, 7, 32),
+        box(4, 2, 16, 14, 5, 24, BLUE),
+        box(14, 0, 14, 34, 7, 26),
+    ]),
     # A post, and a rail ending in its tenon (blue), pulled out of the mortise.
     "mortise-tenon": ("Mortise and tenon", [
         box(0, 0, 0, 7, 7, 32),

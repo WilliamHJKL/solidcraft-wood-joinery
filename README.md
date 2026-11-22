@@ -420,6 +420,19 @@ nothing selected. All of it is one undo step.
 - Joints made with versions before 0.12.0 are not kept: delete them and make them again to
   update them.
 
+## Edit a joint
+
+**Edit joint** opens a joint's own form again, filled with the settings it was made with. Select
+the joint's boards first (one board is enough when it has only one joint), or type part of the
+joint's folder name, then Run. In the joint's form, change what you need and click Apply: the
+joint is made again in its place, and Update joints keeps its new settings.
+
+- The new form replaces the joint only when it runs on the same boards. Change a board's name in
+  it and you make a new joint beside the old one.
+- Editing takes two undo steps: one for the joint made again, one for opening its form.
+- A script cannot open a form. It gives the fields to change in `settings`, and the joint is made
+  again at once: `{"joint": "Rail / Stile", "settings": {"length": 20}}`.
+
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
@@ -450,7 +463,7 @@ nothing selected. All of it is one undo step.
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
 `plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
 `dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
-`screws` and `biscuits`, and `update-joints`, which takes no params.
+`screws` and `biscuits`, `update-joints`, which takes no params, and `edit-joint` (see Edit a joint).
 All joints but the first two take the two bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 

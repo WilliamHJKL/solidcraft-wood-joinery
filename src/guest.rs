@@ -29,16 +29,27 @@ export!(Plugin);
 
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
-        if entry == "update-joints" {
-            return update_joints();
+        match entry.as_str() {
+            "update-joints" => return update_joints(),
+            "edit-joint" => return edit_joint(&params),
+            _ => {}
+        }
+        let mut kept = Joints::load()?;
+        // A form opened by "Edit a joint" replaces that joint when it runs on the same boards.
+        let editing = kept.take_editing();
+        let at = editing.and_then(|marker| kept.edited_by(&marker, &entry, &params));
+        if let Some(i) = at {
+            kept.unmake(&[i])?;
         }
         let out = joint(&entry, &params)?;
-        let mut kept = Joints::load()?;
-        let folder = kept.keep(&entry, &params)?;
+        let folder = kept.keep_at(&entry, &params, at)?;
         kept.save()?;
         let mut out: Value = serde_json::from_str(&out).unwrap_or_else(|_| json!({}));
         if let (Some(out), Some(folder)) = (out.as_object_mut(), folder) {
             out.insert("folder".into(), json!(folder));
+            if at.is_some() {
+                out.insert("replaced".into(), json!(true));
+            }
         }
         Ok(out.to_string())
     }
@@ -67,7 +78,10 @@ fn label(entry: &str) -> &str {
 /// The joints this plugin made in the open design, kept in the design (capability `storage@0.1`)
 /// so that "Update joints" can make them again on the boards as they are now: a joint's
 /// features are plain boxes and cylinders at fixed sizes, so they do not follow the parameters.
-/// Each joint's features sit in a timeline folder of their own.
+/// Each joint's features sit in a timeline folder of their own. Each joint is kept as
+/// `{entry, params, boards, folder, features, name}`; `boards` maps each field that names a
+/// board (or a face) to what the joint used. While a form opened by "Edit a joint" is pending,
+/// `editing` names that joint's folder and entry.
 struct Joints {
     document: Value,
 }
@@ -86,12 +100,145 @@ impl Joints {
         self.document["joints"].as_array_mut().expect("load makes a list")
     }
 
+    fn take_editing(&mut self) -> Option<Value> {
+        self.document.as_object_mut().and_then(|d| d.remove("editing"))
+    }
+
+    /// The joint that a pending "Edit a joint" form stands for, when this run of `entry` is on
+    /// the same boards: that form was filled with the joint's own settings.
+    fn edited_by(&mut self, marker: &Value, entry: &str, params: &str) -> Option<usize> {
+        let p: Value = serde_json::from_str(params).ok()?;
+        let folder = marker.get("folder")?.as_u64()?;
+        let i = self.list().iter().position(|j| j.get("folder").and_then(Value::as_u64) == Some(folder))?;
+        let joint = &self.list()[i];
+        if joint.get("entry").and_then(Value::as_str) != Some(entry) {
+            return None;
+        }
+        let same = joint.get("boards").and_then(Value::as_object).is_some_and(|boards| {
+            !boards.is_empty()
+                && boards.iter().all(|(field, value)| {
+                    let given = match p.get(field) {
+                        Some(Value::String(name)) => Some(name.trim()),
+                        Some(Value::Array(names)) if names.len() == 1 => names[0].as_str().map(str::trim),
+                        _ => None,
+                    };
+                    given.is_some_and(|given| value.as_str().is_some_and(|v| choice(v) == choice(given)))
+                })
+        });
+        same.then_some(i)
+    }
+
+    /// The joints whose features are still in the timeline, by index.
+    fn live(&mut self) -> Result<Vec<usize>, PluginError> {
+        let there = feature_ids()?;
+        Ok(self
+            .list()
+            .iter()
+            .enumerate()
+            .filter(|(_, j)| features_of(j).iter().any(|id| there.contains(id)))
+            .map(|(i, _)| i)
+            .collect())
+    }
+
+    /// Deletes the features and the folders of these joints. Their records stay, for the caller
+    /// to replace or drop.
+    fn unmake(&mut self, joints: &[usize]) -> Result<(), PluginError> {
+        let there = feature_ids()?;
+        let mut doomed = Vec::new();
+        let mut folders = Vec::new();
+        for &i in joints {
+            let joint = &self.list()[i];
+            let mine: Vec<u64> = features_of(joint).into_iter().filter(|id| there.contains(id)).collect();
+            if !mine.is_empty() {
+                doomed.extend(mine);
+                folders.extend(joint.get("folder").and_then(Value::as_u64));
+            }
+        }
+        if !doomed.is_empty() {
+            run("timeline.delete", json!({ "features": doomed }))?;
+            // The folders are empty now. A folder taken apart by hand (Ungroup) is gone, and
+            // deleting it would fail: the README says to delete a joint's folder, not to ungroup it.
+            run("timeline.delete", json!({ "groups": folders }))?;
+        }
+        Ok(())
+    }
+
     /// Puts the features the entry just made in a folder, and records the joint with the names
-    /// it resolved from the selection, so that it can run again without a selection.
-    fn keep(&mut self, entry: &str, params: &str) -> Result<Option<String>, PluginError> {
-        let Some((folder, features, name, params)) = folder(entry, params)? else { return Ok(None) };
-        self.list().push(json!({ "entry": entry, "params": params, "folder": folder, "features": features, "name": name }));
-        Ok(Some(name))
+    /// it resolved from the selection, so that it can run again without a selection: at `at` in
+    /// the list (the joint it replaces), or at the end.
+    fn keep_at(&mut self, entry: &str, params: &str, at: Option<usize>) -> Result<Option<String>, PluginError> {
+        let Some(made) = folder(entry, params)? else { return Ok(None) };
+        let record = json!({
+            "entry": entry,
+            "params": made.params,
+            "boards": made.boards,
+            "folder": made.id,
+            "features": made.features,
+            "name": made.name,
+        });
+        match at {
+            Some(i) => self.list()[i] = record,
+            None => self.list().push(record),
+        }
+        Ok(Some(made.name))
+    }
+
+    fn name(&mut self, i: usize) -> String {
+        self.list()[i].get("name").and_then(Value::as_str).unwrap_or_default().to_owned()
+    }
+
+    /// The joint a user means: part of its folder's name, or, when that is empty, the joint of
+    /// the selected boards.
+    fn find(&mut self, text: Option<&str>) -> Result<usize, PluginError> {
+        let live = self.live()?;
+        let names: Vec<(usize, String)> = live.iter().map(|&i| (i, self.name(i))).collect();
+        let listed = || {
+            if names.is_empty() {
+                "this design has no joint made by this plugin since version 0.12.0".to_owned()
+            } else {
+                format!("the joints are: {}", names.iter().map(|(_, n)| format!("`{n}`")).collect::<Vec<_>>().join(", "))
+            }
+        };
+        let found: Vec<usize> = match text {
+            Some(text) => {
+                let lower = text.to_lowercase();
+                let exact: Vec<usize> = names.iter().filter(|(_, n)| n.to_lowercase() == lower).map(|(i, _)| *i).collect();
+                if exact.is_empty() {
+                    names.iter().filter(|(_, n)| n.to_lowercase().contains(&lower)).map(|(i, _)| *i).collect()
+                } else {
+                    exact
+                }
+            }
+            None => {
+                let picked = selected_bodies()?;
+                if picked.is_empty() {
+                    return Err(invalid("joint", format!("select the boards of the joint, or type part of its folder name; {}", listed())));
+                }
+                live.iter()
+                    .copied()
+                    .filter(|&i| {
+                        let boards: Vec<String> = self.list()[i]
+                            .get("boards")
+                            .and_then(Value::as_object)
+                            .map(|b| b.iter().filter(|(f, _)| f.as_str() != "face").filter_map(|(_, v)| v.as_str().map(str::to_owned)).collect())
+                            .unwrap_or_default();
+                        picked.iter().all(|name| boards.contains(name))
+                    })
+                    .collect()
+            }
+        };
+        match found.as_slice() {
+            [i] => Ok(*i),
+            [] => Err(invalid("joint", format!("no joint matches; {}", listed()))),
+            many => Err(invalid(
+                "joint",
+                format!(
+                    "{} joints match: {}. Type more of the folder name",
+                    many.len(),
+                    many.iter().map(|&i| format!("`{}`", self.name(i))).collect::<Vec<_>>().join(", ")
+                ),
+            )),
+        }
     }
 
     fn save(&self) -> Result<(), PluginError> {
@@ -99,13 +246,23 @@ impl Joints {
     }
 }
 
-/// Groups the features made since the entry began in one timeline folder. Returns the folder's
-/// id and name, and the entry's params with the boards and face it took from the selection.
-/// A joint's timeline folder: its id, the features in it, its name, and the params to make the
-/// joint again.
-type Folder = (u64, Vec<u64>, String, Value);
+fn features_of(joint: &Value) -> Vec<u64> {
+    joint.get("features").and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_u64).collect()).unwrap_or_default()
+}
 
-fn folder(entry: &str, params: &str) -> Result<Option<Folder>, PluginError> {
+/// A joint's timeline folder, made from the features the entry made.
+struct Made {
+    id: u64,
+    features: Vec<u64>,
+    name: String,
+    /// The entry's params, with the boards and face it took from the selection.
+    params: Value,
+    /// Each field that names a board or a face, and what the joint used.
+    boards: serde_json::Map<String, Value>,
+}
+
+/// Groups the features made since the entry began in one timeline folder.
+fn folder(entry: &str, params: &str) -> Result<Option<Made>, PluginError> {
     let features = CREATED.with(|c| std::mem::take(&mut *c.borrow_mut()));
     let resolved = RESOLVED.with(|r| std::mem::take(&mut *r.borrow_mut()));
     if features.is_empty() {
@@ -115,20 +272,22 @@ fn folder(entry: &str, params: &str) -> Result<Option<Folder>, PluginError> {
     if !stored.is_object() {
         stored = json!({});
     }
-    let mut boards = Vec::new();
+    let mut names = Vec::new();
+    let mut boards = serde_json::Map::new();
     for (field, value) in resolved {
         if let Some(name) = value.as_str().filter(|_| field != "face") {
-            boards.push(name.to_owned());
+            names.push(name.to_owned());
         }
-        stored[field] = value;
+        stored[&field] = value.clone();
+        boards.insert(field, value);
     }
-    let name = format!("{}: {}", label(entry), boards.join(" / "));
+    let name = format!("{}: {}", label(entry), names.join(" / "));
     let made = run("timeline.group", json!({ "name": name, "features": features }))?;
     let id = made
         .get("group")
         .and_then(Value::as_u64)
         .ok_or_else(|| PluginError::Trap("timeline.group returned no folder id".into()))?;
-    Ok(Some((id, features, name, stored)))
+    Ok(Some(Made { id, features, name, params: stored, boards }))
 }
 
 /// The ids of the features in the timeline. A command that fails ends the plugin's whole run, so
@@ -151,44 +310,57 @@ fn feature_ids() -> Result<Vec<u64>, PluginError> {
 /// undo step, and a joint that no longer fits stops it with that joint's name, changing nothing.
 fn update_joints() -> Result<String, PluginError> {
     let mut kept = Joints::load()?;
-    let all = std::mem::take(kept.list());
-    let total = all.len();
-    let there = feature_ids()?;
-    let mut doomed = Vec::new();
-    let mut folders = Vec::new();
-    let mut live = Vec::new();
-    for joint in all {
-        let mine: Vec<u64> = joint
-            .get("features")
-            .and_then(Value::as_array)
-            .map(|ids| ids.iter().filter_map(Value::as_u64).filter(|id| there.contains(id)).collect())
-            .unwrap_or_default();
-        if mine.is_empty() {
-            continue;
-        }
-        doomed.extend(mine);
-        folders.extend(joint.get("folder").and_then(Value::as_u64));
-        live.push(joint);
-    }
-    let dropped = total - live.len();
-    if !doomed.is_empty() {
-        run("timeline.delete", json!({ "features": doomed }))?;
-        // The folders are empty now. A folder taken apart by hand (Ungroup) is gone, and deleting
-        // it would fail: the README says to delete a joint's folder, not to ungroup it.
-        run("timeline.delete", json!({ "groups": folders }))?;
-    }
+    kept.take_editing();
+    let total = kept.list().len();
+    let live = kept.live()?;
+    kept.unmake(&live)?;
+    let joints: Vec<Value> = live.iter().map(|&i| kept.list()[i].clone()).collect();
+    kept.list().clear();
     let mut names = Vec::new();
-    for joint in live {
+    for joint in joints {
         let entry = joint.get("entry").and_then(Value::as_str).unwrap_or_default().to_owned();
         let params = joint.get("params").cloned().unwrap_or_else(|| json!({})).to_string();
         let was = joint.get("name").and_then(Value::as_str).unwrap_or(&entry).to_owned();
         joint_named(&entry, &params, &was)?;
-        if let Some(name) = kept.keep(&entry, &params)? {
+        if let Some(name) = kept.keep_at(&entry, &params, None)? {
             names.push(name);
         }
     }
     kept.save()?;
-    Ok(json!({ "updated": names.len(), "forgotten": dropped, "joints": names }).to_string())
+    Ok(json!({ "updated": names.len(), "forgotten": total - live.len(), "joints": names }).to_string())
+}
+
+/// Opens a joint's own form, filled with the settings it was made with. Run in that form, on the
+/// same boards, replaces the joint in place. A script cannot open a form: it gives the settings
+/// to change in `settings`, and the joint is made again with them at once.
+fn edit_joint(params: &str) -> Result<String, PluginError> {
+    let p: Value = serde_json::from_str(params).map_err(|e| invalid("params", e.to_string()))?;
+    let mut kept = Joints::load()?;
+    kept.take_editing();
+    let text = p.get("joint").and_then(Value::as_str).map(str::trim).filter(|t| !t.is_empty());
+    let i = kept.find(text)?;
+    let joint = kept.list()[i].clone();
+    let entry = joint.get("entry").and_then(Value::as_str).unwrap_or_default().to_owned();
+    let name = kept.name(i);
+    let mut stored = joint.get("params").cloned().unwrap_or_else(|| json!({}));
+    if let Some(settings) = p.get("settings") {
+        let Some(settings) = settings.as_object() else {
+            return Err(invalid("settings", "expected an object of the joint's fields and their new values"));
+        };
+        for (field, value) in settings {
+            stored[field] = value.clone();
+        }
+        let stored = stored.to_string();
+        kept.unmake(&[i])?;
+        joint_named(&entry, &stored, &name)?;
+        let now = kept.keep_at(&entry, &stored, Some(i))?;
+        kept.save()?;
+        return Ok(json!({ "edited": now }).to_string());
+    }
+    kept.document["editing"] = json!({ "folder": joint.get("folder"), "entry": entry });
+    kept.save()?;
+    craft::plugin::forms::open(&entry, &stored.to_string())?;
+    Ok(json!({ "editing": name }).to_string())
 }
 
 /// Runs one joint again, and names it in the error when it no longer fits.

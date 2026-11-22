@@ -666,6 +666,30 @@ def main():
         code, output = c.cli("upd_far", [*parametric(45), c.joint(both), {"command": "parameters.change", "params": {"name": "X", "expression": "300"}}, update], expect_error=True)
         c.report(code != 0 and "cannot be made again" in output and "Mortise and tenon: Rail / Stile" in output, f"a rail moved 265 mm away stops Update joints: {output.strip()[-200:]}")
 
+        # Edit a joint: a script gives the settings to change; the joint is made again in place.
+        edit = lambda params: c.run("edit-joint", params)
+        short = bodies_of(c.cli("edit_fresh", [*parametric(45), c.joint({**both, "length": 20}), MEASURE])[-1])
+        got = c.cli("edit_settings", [*parametric(45), c.joint(both), edit({"joint": "rail / stile", "settings": {"length": 20}}), MEASURE, stored])
+        kept = got[-1]["document"]["joints"]
+        c.report(bodies_of(got[-2]) == short and len(kept) == 1 and kept[0]["params"]["length"] == 20,
+                 f"Edit joint makes a 25 mm tenon 20 mm long, in place: {bodies_of(got[-2])} ({len(kept)} joint kept)")
+        got = c.cli("edit_selected", [*parametric(45), c.joint(both), select("Stile", "Rail"), edit({"settings": {"length": 20}}), MEASURE])
+        c.report(bodies_of(got[-1]) == short, f"Edit joint finds the joint of the two selected boards: {bodies_of(got[-1])}")
+        # The edited joint keeps its place: an update after it gives the same result.
+        both2 = {"rail": "Rail2", "stile": "Stile"}
+        two_joints = [*parametric(45), c.joint(both), box("Rail2", [35, 0, 100], (360, 18, 45)), c.joint(both2)]
+        fresh3 = bodies_of(c.cli("edit_two_fresh", [*parametric(60), c.joint({**both, "length": 20}), box("Rail2", [35, 0, 100], (360, 18, 45)), c.joint(both2), MEASURE])[-1])
+        got = c.cli("edit_two", [*two_joints, edit({"joint": "Rail / Stile", "settings": {"length": 20}}), set_h(60), update, MEASURE, stored])
+        order = [k["name"] for k in got[-1]["document"]["joints"]]
+        c.report(bodies_of(got[-2]) == fresh3 and order == ["Mortise and tenon: Rail / Stile", "Mortise and tenon: Rail2 / Stile"],
+                 f"an edited joint keeps its place, and updates with its new settings: {order}")
+        code, output = c.cli("edit_form", [*parametric(45), c.joint(both), edit({"joint": "Rail"})], expect_error=True)
+        c.report(code != 0 and "interactive" in output.lower(), f"without settings, a script is told the form needs the window: {output.strip()[-160:]}")
+        code, output = c.cli("edit_two_match", [*two_joints, edit({"joint": "Stile", "settings": {"length": 20}})], expect_error=True)
+        c.report(code != 0 and "2 joints match" in output, f"a name matching two joints is refused: {output.strip()[-160:]}")
+        code, output = c.cli("edit_none", [*parametric(45), c.joint(both), edit({"joint": "Shelf", "settings": {}})], expect_error=True)
+        c.report(code != 0 and "no joint matches" in output and "Rail / Stile" in output, f"an unknown joint is refused, naming the joints: {output.strip()[-160:]}")
+
         # The joints are saved with the design.
         saved_upd = work / "update.sc"
         c.cli("upd_save", [*parametric(45), c.joint(both)], "--save", str(saved_upd))

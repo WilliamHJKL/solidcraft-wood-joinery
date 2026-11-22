@@ -4,8 +4,9 @@
   "version": "0.12.0",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
-    "commands@0.1",
-    "storage@0.1"
+    "commands@0.2",
+    "storage@0.1",
+    "forms@0.1"
   ],
   "runtime": {
     "module": "plugin.wasm",
@@ -864,6 +865,30 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            }
+          }
+        }
+      },
+      {
+        "name": "edit-joint",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Edit a joint"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Edit joint"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "x-solidcraft-icon": "icons/edit-joint.svg",
+          "properties": {
+            "joint": {
+              "type": "string",
+              "title": "Joint (part of its folder name; empty = selection)"
             }
           }
         }
