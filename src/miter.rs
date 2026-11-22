@@ -231,7 +231,7 @@ mod tests {
     fn a_spline_lies_square_to_the_cut_half_way_along_it() {
         let (x, y) = corner();
         let p = plan(x, y, &Options { spline: Some(4.0), ..Options::default() }).unwrap();
-        let (body, slot) = p.splines[0].clone();
+        let (body, slot) = p.splines[0];
         // 6 mm into each board, 4 thick, over the 100 mm the boards share.
         assert_eq!(slot, 4.0 * 6.0 * 100.0);
         assert_eq!((body.block.size[1], body.block.size[2]), (12.0, 100.0));
