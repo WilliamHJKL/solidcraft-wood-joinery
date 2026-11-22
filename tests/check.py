@@ -614,6 +614,64 @@ def main():
         c.refuse_entry("rev_lap_far", "a shiplap of planks 110 mm apart, without align", far, "half-lap", two, "110 mm apart")
         c.change("rev_lap_far_align", "the same planks with align", far, "half-lap", {**two, "align": True}, {"A": -11 * 1360 * 11, "B": -11 * 1360 * 11})
 
+        # 8. Update joints: a joint's features are boxes at fixed sizes. The plugin keeps each joint
+        # in the design and puts its features in a timeline folder; "Update joints" deletes the
+        # folders and makes the joints again on the boards as they are now.
+        def parametric(height, x="35"):
+            """The stile and a rail whose height and start are parameters."""
+            return [{"command": "parameters.add", "params": {"name": "H", "expression": str(height)}},
+                    {"command": "parameters.add", "params": {"name": "X", "expression": x}},
+                    box("Stile", [0, 0, 0], (35, 35, 830), first=True),
+                    {"command": "solid.box", "params": {"corner": [0, 0, 400], "length": 360, "width": 18, "height": "H", "body_name": "Rail", "operation": "new"}},
+                    {"command": "solid.move", "params": {"bodies": ["Rail"], "translate": ["X", 0, 0]}}]
+
+        def bodies_of(result):
+            return {b["name"]: round(b["volume_mm3"], 1) for b in result["bodies"]}
+
+        update = c.run("update-joints", {})
+        set_h = lambda h: {"command": "parameters.change", "params": {"name": "H", "expression": str(h)}}
+        stored = {"command": "storage.get", "params": {"plugin": "wood-joinery"}}
+        fresh = bodies_of(c.cli("upd_fresh", [*parametric(60), c.joint(both), MEASURE])[-1])
+        got = c.cli("upd_param", [*parametric(45), c.joint(both), set_h(60), MEASURE, update, MEASURE, stored])
+        stale, made, after, kept = bodies_of(got[-4]), got[-3]["result"], bodies_of(got[-2]), got[-1]["document"]["joints"]
+        c.report(got[-6]["result"].get("folder") == "Mortise and tenon: Rail / Stile", f"a joint goes in its own timeline folder: {got[-6]['result'].get('folder')}")
+        c.report(stale != fresh, f"a rail made 60 mm high after its joint keeps the old tenon: Rail {stale.get('Rail')} (made at 60 mm: {fresh['Rail']})")
+        c.report(after == fresh and made["updated"] == 1, f"Update joints makes the tenon of a 60 mm rail: {after} (made at 60 mm: {fresh})")
+        c.report(len(kept) == 1 and kept[0]["params"]["rail"] == "Rail" and kept[0]["entry"] == "mortise-tenon", f"the design keeps one joint record: {[(k['entry'], k['name']) for k in kept]}")
+        got = c.cli("upd_undo", [*parametric(45), c.joint(both), set_h(60), MEASURE, update, {"command": "edit.undo", "params": {}}, MEASURE])
+        c.report(bodies_of(got[-1]) == bodies_of(got[-4]), "one undo takes Update joints back whole")
+
+        # A joint made from the selection is made again without it.
+        pick = [select("Rail", "Stile"), c.joint({}), {"command": "select.set", "params": {"items": []}}]
+        got = c.cli("upd_selected", [*parametric(45), *pick, set_h(60), update, MEASURE])
+        c.report(bodies_of(got[-1]) == fresh, f"a joint made from the selection updates with no selection: {bodies_of(got[-1])}")
+
+        # Two joints on one stile, one of them adding bodies: each is made again once.
+        fresh2 = c.cli("upd_two_fresh", [*parametric(60), c.joint(both), box("Rail2", [35, 0, 100], (360, 18, 45)), c.run("dowels", {"first": "Rail2", "second": "Stile"}), MEASURE])[-1]
+        got = c.cli("upd_two", [*parametric(45), c.joint(both), box("Rail2", [35, 0, 100], (360, 18, 45)), c.run("dowels", {"first": "Rail2", "second": "Stile"}), set_h(60), update, MEASURE])
+        c.report(bodies_of(got[-1]) == bodies_of(fresh2), f"a tenon and dowels update, the dowels made once: {sorted(bodies_of(got[-1]))}")
+
+        # A joint whose folder was deleted by hand is forgotten.
+        got = c.cli("upd_deleted", [*parametric(45), c.joint(both), stored])
+        folder = got[-1]["document"]["joints"][0]["folder"]
+        got = c.cli("upd_deleted2", [*parametric(45), c.joint(both), {"command": "timeline.delete", "params": {"groups": [folder]}}, update, MEASURE, stored])
+        c.report(got[-3]["result"]["forgotten"] == 1 and bodies_of(got[-2]) == {"Stile": STILE, "Rail": RAIL} and got[-1]["document"]["joints"] == [],
+                 f"a joint deleted by hand is forgotten: {got[-3]['result']}")
+
+        # The old folder goes: an update leaves no empty folder behind.
+        code, output = c.cli("upd_old_folder", [*parametric(45), c.joint(both), set_h(60), update, {"command": "timeline.inspect", "params": {"group": folder}}], expect_error=True)
+        c.report(code != 0 and f"no timeline folder {folder}" in output, f"Update joints deletes the joint's old folder: {output.strip()[-80:]}")
+
+        # A joint that no longer fits stops the update, naming it, and changes nothing.
+        code, output = c.cli("upd_far", [*parametric(45), c.joint(both), {"command": "parameters.change", "params": {"name": "X", "expression": "300"}}, update], expect_error=True)
+        c.report(code != 0 and "cannot be made again" in output and "Mortise and tenon: Rail / Stile" in output, f"a rail moved 265 mm away stops Update joints: {output.strip()[-200:]}")
+
+        # The joints are saved with the design.
+        saved_upd = work / "update.sc"
+        c.cli("upd_save", [*parametric(45), c.joint(both)], "--save", str(saved_upd))
+        got = c.cli("upd_reopen", [set_h(60), update, MEASURE], "--in", str(saved_upd))
+        c.report(bodies_of(got[-1]) == fresh, f"a saved design reopened updates its joints: {bodies_of(got[-1])}")
+
         # 7. A picture, for a human to look at.
         picture = work / "joint.png"
         cam = json.dumps({"target": [35, 9, 422], "yaw": 0.9, "pitch": 0.35, "distance": 260})

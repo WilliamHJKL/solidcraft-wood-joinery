@@ -95,6 +95,14 @@ def project_face(face):
 
 
 ICONS = {
+    # "Update joints": a post and its rail put together, two blue arrows turning about the joint.
+    "update-joints": ("Update joints", [
+        box(0, 0, 0, 7, 7, 32),
+        box(7, 0, 14, 30, 7, 26),
+        box(10, 10, 30, 26, 14, 33, BLUE),
+        box(22, 2, 30, 26, 14, 33, BLUE),
+        box(0, -6, 4, 4, 4, 7, BLUE),
+    ]),
     # A post, and a rail ending in its tenon (blue), pulled out of the mortise.
     "mortise-tenon": ("Mortise and tenon", [
         box(0, 0, 0, 7, 7, 32),

@@ -425,6 +425,28 @@ lamelle comme un nouveau corps nommé `Biscuit 1`, `Biscuit 2`, etc.
 
 Les pièces doivent faire au moins 10 mm d'épaisseur à l'endroit du contact.
 
+## Mettre à jour les assemblages après un changement
+
+Les usinages d'un assemblage sont de simples boîtes et cylindres à cotes fixes : ils ne suivent
+pas les paramètres. Le plugin garde donc dans le fichier chaque assemblage qu'il fait, avec ses
+réglages et les pièces qu'il relie, et range ses fonctions dans un dossier de l'historique, par
+exemple `Mortise and tenon: Traverse / Montant`.
+
+Après un changement de paramètres, cliquez **Mettre à jour les assemblages**. La commande
+supprime le dossier de chaque assemblage et refait les assemblages, dans l'ordre où ils ont été
+faits, sur les pièces telles qu'elles sont, avec leurs réglages d'origine. Un assemblage fait à
+partir de la sélection est refait sur les mêmes pièces, sans rien sélectionner. Le tout s'annule
+en une fois.
+
+- Pour retirer un assemblage, supprimez son dossier dans l'historique : la mise à jour l'oublie.
+  Ne dégroupez pas le dossier d'un assemblage : la mise à jour s'arrêterait, faute de le trouver.
+- Un assemblage qui ne tient plus, par exemple une traverse éloignée de son montant, arrête la
+  mise à jour. Le message nomme l'assemblage, et rien n'est modifié.
+- Les fonctions d'un assemblage repartent en fin d'historique. Une fonction faite après un
+  assemblage, sur la même pièce, passe devant lui après une mise à jour.
+- Les assemblages faits avec une version antérieure à 0.12.0 ne sont pas gardés : supprimez-les
+  et refaites-les pour pouvoir les mettre à jour.
+
 ## Limites de cette version
 
 - Les pièces doivent être alignées sur les axes X, Y ou Z. Le plugin lit la boîte englobante de
@@ -433,9 +455,10 @@ Les pièces doivent faire au moins 10 mm d'épaisseur à l'endroit du contact.
 - La profondeur du montant est celle de sa boîte englobante dans l'axe de l'assemblage. Un
   montant avec un pied ou un retour est donc mesuré trop profond : fixez alors vous-même la
   longueur du tenon.
-- Les cotes sont des nombres. Elles ne suivent pas un paramètre : après un changement, annulez
-  l'usinage et relancez la commande. Un assemblage qui se reconstruit seul attend les fonctions
-  paramétriques par plugin, prévues pour une phase ultérieure du RFC des plugins de SolidCraft.
+- Les cotes sont des nombres. Elles ne suivent pas seules un paramètre : après un changement,
+  cliquez **Mettre à jour les assemblages** (voir plus haut). Un assemblage qui se reconstruit
+  seul attend les fonctions paramétriques par plugin, prévues pour une phase ultérieure du RFC
+  des plugins de SolidCraft.
 - Travaillez avec le composant racine actif. Une pièce placée dans un composant qui a été
   tourné ou déplacé n'est pas encore prise en charge : tournez le corps lui-même, pas son
   composant. Le plugin vérifie où chaque assemblage est arrivé ; s'il n'est pas à l'endroit
@@ -459,8 +482,8 @@ Les pièces doivent faire au moins 10 mm d'épaisseur à l'endroit du contact.
 Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'il renvoie à
 `plugin.run`. Les entrées sont `mortise-tenon`, `groove`, `half-lap`,
 `dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
-`screws` et `biscuits`.
-Toutes sauf les deux premières reçoivent les deux corps dans `first` et `second`.
+`screws` et `biscuits`, plus `update-joints`, sans paramètre.
+Tous les assemblages sauf les deux premiers reçoivent les deux corps dans `first` et `second`.
 Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
 
 ```json

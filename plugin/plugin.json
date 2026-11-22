@@ -1,13 +1,15 @@
 {
   "id": "wood-joinery",
   "name": "Wood joinery",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Woodworking joints between boards: mortise and tenon, grooves, half laps, dowels, box joints, loose tenons, housings, miters, tongue and groove, scarfs, dovetails, screws and biscuits.",
   "capabilities": [
-    "commands@0.1"
+    "commands@0.1",
+    "storage@0.1"
   ],
   "runtime": {
     "module": "plugin.wasm",
+    "data_format": 1,
     "entries": [
       {
         "name": "mortise-tenon",
@@ -865,9 +867,29 @@
             }
           }
         }
+      },
+      {
+        "name": "update-joints",
+        "effect": "edit",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Update joints"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Update joints"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "x-solidcraft-icon": "icons/update-joints.svg",
+          "properties": {}
+        }
       }
     ],
     "commands": [
+      "document.inspect",
       "inspect.interference",
       "inspect.measure",
       "selection.get",
@@ -875,7 +897,11 @@
       "solid.combine",
       "solid.cone",
       "solid.cylinder",
-      "solid.move"
+      "solid.move",
+      "storage.get",
+      "storage.set",
+      "timeline.delete",
+      "timeline.group"
     ],
     "limits": {
       "fuel": 50000000,

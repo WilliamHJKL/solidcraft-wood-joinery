@@ -21,7 +21,7 @@ use crate::tongue;
 wit_bindgen::generate!({ world: "command-plugin", path: "wit" });
 
 use craft::plugin::commands;
-use craft::plugin::types::{FieldFailure, PluginError};
+use craft::plugin::types::{CommandFailure, FieldFailure, PluginError};
 
 struct Plugin;
 
@@ -29,23 +29,201 @@ export!(Plugin);
 
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
-        BEFORE.with(|b| *b.borrow_mut() = None);
-        match entry.as_str() {
-            "mortise-tenon" => mortise_tenon(&params),
-            "groove" => groove(&params),
-            "half-lap" => half_lap(&params),
-            "dowels" => dowels(&params),
-            "box-joint" => box_joint(&params),
-            "loose-tenon" => loose_tenon(&params),
-            "housing" => housing(&params),
-            "miter" => miter(&params),
-            "tongue-groove" => tongue_groove(&params),
-            "scarf" => scarf(&params),
-            "dovetail" => dovetail(&params),
-            "screws" => screws(&params),
-            "biscuits" => biscuits(&params),
-            other => Err(invalid("entry", format!("unknown entry `{other}`"))),
+        if entry == "update-joints" {
+            return update_joints();
         }
+        let out = joint(&entry, &params)?;
+        let mut kept = Joints::load()?;
+        let folder = kept.keep(&entry, &params)?;
+        kept.save()?;
+        let mut out: Value = serde_json::from_str(&out).unwrap_or_else(|_| json!({}));
+        if let (Some(out), Some(folder)) = (out.as_object_mut(), folder) {
+            out.insert("folder".into(), json!(folder));
+        }
+        Ok(out.to_string())
+    }
+}
+
+/// The English names of the joints, for the timeline folder that holds each one.
+fn label(entry: &str) -> &str {
+    match entry {
+        "mortise-tenon" => "Mortise and tenon",
+        "groove" => "Groove",
+        "half-lap" => "Half lap",
+        "dowels" => "Dowels",
+        "box-joint" => "Box joint",
+        "loose-tenon" => "Loose tenon",
+        "housing" => "Housing",
+        "miter" => "Miter",
+        "tongue-groove" => "Tongue and groove",
+        "scarf" => "Scarf",
+        "dovetail" => "Dovetail",
+        "screws" => "Screws",
+        "biscuits" => "Biscuits",
+        other => other,
+    }
+}
+
+/// The joints this plugin made in the open design, kept in the design (capability `storage@0.1`)
+/// so that "Update joints" can make them again on the boards as they are now: a joint's
+/// features are plain boxes and cylinders at fixed sizes, so they do not follow the parameters.
+/// Each joint's features sit in a timeline folder of their own.
+struct Joints {
+    document: Value,
+}
+
+impl Joints {
+    fn load() -> Result<Self, PluginError> {
+        let got = run("storage.get", json!({}))?;
+        let mut document = got.get("document").cloned().unwrap_or(Value::Null);
+        if !document.get("joints").is_some_and(Value::is_array) {
+            document = json!({ "joints": [] });
+        }
+        Ok(Self { document })
+    }
+
+    fn list(&mut self) -> &mut Vec<Value> {
+        self.document["joints"].as_array_mut().expect("load makes a list")
+    }
+
+    /// Puts the features the entry just made in a folder, and records the joint with the names
+    /// it resolved from the selection, so that it can run again without a selection.
+    fn keep(&mut self, entry: &str, params: &str) -> Result<Option<String>, PluginError> {
+        let Some((folder, features, name, params)) = folder(entry, params)? else { return Ok(None) };
+        self.list().push(json!({ "entry": entry, "params": params, "folder": folder, "features": features, "name": name }));
+        Ok(Some(name))
+    }
+
+    fn save(&self) -> Result<(), PluginError> {
+        run("storage.set", json!({ "document": self.document })).map(|_| ())
+    }
+}
+
+/// Groups the features made since the entry began in one timeline folder. Returns the folder's
+/// id and name, and the entry's params with the boards and face it took from the selection.
+/// A joint's timeline folder: its id, the features in it, its name, and the params to make the
+/// joint again.
+type Folder = (u64, Vec<u64>, String, Value);
+
+fn folder(entry: &str, params: &str) -> Result<Option<Folder>, PluginError> {
+    let features = CREATED.with(|c| std::mem::take(&mut *c.borrow_mut()));
+    let resolved = RESOLVED.with(|r| std::mem::take(&mut *r.borrow_mut()));
+    if features.is_empty() {
+        return Ok(None);
+    }
+    let mut stored: Value = serde_json::from_str(params).unwrap_or_else(|_| json!({}));
+    if !stored.is_object() {
+        stored = json!({});
+    }
+    let mut boards = Vec::new();
+    for (field, value) in resolved {
+        if let Some(name) = value.as_str().filter(|_| field != "face") {
+            boards.push(name.to_owned());
+        }
+        stored[field] = value;
+    }
+    let name = format!("{}: {}", label(entry), boards.join(" / "));
+    let made = run("timeline.group", json!({ "name": name, "features": features }))?;
+    let id = made
+        .get("group")
+        .and_then(Value::as_u64)
+        .ok_or_else(|| PluginError::Trap("timeline.group returned no folder id".into()))?;
+    Ok(Some((id, features, name, stored)))
+}
+
+/// The ids of the features in the timeline. A command that fails ends the plugin's whole run, so
+/// what is still there is read, never tried.
+fn feature_ids() -> Result<Vec<u64>, PluginError> {
+    let doc = run(
+        "document.inspect",
+        json!({ "timeline": "summary", "bodies": false, "measure": false, "sketches": false, "joints": false }),
+    )?;
+    Ok(doc
+        .get("timeline")
+        .and_then(Value::as_array)
+        .map(|features| features.iter().filter_map(|f| f.get("id").and_then(Value::as_u64)).collect())
+        .unwrap_or_default())
+}
+
+/// Makes every joint again, in the order they were made, on the boards as they are now: deletes
+/// each joint's features and folder, then runs its entry with the params it was made with. A
+/// joint whose features were all deleted by hand (with its folder) is forgotten. All of it is one
+/// undo step, and a joint that no longer fits stops it with that joint's name, changing nothing.
+fn update_joints() -> Result<String, PluginError> {
+    let mut kept = Joints::load()?;
+    let all = std::mem::take(kept.list());
+    let total = all.len();
+    let there = feature_ids()?;
+    let mut doomed = Vec::new();
+    let mut folders = Vec::new();
+    let mut live = Vec::new();
+    for joint in all {
+        let mine: Vec<u64> = joint
+            .get("features")
+            .and_then(Value::as_array)
+            .map(|ids| ids.iter().filter_map(Value::as_u64).filter(|id| there.contains(id)).collect())
+            .unwrap_or_default();
+        if mine.is_empty() {
+            continue;
+        }
+        doomed.extend(mine);
+        folders.extend(joint.get("folder").and_then(Value::as_u64));
+        live.push(joint);
+    }
+    let dropped = total - live.len();
+    if !doomed.is_empty() {
+        run("timeline.delete", json!({ "features": doomed }))?;
+        // The folders are empty now. A folder taken apart by hand (Ungroup) is gone, and deleting
+        // it would fail: the README says to delete a joint's folder, not to ungroup it.
+        run("timeline.delete", json!({ "groups": folders }))?;
+    }
+    let mut names = Vec::new();
+    for joint in live {
+        let entry = joint.get("entry").and_then(Value::as_str).unwrap_or_default().to_owned();
+        let params = joint.get("params").cloned().unwrap_or_else(|| json!({})).to_string();
+        let was = joint.get("name").and_then(Value::as_str).unwrap_or(&entry).to_owned();
+        joint_named(&entry, &params, &was)?;
+        if let Some(name) = kept.keep(&entry, &params)? {
+            names.push(name);
+        }
+    }
+    kept.save()?;
+    Ok(json!({ "updated": names.len(), "forgotten": dropped, "joints": names }).to_string())
+}
+
+/// Runs one joint again, and names it in the error when it no longer fits.
+fn joint_named(entry: &str, params: &str, name: &str) -> Result<String, PluginError> {
+    joint(entry, params).map_err(|e| {
+        let say = |reason: String| format!("`{name}` cannot be made again, so nothing was changed: {reason}");
+        match e {
+            PluginError::InvalidInput(f) => invalid(&f.field, say(f.reason)),
+            PluginError::CommandFailed(f) => PluginError::CommandFailed(CommandFailure { command: f.command, reason: say(f.reason) }),
+            other => other,
+        }
+    })
+}
+
+/// Runs one joint entry. Each run starts afresh: the bodies of the design, the features made
+/// and the names taken from the selection are those of this joint only.
+fn joint(entry: &str, params: &str) -> Result<String, PluginError> {
+    BEFORE.with(|b| *b.borrow_mut() = None);
+    CREATED.with(|c| c.borrow_mut().clear());
+    RESOLVED.with(|r| r.borrow_mut().clear());
+    match entry {
+        "mortise-tenon" => mortise_tenon(params),
+        "groove" => groove(params),
+        "half-lap" => half_lap(params),
+        "dowels" => dowels(params),
+        "box-joint" => box_joint(params),
+        "loose-tenon" => loose_tenon(params),
+        "housing" => housing(params),
+        "miter" => miter(params),
+        "tongue-groove" => tongue_groove(params),
+        "scarf" => scarf(params),
+        "dovetail" => dovetail(params),
+        "screws" => screws(params),
+        "biscuits" => biscuits(params),
+        other => Err(invalid("entry", format!("unknown entry `{other}`"))),
     }
 }
 
@@ -138,6 +316,8 @@ fn two(p: &Value, first: &str, second: &str) -> Result<(String, String), PluginE
     if a == b {
         return Err(invalid(second, "the joint needs two different bodies"));
     }
+    resolved(first, json!(a));
+    resolved(second, json!(b));
     Ok((a, b))
 }
 
@@ -221,6 +401,15 @@ fn landed(checks: &[(&str, Want)]) -> Result<(), PluginError> {
 thread_local! {
     /// The bodies of the design when the entry began, to tell a board that a cut split in two.
     static BEFORE: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+    /// The features the joint made, in order: they go in the joint's timeline folder.
+    static CREATED: std::cell::RefCell<Vec<u64>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// The boards (and face) the joint took from the selection, by field, so that it can be
+    /// made again without one.
+    static RESOLVED: std::cell::RefCell<Vec<(String, Value)>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+fn resolved(field: &str, value: Value) {
+    RESOLVED.with(|r| r.borrow_mut().push((field.to_owned(), value)));
 }
 
 fn body_names() -> Result<Vec<String>, PluginError> {
@@ -311,7 +500,11 @@ fn pair(p: &Value, names: (&str, &str), shift: fn(&Aabb, &Aabb) -> Result<[f64; 
 
 fn run(command: &str, args: Value) -> Result<Value, PluginError> {
     let out = commands::run(command, &args.to_string())?;
-    serde_json::from_str(&out).map_err(|e| PluginError::Trap(format!("{command} returned invalid JSON: {e}")))
+    let out: Value = serde_json::from_str(&out).map_err(|e| PluginError::Trap(format!("{command} returned invalid JSON: {e}")))?;
+    if let Some(feature) = out.get("feature").and_then(Value::as_u64) {
+        CREATED.with(|c| c.borrow_mut().push(feature));
+    }
+    Ok(out)
 }
 
 fn measured_body<'a>(measured: &'a Value, name: &str) -> Result<&'a Value, PluginError> {
@@ -556,6 +749,8 @@ fn groove(params: &str) -> Result<String, PluginError> {
             (board, face)
         }
     };
+    resolved("body", json!(board));
+    resolved("face", json!(format!("{}{}", if face.high { '+' } else { '-' }, ['x', 'y', 'z'][face.axis])));
     let options = groove::Options {
         width: length(&p, "width")?,
         depth: length(&p, "depth")?,

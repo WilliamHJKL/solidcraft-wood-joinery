@@ -399,15 +399,36 @@ named `Biscuit 1`, `Biscuit 2` and so on.
 
 The boards must be at least 10 mm thick where they touch.
 
+## Update joints after a change
+
+A joint's cuts are plain boxes and cylinders at fixed sizes: they do not follow a parameter. So
+the plugin keeps each joint it makes in the design, with its settings and the boards it joined,
+and puts the joint's features in a timeline folder of their own, such as
+`Mortise and tenon: Rail / Stile`.
+
+After a change of parameters, click **Update joints**. It deletes every joint's folder and makes
+the joints again, in the order they were made, on the boards as they are now, with the settings
+they were made with. A joint made from the selection is made again on the same boards, with
+nothing selected. All of it is one undo step.
+
+- To remove a joint, delete its folder in the timeline. Update joints then forgets it. Do not
+  ungroup a joint's folder: Update joints would stop, as it can no longer find that folder.
+- A joint that no longer fits, for example a rail moved away from its stile, stops the update. The
+  message names the joint, and nothing is changed.
+- The features a joint makes go to the end of the timeline again. A feature you made after a
+  joint, on the same board, comes before it after an update.
+- Joints made with versions before 0.12.0 are not kept: delete them and make them again to
+  update them.
+
 ## Limits of this version
 
 - Boards must lie along the X, Y or Z axis. The plugin reads each body's bounding box, so a
   board at an angle is not supported. A face picked for a groove must be square to an axis too.
 - The stile depth is its bounding box along the joint, so a stile with a foot or a return is
   measured too deep. Set the tenon length yourself in that case.
-- Sizes are numbers. They do not follow a parameter: after a change, undo the cut and run the
-  command again. A joint that rebuilds by itself needs the parametric plugin features that
-  SolidCraft's plugin RFC plans for a later phase.
+- Sizes are numbers. They do not follow a parameter by themselves: after a change, click
+  **Update joints** (see above). A joint that rebuilds by itself needs the parametric plugin
+  features that SolidCraft's plugin RFC plans for a later phase.
 - Work with the top component active. A board in a component that was turned or moved is not
   supported yet: turn the body itself, not its component. The plugin checks where each joint
   landed, and when it is not where it was planned it changes nothing and says so.
@@ -429,8 +450,8 @@ The boards must be at least 10 mm thick where they touch.
 With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it returns to
 `plugin.run`. The entries are `mortise-tenon`, `groove`, `half-lap`,
 `dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
-`screws` and `biscuits`.
-All but the first two take the two bodies as `first` and `second`.
+`screws` and `biscuits`, and `update-joints`, which takes no params.
+All joints but the first two take the two bodies as `first` and `second`.
 A script may leave the bodies out and set the selection with `select.set` first.
 
 ```json
