@@ -935,7 +935,7 @@
       "timeline.group"
     ],
     "limits": {
-      "fuel": 50000000,
+      "fuel": 1000000000,
       "memory_mib": 16,
       "deadline_ms": 30000
     }
