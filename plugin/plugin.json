@@ -909,7 +909,13 @@
         "input_schema": {
           "type": "object",
           "x-solidcraft-icon": "icons/update-joints.svg",
-          "properties": {}
+          "properties": {
+            "reopen": {
+              "type": "boolean",
+              "title": "Open this window again while joints are left",
+              "default": true
+            }
+          }
         }
       }
     ],

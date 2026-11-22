@@ -416,7 +416,12 @@ nothing selected. All of it is one undo step.
 - A joint that no longer fits, for example a rail moved away from its stile, stops the update. The
   message names the joint, and nothing is changed.
 - The features a joint makes go to the end of the timeline again. A feature you made after a
-  joint, on the same board, comes before it after an update.
+  joint, on the same board, comes before it after an update. A feature that uses a board, such
+  as a Combine that cuts a shelf with the legs, then sees the board without its joints.
+- SolidCraft allows a plugin 256 commands in one run, and a design with some thirty joints needs
+  more. Update joints then makes what fits and keeps the rest for the next run (a script reads
+  `remaining` in its reply). Run from its window, the window opens again while joints are left:
+  click Run again until it stays closed. Each run is its own undo step.
 - Joints made with versions before 0.12.0 are not kept: delete them and make them again to
   update them.
 

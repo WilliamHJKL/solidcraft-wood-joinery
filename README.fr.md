@@ -443,7 +443,14 @@ en une fois.
 - Un assemblage qui ne tient plus, par exemple une traverse éloignée de son montant, arrête la
   mise à jour. Le message nomme l'assemblage, et rien n'est modifié.
 - Les fonctions d'un assemblage repartent en fin d'historique. Une fonction faite après un
-  assemblage, sur la même pièce, passe devant lui après une mise à jour.
+  assemblage, sur la même pièce, passe devant lui après une mise à jour. Une fonction qui se sert
+  d'une pièce, comme une Combinaison qui entaille une tablette avec les pieds, voit alors la pièce
+  sans ses assemblages.
+- SolidCraft permet 256 commandes à un plugin en une exécution, et un fichier d'une trentaine
+  d'assemblages en demande plus. La mise à jour refait alors ce qui tient et garde le reste pour
+  la passe suivante (un script lit `remaining` dans la réponse). Lancée depuis sa fenêtre, elle
+  rouvre cette fenêtre tant qu'il reste des assemblages : recliquez Run jusqu'à ce qu'elle ne
+  revienne plus. Chaque passe s'annule à part.
 - Les assemblages faits avec une version antérieure à 0.12.0 ne sont pas gardés : supprimez-les
   et refaites-les pour pouvoir les mettre à jour.
 

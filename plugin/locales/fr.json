@@ -63,6 +63,7 @@
   "Number of tenons (empty = by length)": "Nombre de tenons (vide = selon la longueur)",
   "Offset from the centre": "Décalage par rapport au centre",
   "Offset from the edge (empty = centred)": "Décalage depuis le bord (vide = centrée)",
+  "Open this window again while joints are left": "Rouvrir cette fenêtre tant qu'il reste des assemblages",
   "Overlap edge to edge (empty = 1/2 thickness) or end to end (empty = width)": "Recouvrement chant contre chant (vide = 1/2 épaisseur) ou bout à bout (vide = largeur)",
   "Peg diameter (empty = 6 or 8)": "Diamètre de la cheville (vide = 6 ou 8)",
   "Pegs (0 to 2)": "Chevilles (0 à 2)",

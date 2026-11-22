@@ -690,6 +690,17 @@ def main():
         code, output = c.cli("edit_none", [*parametric(45), c.joint(both), edit({"joint": "Shelf", "settings": {}})], expect_error=True)
         c.report(code != 0 and "no joint matches" in output and "Rail / Stile" in output, f"an unknown joint is refused, naming the joints: {output.strip()[-160:]}")
 
+        # SolidCraft allows a plugin 256 host calls in one run. An update with more joints than
+        # that makes what fits, keeps the rest, and the next update finishes them.
+        many = [box("Stile", [0, 0, 0], (35, 35, 830), first=True)]
+        many += [c.run("groove", {"body": "Stile", "face": "+x", "along": "z", "width": 0.3, "depth": 1, "offset": 1 + 0.5 * k}) for k in range(60)]
+        before = bodies_of(c.cli("upd_many_fresh", [*many, MEASURE])[-1])
+        got = c.cli("upd_many", [*many, update, update, MEASURE])
+        first, second = got[-3]["result"], got[-2]["result"]
+        c.report(first["remaining"] > 0 and first["updated"] + first["remaining"] == 60 and second["remaining"] == 0
+                 and second["updated"] == first["remaining"] and bodies_of(got[-1]) == before,
+                 f"60 grooves update in two runs, within the host's 256 calls: {first['updated']} then {second['updated']}")
+
         # The joints are saved with the design.
         saved_upd = work / "update.sc"
         c.cli("upd_save", [*parametric(45), c.joint(both)], "--save", str(saved_upd))

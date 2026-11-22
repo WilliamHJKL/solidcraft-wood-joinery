@@ -29,8 +29,11 @@ export!(Plugin);
 
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
+        // Each run starts its own count of host calls, with no body names known yet.
+        CALLS.with(|c| c.set(0));
+        NAMES.with(|n| *n.borrow_mut() = None);
         match entry.as_str() {
-            "update-joints" => return update_joints(),
+            "update-joints" => return update_joints(&params),
             "edit-joint" => return edit_joint(&params),
             _ => {}
         }
@@ -41,8 +44,10 @@ impl exports::craft::plugin::entry::Guest for Plugin {
         if let Some(i) = at {
             kept.unmake(&[i])?;
         }
+        let start = calls();
         let out = joint(&entry, &params)?;
         let folder = kept.keep_at(&entry, &params, at)?;
+        kept.cost(at, calls() - start);
         kept.save()?;
         let mut out: Value = serde_json::from_str(&out).unwrap_or_else(|_| json!({}));
         if let (Some(out), Some(folder)) = (out.as_object_mut(), folder) {
@@ -183,6 +188,24 @@ impl Joints {
         Ok(Some(made.name))
     }
 
+    /// Notes in the joint just kept (at `at`, or the last one) how many host calls it took, so
+    /// that "Update joints" knows whether it still fits in the run.
+    fn cost(&mut self, at: Option<usize>, calls: usize) {
+        let list = self.list();
+        let i = at.unwrap_or(list.len().saturating_sub(1));
+        if let Some(joint) = list.get_mut(i).and_then(Value::as_object_mut) {
+            joint.insert("calls".into(), json!(calls));
+        }
+    }
+
+    /// The joints an update stopped before, for lack of host calls: the next update makes them.
+    fn take_pending(&mut self) -> Vec<Value> {
+        match self.document.as_object_mut().and_then(|d| d.remove("pending")) {
+            Some(Value::Array(pending)) => pending,
+            _ => Vec::new(),
+        }
+    }
+
     fn name(&mut self, i: usize) -> String {
         self.list()[i].get("name").and_then(Value::as_str).unwrap_or_default().to_owned()
     }
@@ -308,26 +331,55 @@ fn feature_ids() -> Result<Vec<u64>, PluginError> {
 /// each joint's features and folder, then runs its entry with the params it was made with. A
 /// joint whose features were all deleted by hand (with its folder) is forgotten. All of it is one
 /// undo step, and a joint that no longer fits stops it with that joint's name, changing nothing.
-fn update_joints() -> Result<String, PluginError> {
+fn update_joints(params: &str) -> Result<String, PluginError> {
+    // The window sends its check box; a script that leaves it out never gets a window back.
+    let reopen = serde_json::from_str::<Value>(params).ok().and_then(|p| p.get("reopen").and_then(Value::as_bool)).unwrap_or(false);
     let mut kept = Joints::load()?;
     kept.take_editing();
-    let total = kept.list().len();
-    let live = kept.live()?;
-    kept.unmake(&live)?;
-    let joints: Vec<Value> = live.iter().map(|&i| kept.list()[i].clone()).collect();
-    kept.list().clear();
+    // An update that ran out of host calls left the rest of its joints here: finish those first,
+    // in their order, without touching the ones it already made again.
+    let pending = kept.take_pending();
+    let (queue, forgotten) = if pending.is_empty() {
+        let total = kept.list().len();
+        let live = kept.live()?;
+        kept.unmake(&live)?;
+        let joints: Vec<Value> = live.iter().map(|&i| kept.list()[i].clone()).collect();
+        kept.list().clear();
+        (joints, total - live.len())
+    } else {
+        (pending, 0)
+    };
     let mut names = Vec::new();
-    for joint in joints {
+    let mut left = Vec::new();
+    for (k, joint) in queue.iter().enumerate() {
+        let need = joint.get("calls").and_then(Value::as_u64).map_or(CALL_GUESS, |c| c as usize + 4);
+        if k > 0 && calls() + need + CALL_RESERVE > CALL_BUDGET {
+            left = queue[k..].to_vec();
+            break;
+        }
         let entry = joint.get("entry").and_then(Value::as_str).unwrap_or_default().to_owned();
         let params = joint.get("params").cloned().unwrap_or_else(|| json!({})).to_string();
         let was = joint.get("name").and_then(Value::as_str).unwrap_or(&entry).to_owned();
+        let start = calls();
         joint_named(&entry, &params, &was)?;
         if let Some(name) = kept.keep_at(&entry, &params, None)? {
+            kept.cost(None, calls() - start);
             names.push(name);
         }
     }
+    if !left.is_empty() {
+        craft::plugin::log::log(
+            craft::plugin::log::Level::Warn,
+            &format!("{} joints made again, {} left: run Update joints again to finish.", names.len(), left.len()),
+        );
+        kept.document["pending"] = json!(left);
+    }
     kept.save()?;
-    Ok(json!({ "updated": names.len(), "forgotten": total - live.len(), "joints": names }).to_string())
+    if reopen && !left.is_empty() {
+        // The app shows only "finished": the window coming back is what says joints are left.
+        craft::plugin::forms::open("update-joints", &json!({ "reopen": true }).to_string())?;
+    }
+    Ok(json!({ "updated": names.len(), "remaining": left.len(), "forgotten": forgotten, "joints": names }).to_string())
 }
 
 /// Opens a joint's own form, filled with the settings it was made with. Run in that form, on the
@@ -544,6 +596,7 @@ enum Want {
 /// the frame of the active component, so a joint planned from world sizes can land beside the
 /// boards. The error undoes the whole entry.
 fn landed(checks: &[(&str, Want)]) -> Result<(), PluginError> {
+    // `whole` lists the bodies; the next joint of this run reuses that list.
     whole(checks.iter().map(|(name, _)| *name))?;
     let names: Vec<&str> = checks.iter().map(|(name, _)| *name).collect();
     let measured = run("inspect.measure", json!({ "bodies": names }))?;
@@ -578,6 +631,21 @@ thread_local! {
     /// The boards (and face) the joint took from the selection, by field, so that it can be
     /// made again without one.
     static RESOLVED: std::cell::RefCell<Vec<(String, Value)>> = const { std::cell::RefCell::new(Vec::new()) };
+    /// The body names after the last command that listed them in this run.
+    static NAMES: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+    /// The commands this run has sent to SolidCraft: the host allows `CALL_BUDGET` in one run.
+    static CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// The host calls SolidCraft allows a plugin in one run (`MAX_CALLS` in craft-plugin-wasm).
+const CALL_BUDGET: usize = 256;
+/// Calls kept back for what "Update joints" does after the last joint: saving the list, the log.
+const CALL_RESERVE: usize = 8;
+/// What a joint is taken to cost when its record does not say: more than any entry uses.
+const CALL_GUESS: usize = 40;
+
+fn calls() -> usize {
+    CALLS.with(std::cell::Cell::get)
 }
 
 fn resolved(field: &str, value: Value) {
@@ -586,11 +654,13 @@ fn resolved(field: &str, value: Value) {
 
 fn body_names() -> Result<Vec<String>, PluginError> {
     let listed = run("inspect.measure", json!({ "names_only": true }))?;
-    Ok(listed
+    let names: Vec<String> = listed
         .get("bodies")
         .and_then(Value::as_array)
         .map(|bodies| bodies.iter().filter_map(|b| b.get("name").and_then(Value::as_str).map(str::to_owned)).collect())
-        .unwrap_or_default())
+        .unwrap_or_default();
+    NAMES.with(|n| *n.borrow_mut() = Some(names.clone()));
+    Ok(names)
 }
 
 /// Checks that no board was cut in two: SolidCraft names the pieces of a split body `Name (1)`,
@@ -628,7 +698,12 @@ fn grown(body: &Aabb, blocks: &[Block]) -> Aabb {
 /// Checks that each name is a body of the design, and names the bodies when one is not: the
 /// name may be mistyped, or a cut may have split the board in two bodies with new names.
 fn known(names: &[(&str, &str)]) -> Result<(), PluginError> {
-    let listed = body_names()?;
+    // The names the last joint of this run left are still good, unless one is missing from them.
+    let cached = NAMES.with(|n| n.borrow().clone()).filter(|listed| names.iter().all(|(_, name)| listed.iter().any(|l| l == name)));
+    let listed = match cached {
+        Some(listed) => listed,
+        None => body_names()?,
+    };
     BEFORE.with(|b| {
         b.borrow_mut().get_or_insert_with(|| listed.clone());
     });
@@ -671,6 +746,7 @@ fn pair(p: &Value, names: (&str, &str), shift: fn(&Aabb, &Aabb) -> Result<[f64; 
 }
 
 fn run(command: &str, args: Value) -> Result<Value, PluginError> {
+    CALLS.with(|c| c.set(c.get() + 1));
     let out = commands::run(command, &args.to_string())?;
     let out: Value = serde_json::from_str(&out).map_err(|e| PluginError::Trap(format!("{command} returned invalid JSON: {e}")))?;
     if let Some(feature) = out.get("feature").and_then(Value::as_u64) {
