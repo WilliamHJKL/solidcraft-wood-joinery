@@ -45,6 +45,10 @@ pas dessiner un tel formulaire.
    icône générique, et listent aussi les commandes dans le menu *Plugins*, à côté de *File*.
    Ouvrez un fichier, sélectionnez deux pièces, puis choisissez une commande.
 
+À partir de SolidCraft 0.49.1, chaque formulaire montre d'abord les pièces, puis les cotes, puis
+les options, avec *Aligner d'abord les pièces* en dernier. Les versions plus anciennes montrent
+les mêmes champs triés par leur nom interne, en anglais.
+
 N'installez qu'une seule langue : les deux paquets sont le même plugin, avec le même identifiant.
 
 **Mettre à jour.** Dans *Preferences › Plugins*, cliquez sur *Remove* sur la carte

@@ -41,6 +41,9 @@ haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a
    also list the commands in the *Plugins* menu, next to *File*. Open a design, select two
    boards, then choose a command.
 
+From SolidCraft 0.49.1, each form shows the boards first, then the sizes, then the options, with
+*Align the boards first* last. Earlier versions sort the same fields by their internal name.
+
 Install one language only: both packages are the same plugin, with the same id.
 
 **Update.** In *Preferences › Plugins*, click *Remove* on the *Wood joinery* card, then install

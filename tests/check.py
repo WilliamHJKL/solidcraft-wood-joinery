@@ -175,10 +175,17 @@ def main():
             manifest = json.loads((package / "plugin.json").read_text())
             bad = [f"{e['name']}.{k}" for e in manifest["runtime"]["entries"] for k, prop in e["input_schema"]["properties"].items()
                    if prop.get("type") not in allowed or set(prop) - notes - allowed[prop["type"]]]
-            # At the top of a schema, 0.42.0 and 0.43.0 refuse only $ref, oneOf, anyOf, allOf, if and
-            # not; they ignore the icon that 0.44.0 draws.
-            bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - {"type", "properties", "required", "x-solidcraft-icon"}]
+            # At the top of a schema, 0.42.0 to 0.49.0 refuse only $ref, oneOf, anyOf, allOf, if and
+            # not; they ignore the icon that 0.44.0 draws and the field order that 0.49.1 follows.
+            top = {"type", "properties", "required", "x-solidcraft-icon", "x-solidcraft-field-order"}
+            bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - top]
             c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by SolidCraft 0.46.0" + (f": not {bad}" if bad else ""))
+            # From 0.49.1, a form shows its fields in the order the manifest lists them: the boards,
+            # then the sizes, then the options, and "Align the boards first" last in every form.
+            unordered = [e["name"] for e in manifest["runtime"]["entries"]
+                         if e["input_schema"].get("x-solidcraft-field-order") != "declared"
+                         or ("align" in e["input_schema"]["properties"] and list(e["input_schema"]["properties"])[-1] != "align")]
+            c.report(not unordered, f"every form of {package.parent.name}/{package.name} keeps its declared field order" + (f": not {unordered}" if unordered else ""))
             icons = [e["input_schema"].get("x-solidcraft-icon") for e in manifest["runtime"]["entries"]]
             missing = [i for i in icons if not i or not (package / i).is_file()]
             c.report(not missing, f"every command of {package.parent.name}/{package.name} has its icon in the package" + (f": not {missing}" if missing else ""))

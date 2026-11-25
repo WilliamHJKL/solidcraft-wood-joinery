@@ -17,6 +17,7 @@
         "effect": "edit",
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/mortise-tenon.svg",
           "properties": {
             "rail": {
@@ -97,10 +98,6 @@
               "unit": "mm",
               "default": 0
             },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
             "double": {
               "type": "boolean",
               "title": "Double tenon"
@@ -170,6 +167,10 @@
                 "field": "variant",
                 "eq": "through"
               }
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
             }
           }
         },
@@ -199,6 +200,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/loose-tenon.svg",
           "properties": {
             "first": {
@@ -378,6 +380,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/groove.svg",
           "properties": {
             "body": {
@@ -455,6 +458,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/tongue-groove.svg",
           "properties": {
             "first": {
@@ -484,13 +488,13 @@
               "minimum": 0,
               "default": 1
             },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
             "spline": {
               "type": "boolean",
               "title": "Loose spline: groove both boards"
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
             }
           }
         }
@@ -510,6 +514,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/housing.svg",
           "properties": {
             "first": {
@@ -540,15 +545,15 @@
               "minimum": 0,
               "default": 0
             },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
             "slope": {
               "type": "number",
               "title": "Dovetail slope 1:N (0 = square)",
               "minimum": 0,
               "default": 0
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
             }
           }
         }
@@ -568,6 +573,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/half-lap.svg",
           "properties": {
             "first": {
@@ -616,6 +622,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/miter.svg",
           "properties": {
             "first": {
@@ -625,10 +632,6 @@
             "second": {
               "type": "string",
               "title": "Second board (empty = selection)"
-            },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
             },
             "spline": {
               "type": "number",
@@ -661,6 +664,10 @@
                   "eq": 0
                 }
               }
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
             }
           }
         }
@@ -680,6 +687,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/scarf.svg",
           "properties": {
             "first": {
@@ -699,13 +707,13 @@
               "title": "Slope 1:N for boards that only meet (empty = 8)",
               "minimum": 1
             },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
             "key": {
               "type": "boolean",
               "title": "Tabled, with a key"
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
             }
           }
         }
@@ -725,6 +733,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/box-joint.svg",
           "properties": {
             "first": {
@@ -767,6 +776,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/dovetail.svg",
           "properties": {
             "first": {
@@ -795,16 +805,16 @@
               "unit": "mm",
               "minimum": 2
             },
-            "align": {
-              "type": "boolean",
-              "title": "Align the boards first"
-            },
             "lap": {
               "type": "number",
               "title": "Lap (0 = through; 4 or 5 for a drawer front)",
               "unit": "mm",
               "minimum": 0,
               "default": 0
+            },
+            "align": {
+              "type": "boolean",
+              "title": "Align the boards first"
             }
           }
         }
@@ -824,6 +834,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/dowels.svg",
           "properties": {
             "first": {
@@ -886,6 +897,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/biscuits.svg",
           "properties": {
             "first": {
@@ -939,6 +951,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/screws.svg",
           "properties": {
             "first": {
@@ -995,6 +1008,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/edit-joint.svg",
           "properties": {
             "joint": {
@@ -1019,6 +1033,7 @@
         ],
         "input_schema": {
           "type": "object",
+          "x-solidcraft-field-order": "declared",
           "x-solidcraft-icon": "icons/update-joints.svg",
           "properties": {
             "reopen": {
