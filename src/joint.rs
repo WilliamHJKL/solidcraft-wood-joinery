@@ -228,6 +228,38 @@ pub fn plan(rail: Aabb, stile: Aabb, o: &Options) -> Result<Plan, String> {
             joint = Some((a, dir, contact));
         }
     }
+    // A rail whose end reaches a little into the stile's box: a shoulder cut to a sloping stile
+    // (a splayed leg) makes the rail's box run past the face the tenon starts from. The joint
+    // is on the face of the stile that the rail enters; of several, the one it enters least.
+    if joint.is_none() {
+        let mut least: Option<f64> = None;
+        for a in 0..3 {
+            let (p, q) = ((a + 1) % 3, (a + 2) % 3);
+            let overlaps =
+                |x: usize| rail.min[x].max(stile.min[x]) < rail.max[x].min(stile.max[x]) - FIT;
+            if !(overlaps(p) && overlaps(q)) {
+                continue;
+            }
+            let (dir, contact, depth) = if rail.min[a] < stile.min[a] - FIT
+                && rail.max[a] > stile.min[a] + TOUCH
+                && rail.max[a] <= stile.max[a] + FIT
+            {
+                (1.0, stile.min[a], rail.max[a] - stile.min[a])
+            } else if rail.max[a] > stile.max[a] + FIT
+                && rail.min[a] < stile.max[a] - TOUCH
+                && rail.min[a] >= stile.min[a] - FIT
+            {
+                (-1.0, stile.max[a], stile.max[a] - rail.min[a])
+            } else {
+                continue;
+            };
+            // Only a shallow entry: a rail that runs most of the way through is not a shoulder.
+            if depth < 0.5 * stile.size(a) && least.is_none_or(|d| depth < d) {
+                least = Some(depth);
+                joint = Some((a, dir, contact));
+            }
+        }
+    }
     let (a, dir, contact) = joint.ok_or(
         "the end of the rail does not lie on a face of the stile; move the rail against the stile first",
     )?;
@@ -775,6 +807,22 @@ mod tests {
         // The slot runs 0.5 mm past the open top of the stile.
         let slot = bridle.mortise[0];
         assert!((slot.corner[2] + slot.size[2] - 830.5).abs() < 1e-9, "{slot:?}");
+    }
+
+    #[test]
+    fn a_rail_whose_shoulder_follows_a_sloping_stile_is_joined_on_the_face_it_enters() {
+        // A splayed leg: the rail's box runs 11 mm into the stile's box, where the leg is cut away.
+        let stile = bx([0.0, -173.0, 0.0], [20.0, 75.0, 400.0]);
+        let rail = bx([0.0, -109.0, 300.0], [20.0, 218.0, 100.0]);
+        let o = Options { thickness: Some(10.0), length: Some(34.0), shoulder: Some(20.0), ..Options::default() };
+        let p = plan(rail, stile, &o).unwrap();
+        let square = plan(bx([0.0, -98.0, 300.0], [20.0, 196.0, 100.0]), stile, &o).unwrap();
+        // The same tenon and mortise as for a rail cut square at the stile's face.
+        assert_eq!(format!("{:?}", p.tenon), format!("{:?}", square.tenon));
+        assert_eq!(format!("{:?}", p.mortise), format!("{:?}", square.mortise));
+        // A rail that runs most of the way through the stile is still refused.
+        let through = plan(bx([0.0, -160.0, 300.0], [20.0, 260.0, 100.0]), stile, &o).unwrap_err();
+        assert!(through.contains("does not lie on a face"), "{through}");
     }
 
     #[test]

@@ -448,6 +448,9 @@ nothing selected. All of it is one undo step.
   ungroup a joint's folder: Update joints would stop, as it can no longer find that folder.
 - A joint that no longer fits, for example a rail moved away from its stile, stops the update. The
   message names the joint, and nothing is changed.
+- A rail whose shoulder follows a sloping stile (a splayed leg, its shoulder cut on the slant)
+  reaches a little into the stile's box. From 0.13.0, its tenon is made again on the face of the
+  stile it enters, the same as for a rail cut square.
 - The features a joint makes go to the end of the timeline again. A feature you made after a
   joint, on the same board, comes before it after an update. A feature that uses a board, such
   as a Combine that cuts a shelf with the legs, then sees the board without its joints.

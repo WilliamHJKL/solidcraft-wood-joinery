@@ -478,6 +478,9 @@ en une fois.
   Ne dégroupez pas le dossier d'un assemblage : la mise à jour s'arrêterait, faute de le trouver.
 - Un assemblage qui ne tient plus, par exemple une traverse éloignée de son montant, arrête la
   mise à jour. Le message nomme l'assemblage, et rien n'est modifié.
+- Une traverse dont l'épaulement suit un montant incliné (un pied qui s'écarte, l'épaulement
+  coupé en biais) entre un peu dans la boîte du montant. Depuis la 0.13.0, son tenon est refait sur
+  la face du montant où elle entre, comme pour une traverse coupée d'équerre.
 - Les fonctions d'un assemblage repartent en fin d'historique. Une fonction faite après un
   assemblage, sur la même pièce, passe devant lui après une mise à jour. Une fonction qui se sert
   d'une pièce, comme une Combinaison qui entaille une tablette avec les pieds, voit alors la pièce
