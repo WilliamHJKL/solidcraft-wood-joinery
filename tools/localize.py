@@ -18,6 +18,9 @@ def texts(manifest):
     """Every (holder, key) whose value a user sees."""
     yield manifest, "name"
     yield manifest, "description"
+    # The ribbon's grouped buttons (SolidCraft 0.50 and later).
+    for group in manifest["runtime"].get("ribbon_groups", []):
+        yield group, "label"
     for entry in manifest["runtime"]["entries"]:
         for slot in entry.get("slots", []):
             yield slot, "name"

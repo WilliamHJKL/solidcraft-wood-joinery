@@ -12,8 +12,10 @@ undo step. A design made with the plugin opens and rebuilds without it.
 
 ## Install
 
-You need the SolidCraft desktop application, version 0.46.0 or later. The web version runs no
-plugins. On SolidCraft 0.42 to 0.45, install
+You need the SolidCraft desktop application, version 0.50.0 or later: from 0.14.0, the plugin
+groups its buttons on the ribbon, which older versions refuse. On SolidCraft 0.46 to 0.49, install
+[version 0.13.0](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.13.0).
+The web version runs no plugins. On SolidCraft 0.42 to 0.45, install
 [version 0.10.1](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.10.1) of
 the plugin: from 0.11.0, the forms show a field only when it applies (the haunch fields only for a
 haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a form.
@@ -36,10 +38,11 @@ haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a
    (`storage.get`, `storage.set`, with the `storage` capability). The `forms` capability lets
    *Edit a joint* open a joint's form filled with its settings. It asks for no file, clock or
    network access. Accept. A new version of the plugin asks again.
-4. **Find the commands.** They are in the *Plugins* group of the *Model* tab. From SolidCraft
-   0.44, each command has its own icon there. SolidCraft 0.42 and 0.43 show a generic icon, and
-   also list the commands in the *Plugins* menu, next to *File*. Open a design, select two
-   boards, then choose a command.
+4. **Find the commands.** They are in the *Plugins* group of the *Model* tab, behind four
+   buttons, each with a drop-down: *Tenons and dowels* (mortise and tenon, loose tenon, dowels,
+   biscuits, screws), *Grooves* (groove, tongue and groove, housing), *Corners* (miter, half lap,
+   scarf, box joint, dovetails) and *Joints* (edit a joint, update joints). Open a design, select
+   two boards, then choose a command.
 
 From SolidCraft 0.49.1, each form shows the boards first, then the sizes, then the options, with
 *Align the boards first* last. Earlier versions sort the same fields by their internal name.

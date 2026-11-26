@@ -14,8 +14,11 @@ reconstruit sans lui.
 
 ## Installer
 
-Il faut l'application de bureau SolidCraft, en version 0.46.0 ou plus récente. La version web
-n'exécute aucun plugin. Avec SolidCraft 0.42 à 0.45, installez la
+Il faut l'application de bureau SolidCraft, en version 0.50.0 ou plus récente : depuis la 0.14.0,
+le plugin regroupe ses boutons sur le ruban, ce que les versions plus anciennes refusent. Avec
+SolidCraft 0.46 à 0.49, installez la
+[version 0.13.0](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.13.0).
+La version web n'exécute aucun plugin. Avec SolidCraft 0.42 à 0.45, installez la
 [version 0.10.1](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.10.1) du
 plugin : depuis la 0.11.0, les formulaires n'affichent un champ que lorsqu'il sert (les champs du
 renfort seulement pour un tenon à renfort, par exemple), et SolidCraft 0.45 ou plus ancien ne sait
@@ -40,10 +43,12 @@ pas dessiner un tel formulaire.
    `storage`). La capacité `forms` permet à *Modifier un assemblage* d'ouvrir la fenêtre d'un
    assemblage remplie avec ses réglages. Il ne demande aucun accès aux fichiers, à l'horloge ou
    au réseau. Acceptez. Une nouvelle version du plugin redemande cet accord.
-4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Model*. À partir
-   de SolidCraft 0.44, chaque commande y a sa propre icône. SolidCraft 0.42 et 0.43 affichent une
-   icône générique, et listent aussi les commandes dans le menu *Plugins*, à côté de *File*.
-   Ouvrez un fichier, sélectionnez deux pièces, puis choisissez une commande.
+4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Modèle*, derrière
+   quatre boutons à liste déroulante : *Tenons et chevilles* (tenon et mortaise, faux tenon,
+   tourillons, lamelles, vis), *Rainures* (rainure, rainure et languette, entaille d'étagère),
+   *Angles* (coupe d'onglet, mi-bois, enture, queues droites, queues d'aronde) et *Assemblages*
+   (modifier un assemblage, mettre à jour les assemblages). Ouvrez un fichier, sélectionnez deux
+   pièces, puis choisissez une commande.
 
 À partir de SolidCraft 0.49.1, chaque formulaire montre d'abord les pièces, puis les cotes, puis
 les options, avec *Aligner d'abord les pièces* en dernier. Les versions plus anciennes montrent

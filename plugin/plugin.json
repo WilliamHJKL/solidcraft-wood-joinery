@@ -1069,6 +1069,47 @@
       "fuel": 1000000000,
       "memory_mib": 16,
       "deadline_ms": 30000
-    }
+    },
+    "ribbon_groups": [
+      {
+        "label": "Tenons and dowels",
+        "icon": "icons/mortise-tenon.svg",
+        "entries": [
+          "mortise-tenon",
+          "loose-tenon",
+          "dowels",
+          "biscuits",
+          "screws"
+        ]
+      },
+      {
+        "label": "Grooves",
+        "icon": "icons/groove.svg",
+        "entries": [
+          "groove",
+          "tongue-groove",
+          "housing"
+        ]
+      },
+      {
+        "label": "Corners",
+        "icon": "icons/dovetail.svg",
+        "entries": [
+          "miter",
+          "half-lap",
+          "scarf",
+          "box-joint",
+          "dovetail"
+        ]
+      },
+      {
+        "label": "Joints",
+        "icon": "icons/update-joints.svg",
+        "entries": [
+          "edit-joint",
+          "update-joints"
+        ]
+      }
+    ]
   }
 }
