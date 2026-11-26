@@ -43,12 +43,12 @@ pas dessiner un tel formulaire.
    `storage`). La capacité `forms` permet à *Modifier un assemblage* d'ouvrir la fenêtre d'un
    assemblage remplie avec ses réglages. Il ne demande aucun accès aux fichiers, à l'horloge ou
    au réseau. Acceptez. Une nouvelle version du plugin redemande cet accord.
-4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Modèle*, derrière
-   quatre boutons à liste déroulante : *Tenons et chevilles* (tenon et mortaise, faux tenon,
-   tourillons, lamelles, vis), *Rainures* (rainure, rainure et languette, entaille d'étagère),
-   *Angles* (coupe d'onglet, mi-bois, enture, queues droites, queues d'aronde) et *Assemblages*
-   (modifier un assemblage, mettre à jour les assemblages). Ouvrez un fichier, sélectionnez deux
-   pièces, puis choisissez une commande.
+4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Modèle* : quatre
+   boutons à liste déroulante, *Rainures* (rainure, rainure et languette, entaille d'étagère),
+   *Angles* (coupe d'onglet, mi-bois, enture, queues droites, queues d'aronde), *Chevilles et vis*
+   (tourillons, lamelles, vis) et *Assemblages* (modifier un assemblage, mettre à jour les
+   assemblages), puis les deux plus utilisés, seuls : *Tenon et mortaise* et *Faux tenon*. Ouvrez
+   un fichier, sélectionnez deux pièces, puis choisissez une commande.
 
 À partir de SolidCraft 0.49.1, chaque formulaire montre d'abord les pièces, puis les cotes, puis
 les options, avec *Aligner d'abord les pièces* en dernier. Les versions plus anciennes montrent

@@ -38,11 +38,11 @@ haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a
    (`storage.get`, `storage.set`, with the `storage` capability). The `forms` capability lets
    *Edit a joint* open a joint's form filled with its settings. It asks for no file, clock or
    network access. Accept. A new version of the plugin asks again.
-4. **Find the commands.** They are in the *Plugins* group of the *Model* tab, behind four
-   buttons, each with a drop-down: *Tenons and dowels* (mortise and tenon, loose tenon, dowels,
-   biscuits, screws), *Grooves* (groove, tongue and groove, housing), *Corners* (miter, half lap,
-   scarf, box joint, dovetails) and *Joints* (edit a joint, update joints). Open a design, select
-   two boards, then choose a command.
+4. **Find the commands.** They are in the *Plugins* group of the *Model* tab: four buttons with a
+   drop-down, *Grooves* (groove, tongue and groove, housing), *Corners* (miter, half lap, scarf,
+   box joint, dovetails), *Dowels and screws* (dowels, biscuits, screws) and *Joints* (edit a
+   joint, update joints), then the two most used ones on their own, *Mortise and tenon* and
+   *Loose tenon*. Open a design, select two boards, then choose a command.
 
 From SolidCraft 0.49.1, each form shows the boards first, then the sizes, then the options, with
 *Align the boards first* last. Earlier versions sort the same fields by their internal name.

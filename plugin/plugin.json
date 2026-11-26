@@ -1072,17 +1072,6 @@
     },
     "ribbon_groups": [
       {
-        "label": "Tenons and dowels",
-        "icon": "icons/mortise-tenon.svg",
-        "entries": [
-          "mortise-tenon",
-          "loose-tenon",
-          "dowels",
-          "biscuits",
-          "screws"
-        ]
-      },
-      {
         "label": "Grooves",
         "icon": "icons/groove.svg",
         "entries": [
@@ -1100,6 +1089,15 @@
           "scarf",
           "box-joint",
           "dovetail"
+        ]
+      },
+      {
+        "label": "Dowels and screws",
+        "icon": "icons/dowels.svg",
+        "entries": [
+          "dowels",
+          "biscuits",
+          "screws"
         ]
       },
       {
