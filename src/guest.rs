@@ -29,38 +29,48 @@ export!(Plugin);
 
 impl exports::craft::plugin::entry::Guest for Plugin {
     fn execute(entry: String, params: String) -> Result<String, PluginError> {
-        // Each run starts its own count of host calls, with no body names known yet.
-        CALLS.with(|c| c.set(0));
-        NAMES.with(|n| *n.borrow_mut() = None);
-        match entry.as_str() {
-            "update-joints" => return update_joints(&params),
-            "edit-joint" => return edit_joint(&params),
-            _ => {}
-        }
-        // A form opened by "Edit a joint" names, in its greyed `replaces` field, the joint it
-        // replaces when it runs on the same boards. The field is not one of the joint's settings.
-        let (params, replaces) = without_replaces(&params);
-        let mut kept = Joints::load()?;
-        // A design last saved by 0.14 may still hold the pending edit in its document.
-        let editing = replaces.map(|folder| json!({ "folder": folder })).or(kept.take_editing());
-        let at = editing.and_then(|marker| kept.edited_by(&marker, &entry, &params));
-        if let Some(i) = at {
-            kept.unmake(&[i])?;
-        }
-        let start = calls();
-        let out = joint(&entry, &params)?;
-        let folder = kept.keep_at(&entry, &params, at)?;
-        kept.cost(at, calls() - start);
-        kept.save()?;
-        let mut out: Value = serde_json::from_str(&out).unwrap_or_else(|_| json!({}));
-        if let (Some(out), Some(folder)) = (out.as_object_mut(), folder) {
-            out.insert("folder".into(), json!(folder));
-            if at.is_some() {
-                out.insert("replaced".into(), json!(true));
-            }
-        }
-        Ok(out.to_string())
+        // What the plugin says, it says in the language of its package.
+        run_entry(entry, params).map_err(|e| match e {
+            PluginError::InvalidInput(f) => PluginError::InvalidInput(FieldFailure { field: f.field, reason: tr(&f.reason) }),
+            PluginError::Trap(text) => PluginError::Trap(tr(&text)),
+            PluginError::Unsupported(text) => PluginError::Unsupported(tr(&text)),
+            other => other,
+        })
     }
+}
+
+fn run_entry(entry: String, params: String) -> Result<String, PluginError> {
+    // Each run starts its own count of host calls, with no body names known yet.
+    CALLS.with(|c| c.set(0));
+    NAMES.with(|n| *n.borrow_mut() = None);
+    match entry.as_str() {
+        "update-joints" => return update_joints(&params),
+        "edit-joint" => return edit_joint(&params),
+        _ => {}
+    }
+    // A form opened by "Edit a joint" names, in its greyed `replaces` field, the joint it
+    // replaces when it runs on the same boards. The field is not one of the joint's settings.
+    let (params, replaces) = without_replaces(&params);
+    let mut kept = Joints::load()?;
+    // A design last saved by 0.14 may still hold the pending edit in its document.
+    let editing = replaces.map(|folder| json!({ "folder": folder })).or(kept.take_editing());
+    let at = editing.and_then(|marker| kept.edited_by(&marker, &entry, &params));
+    if let Some(i) = at {
+        kept.unmake(&[i])?;
+    }
+    let start = calls();
+    let out = joint(&entry, &params)?;
+    let folder = kept.keep_at(&entry, &params, at)?;
+    kept.cost(at, calls() - start);
+    kept.save()?;
+    let mut out: Value = serde_json::from_str(&out).unwrap_or_else(|_| json!({}));
+    if let (Some(out), Some(folder)) = (out.as_object_mut(), folder) {
+        out.insert("folder".into(), json!(folder));
+        if at.is_some() {
+            out.insert("replaced".into(), json!(true));
+        }
+    }
+    Ok(out.to_string())
 }
 
 /// The English names of the joints, for the timeline folder that holds each one.
@@ -538,7 +548,26 @@ fn joint(entry: &str, params: &str) -> Result<String, PluginError> {
 
 /// A note in SolidCraft's plugin log: what was made, but against common practice.
 fn warn(message: &str) {
-    craft::plugin::log::log(craft::plugin::log::Level::Warn, message);
+    craft::plugin::log::log(craft::plugin::log::Level::Warn, &tr(message));
+}
+
+/// A message in the package's language: the French package is built with the feature `fr`, and
+/// carries the templates of plugin/messages/fr.json (see src/lang.rs).
+fn tr(message: &str) -> String {
+    #[cfg(feature = "fr")]
+    {
+        thread_local! {
+            static FRENCH: crate::lang::Language = {
+                let templates: serde_json::Map<String, Value> =
+                    serde_json::from_str(include_str!("../plugin/messages/fr.json")).unwrap_or_default();
+                let templates = templates.iter().filter_map(|(english, french)| french.as_str().map(|f| crate::lang::Template::new(english, f)));
+                crate::lang::Language::new(templates.collect(), ',')
+            };
+        }
+        FRENCH.with(|french| french.translate(message))
+    }
+    #[cfg(not(feature = "fr"))]
+    message.to_owned()
 }
 
 fn invalid(field: &str, reason: impl Into<String>) -> PluginError {

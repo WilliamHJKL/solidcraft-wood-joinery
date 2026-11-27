@@ -18,6 +18,7 @@ pub mod scarf;
 pub mod screw;
 pub mod slant;
 pub mod tongue;
+pub mod lang;
 
 #[cfg(target_arch = "wasm32")]
 mod guest;

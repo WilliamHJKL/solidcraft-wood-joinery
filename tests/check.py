@@ -212,6 +212,11 @@ def main():
             total = c.cli(f"run_{lang}", [*mid, run, MEASURE])[-1]["total"]["volume_mm3"]
             ok = dry[0]["id"] == "wood-joinery" and abs(total - (STILE + RAIL + 6 * 33 * 25 - 6 * 33 * 27)) < 0.5
             c.report(ok, f"the {lang} package installs in a dry run and makes the same joint ({dry[0]['name']})")
+            # Its messages are in its language: a 25 mm tenon does not fit in the 18 mm rail.
+            if (ROOT / "plugin" / "messages" / f"{lang}.json").is_file():
+                thick = {"command": "plugin.run", "params": {"path": str(package), "approval": approval, "entry": "mortise-tenon", "params": picks({**both, "thickness": 25})}}
+                code, output = c.cli(f"refusal_{lang}", [*mid, thick], expect_error=True)
+                c.report(code != 0 and "25,000 mm" in output and "rail thickness" not in output, f"the {lang} package refuses in its language: {output.strip().splitlines()[-1][-160:]}")
 
         # 2. The four variants. Tenon 6 thick; classic: 33 wide, 25 long, mortise 27 deep.
         c.expect("classic", "classic", mid, both, 6 * 33 * 25, 6 * 33 * 27)

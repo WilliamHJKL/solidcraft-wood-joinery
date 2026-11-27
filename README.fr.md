@@ -77,15 +77,17 @@ alors dans `dist/`.
 
 ## Choisir les pièces
 
-Chaque commande reçoit ses pièces de deux façons :
+Chaque commande choisit ses pièces comme l'Extrusion choisit ses profils (SolidCraft 0.48 et
+suivants) :
 
-- **Par clic.** Sélectionnez les pièces dans la vue ou dans le navigateur **avant** d'ouvrir la
-  commande, puis laissez vides les champs de nom et lancez-la. Un clic fait pendant que le
-  formulaire est ouvert ne remplit pas les champs : SolidCraft dessine le formulaire, et un
-  plugin ne peut pas le modifier. Pour un assemblage, la pièce sélectionnée en premier est la
-  première pièce (la traverse pour un tenon et mortaise). Une face ou une arête sélectionnée
-  compte pour sa pièce.
-- **Par nom.** Saisissez les noms tels que le navigateur les affiche.
+- **Dans la fenêtre.** Le premier champ de pièce est actif à l'ouverture : cliquez la pièce dans
+  la vue ou dans le navigateur, et le champ affiche son nom. Le champ suivant prend alors le clic
+  suivant. Cliquez un champ pour choisir à nouveau sa pièce ; sa croix le vide. Une face ou une
+  arête sélectionnée compte pour sa pièce.
+- **Avant la fenêtre.** Les pièces sélectionnées avant d'ouvrir la commande remplissent le
+  premier champ de pièce. Avec les deux champs de pièce vides, la commande prend à l'exécution
+  les deux pièces sélectionnées, la première sélectionnée comme première pièce (la traverse pour
+  un tenon et mortaise).
 
 Pour une rainure, sélectionnez une face plane et laissez vides Pièce et Face : la rainure se
 fait dans cette face.
@@ -136,7 +138,7 @@ champs : 2 mm de réserve de colle, pas de jeu, pas de décalage. Il n'affiche u
 lorsqu'il sert : le renfort pour `haunched`, les coins pour `through`, le diamètre des chevilles
 et la cheville à tire dès qu'il y a des chevilles. Un script qui donne un champ masqué le voit
 ignoré. SolidCraft vérifie aussi les valeurs d'un script d'après le formulaire : chaque pièce
-est un seul nom, et un choix s'écrit comme le paquet l'affiche.
+est une liste d'un nom (`["Rail"]`), et un choix s'écrit comme le paquet l'affiche.
 
 Toutes les cotes sont facultatives, en millimètres. Un champ vide suit les usages de la
 menuiserie :
@@ -510,10 +512,11 @@ assemblage), ou tapez une partie du nom de son dossier, puis Run. Dans la fenêt
 l'assemblage, changez ce qu'il faut et cliquez Appliquer : l'assemblage est refait à sa place, et
 la mise à jour garde ses nouveaux réglages.
 
-- La fenêtre ne remplace l'assemblage que si elle s'applique aux mêmes pièces. Changez le nom
-  d'une pièce et vous faites un nouvel assemblage à côté de l'ancien.
-- Une modification prend deux pas d'annulation : l'un pour l'assemblage refait, l'autre pour
-  l'ouverture de sa fenêtre.
+- La fenêtre indique, grisé en bas, l'assemblage qu'elle modifie (*Assemblage modifié*). Elle
+  ne le remplace que si elle s'applique aux mêmes pièces : choisissez une autre pièce et vous
+  faites un nouvel assemblage à côté de l'ancien.
+- Ouvrir la fenêtre ne change rien : Appliquer marche au premier clic, et la modification tient
+  en un pas d'annulation.
 - Un script ne peut pas ouvrir de fenêtre. Il donne les champs à changer dans `settings`, et
   l'assemblage est refait aussitôt : `{"joint": "Rail / Stile", "settings": {"length": 20}}`.
 
@@ -545,7 +548,8 @@ la mise à jour garde ses nouveaux réglages.
   30 tourillons, 30 lamelles, 40 faux tenons, 15 vis, 20 queues d'aronde ou 60 divisions de
   queues droites. Au-delà, la commande refuse et ne modifie rien. Le nombre calculé d'après la
   longueur s'arrête au même chiffre : sur un très long assemblage, les pièces sont plus espacées.
-- Les messages d'erreur du plugin sont en anglais dans tous les paquets.
+- Le paquet français donne ses messages en français ; les noms des dossiers d'assemblage
+  (*Mortise and tenon: Rail / Stile*) restent en anglais, tels que les conceptions les gardent.
 
 ## Lancer depuis un script
 
@@ -554,7 +558,9 @@ Avec `solidcraft-cli`, inspectez le plugin, puis passez la valeur `approval` qu'
 `dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
 `screws` et `biscuits`, plus `update-joints`, sans paramètre, et `edit-joint` (voir Modifier un assemblage).
 Tous les assemblages sauf les deux premiers reçoivent les deux corps dans `first` et `second`.
-Un script peut omettre les corps et régler d'abord la sélection avec `select.set`.
+Chaque corps est une liste d'un nom, `["Rail"]`, ou la référence qu'envoie un clic,
+`[{"type": "body", "name": "Rail"}]` : SolidCraft refuse un nom seul. Un script peut omettre les
+corps et régler d'abord la sélection avec `select.set`.
 
 ```json
 [{"command": "plugin.inspect", "params": {"path": "dist/wood-joinery"}}]
@@ -565,7 +571,7 @@ Un script peut omettre les corps et régler d'abord la sélection avec `select.s
   "path": "dist/wood-joinery",
   "approval": "LA_VALEUR_APPROVAL_DE_INSPECT",
   "entry": "mortise-tenon",
-  "params": {"rail": "Rail", "stile": "Stile", "variant": "haunched"}
+  "params": {"rail": ["Rail"], "stile": ["Stile"], "variant": "haunched"}
 }}]
 ```
 
@@ -574,7 +580,7 @@ Un script peut omettre les corps et régler d'abord la sélection avec `select.s
   "path": "dist/wood-joinery",
   "approval": "LA_VALEUR_APPROVAL_DE_INSPECT",
   "entry": "groove",
-  "params": {"body": "Leg", "face": "+x", "offset": 6, "stop_start": 80}
+  "params": {"body": ["Leg"], "face": "+x", "offset": 6, "stop_start": 80}
 }}]
 ```
 
@@ -583,7 +589,7 @@ Un script peut omettre les corps et régler d'abord la sélection avec `select.s
   "path": "dist/wood-joinery",
   "approval": "LA_VALEUR_APPROVAL_DE_INSPECT",
   "entry": "dowels",
-  "params": {"first": "Rail", "second": "Stile", "diameter": 8, "count": 2}
+  "params": {"first": ["Rail"], "second": ["Stile"], "diameter": 8, "count": 2}
 }}]
 ```
 
@@ -600,7 +606,8 @@ et Python 3.
 ```
 
 Le script écrit un paquet par langue : `dist/wood-joinery-en.zip` (anglais) et
-`dist/wood-joinery-fr.zip` (français).
+`dist/wood-joinery-fr.zip` (français). Le paquet français a son propre composant, construit avec
+l'option `fr`, pour que ses messages soient en français.
 
 ## Tester
 
@@ -629,6 +636,11 @@ La construction échoue au-delà de 56 Kio, pour garder de la place aux prochain
 `./build.sh` écrit alors `dist/wood-joinery-<langue>.zip`. La construction échoue si un texte
 n'a pas de traduction, ou si une traduction ne sert plus : une langue ne peut pas prendre de
 retard.
+
+Les messages du plugin se traduisent à part, dans `plugin/messages/<langue>.json` : chaque
+message anglais avec `{}` à la place d'une valeur, et sa traduction (voir `src/lang.rs`). Une
+langue qui a un fichier de messages et une option à son nom dans `Cargo.toml` reçoit son propre
+composant ; un message sans modèle reste en anglais.
 
 ## Licence
 

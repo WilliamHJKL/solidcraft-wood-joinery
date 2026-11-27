@@ -102,7 +102,8 @@ def main():
                     if i:
                         q["operation"] = "new"
                     steps.append({"command": "solid.box", "params": q})
-                given = dict(params)
+                # A board field picks: a script gives each board as a list of one name.
+                given = {k: [v] if k in ("rail", "stile", "first", "second", "body") and isinstance(v, str) else v for k, v in params.items()}
                 if "face" in given:
                     given["face"] = face(given["face"], p, mirror)
                 steps += [

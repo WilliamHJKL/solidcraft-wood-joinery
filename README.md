@@ -68,13 +68,15 @@ You can also build the packages yourself (see [Build](#build)); they are then in
 
 ## Choose the boards
 
-Every command takes its boards in one of two ways:
+Every command picks its boards as Extrude picks its profiles (SolidCraft 0.48 and later):
 
-- **By click.** Select the boards in the view or in the browser **before** you open the command,
-  then leave the name fields empty and run it. A click made while the form is open does not
-  fill the fields: SolidCraft draws the form, and a plugin cannot change it. For a joint, the board you select first is the first board (the rail
-  for a mortise and tenon). A selected face or edge counts as its board.
-- **By name.** Type the names as the browser shows them.
+- **In the form.** The first board field is active when the form opens: click the board in the
+  view or in the browser, and the field shows its name. The next field then takes the next
+  click. Click a field to pick its board again; its cross empties it. A selected face or edge
+  counts as its board.
+- **Before the form.** Boards selected before you open the command fill the first board field.
+  With both board fields empty, the command takes the two selected boards when it runs, the one
+  selected first as the first board (the rail for a mortise and tenon).
 
 For a groove, select one flat face and leave both Board and Face empty: the groove goes in that
 face.
@@ -123,7 +125,8 @@ The form shows each rule in the field's title, and the fixed defaults in the fie
 glue relief, no clearance, no offset. It shows a field only when it applies: the haunch for
 `haunched`, the wedges for `through`, the peg diameter and drawbore once there are pegs. A
 script that gives a hidden field has it left out. SolidCraft also checks a script's values
-against the form: each board is one name, and a choice is given as the package lists it.
+against the form: each board is a list of one name (`["Rail"]`), and a choice is given as the
+package lists it.
 
 | Field | Script name | Empty means |
 |---|---|---|
@@ -475,9 +478,11 @@ the joint's boards first (one board is enough when it has only one joint), or ty
 joint's folder name, then Run. In the joint's form, change what you need and click Apply: the
 joint is made again in its place, and Update joints keeps its new settings.
 
-- The new form replaces the joint only when it runs on the same boards. Change a board's name in
-  it and you make a new joint beside the old one.
-- Editing takes two undo steps: one for the joint made again, one for opening its form.
+- The form shows, greyed at its foot, the joint it edits (*Joint being edited*). It replaces that
+  joint only when it runs on the same boards: pick another board and you make a new joint
+  beside the old one.
+- Opening the form changes nothing, so Apply works at the first click, and the edit is one undo
+  step.
 - A script cannot open a form. It gives the fields to change in `settings`, and the joint is made
   again at once: `{"joint": "Rail / Stile", "settings": {"length": 20}}`.
 
@@ -504,7 +509,8 @@ joint is made again in its place, and Update joints keeps its new settings.
   30 biscuits, 40 loose tenons, 15 screws, 20 dovetails or 60 box joint divisions. Above that,
   the command refuses and changes nothing. A count worked out from the length stops at the same
   number: on a very long joint, the pieces are further apart.
-- The plugin's error messages are in English in every package.
+- The French package gives its messages in French; the names of the joints' folders
+  (*Mortise and tenon: Rail / Stile*) stay in English, as designs keep them.
 
 ## Run from a script
 
@@ -513,7 +519,9 @@ With `solidcraft-cli`, inspect the plugin, then pass the `approval` value it ret
 `dowels`, `box-joint`, `loose-tenon`, `housing`, `miter`, `tongue-groove`, `scarf`, `dovetail`,
 `screws` and `biscuits`, `update-joints`, which takes no params, and `edit-joint` (see Edit a joint).
 All joints but the first two take the two bodies as `first` and `second`.
-A script may leave the bodies out and set the selection with `select.set` first.
+Each body is a list of one name, `["Rail"]`, or the reference a pick sends,
+`[{"type": "body", "name": "Rail"}]`: SolidCraft refuses a plain name. A script may leave the
+bodies out and set the selection with `select.set` first.
 
 ```json
 [{"command": "plugin.inspect", "params": {"path": "dist/wood-joinery"}}]
@@ -524,7 +532,7 @@ A script may leave the bodies out and set the selection with `select.set` first.
   "path": "dist/wood-joinery",
   "approval": "THE_APPROVAL_FROM_INSPECT",
   "entry": "mortise-tenon",
-  "params": {"rail": "Rail", "stile": "Stile", "variant": "haunched"}
+  "params": {"rail": ["Rail"], "stile": ["Stile"], "variant": "haunched"}
 }}]
 ```
 
@@ -533,7 +541,7 @@ A script may leave the bodies out and set the selection with `select.set` first.
   "path": "dist/wood-joinery",
   "approval": "THE_APPROVAL_FROM_INSPECT",
   "entry": "groove",
-  "params": {"body": "Leg", "face": "+x", "offset": 6, "stop_start": 80}
+  "params": {"body": ["Leg"], "face": "+x", "offset": 6, "stop_start": 80}
 }}]
 ```
 
@@ -542,7 +550,7 @@ A script may leave the bodies out and set the selection with `select.set` first.
   "path": "dist/wood-joinery",
   "approval": "THE_APPROVAL_FROM_INSPECT",
   "entry": "dowels",
-  "params": {"first": "Rail", "second": "Stile", "diameter": 8, "count": 2}
+  "params": {"first": ["Rail"], "second": ["Stile"], "diameter": 8, "count": 2}
 }}]
 ```
 
@@ -556,7 +564,8 @@ and Python 3.
 ```
 
 This writes one package per language: `dist/wood-joinery-en.zip` (English) and
-`dist/wood-joinery-fr.zip` (French).
+`dist/wood-joinery-fr.zip` (French). The French package has a component of its own, built with
+the `fr` feature, so that its messages are in French.
 
 ## Test
 
@@ -585,6 +594,11 @@ room for more joints.
 
 `./build.sh` then writes `dist/wood-joinery-<language>.zip`. The build fails when a text has no
 translation, or when a translation is no longer used, so a language cannot fall behind.
+
+The plugin's messages are translated apart, in `plugin/messages/<language>.json`: each English
+message with `{}` where a value goes, and its translation (see `src/lang.rs`). A language with a
+messages file and a feature of its name in `Cargo.toml` gets its own component; a message with
+no template stays in English.
 
 ## Licence
 

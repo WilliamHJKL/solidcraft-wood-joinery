@@ -35,7 +35,14 @@ for locale in plugin/locales/*.json; do
     lang=$(basename "$locale" .json)
     mkdir -p "dist/$lang/wood-joinery"
     python3 tools/localize.py plugin/plugin.json "$locale" "dist/$lang/wood-joinery/plugin.json"
-    cp dist/wood-joinery/plugin.wasm "dist/$lang/wood-joinery/plugin.wasm"
+    # A language with its feature in Cargo.toml has the plugin's messages translated too: its
+    # package carries a component of its own, built with that feature.
+    if grep -q "^$lang = " Cargo.toml; then
+        cargo build --release --target wasm32-unknown-unknown -p wood-joinery --features "$lang"
+        cargo run --release -q -p packager -- target/wasm32-unknown-unknown/release/wood_joinery.wasm "dist/$lang/wood-joinery/plugin.wasm"
+    else
+        cp dist/wood-joinery/plugin.wasm "dist/$lang/wood-joinery/plugin.wasm"
+    fi
     cp -r plugin/icons "dist/$lang/wood-joinery/icons"
     pack "dist/$lang/wood-joinery" "dist/wood-joinery-$lang.zip"
 done
