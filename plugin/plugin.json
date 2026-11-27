@@ -185,6 +185,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         },
@@ -218,12 +225,26 @@
           "x-solidcraft-icon": "icons/loose-tenon.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
+              "type": "array",
+              "title": "First board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
+              "type": "array",
+              "title": "Second board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "domino": {
               "type": "string",
@@ -375,6 +396,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -398,8 +426,15 @@
           "x-solidcraft-icon": "icons/groove.svg",
           "properties": {
             "body": {
-              "type": "string",
-              "title": "Board (empty = selection)"
+              "type": "array",
+              "title": "Board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "face": {
               "type": "string",
@@ -453,6 +488,13 @@
                 "y",
                 "z"
               ]
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -476,12 +518,26 @@
           "x-solidcraft-icon": "icons/tongue-groove.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "Tongue board (empty = selection)"
+              "type": "array",
+              "title": "Tongue board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Groove board (empty = selection)"
+              "type": "array",
+              "title": "Groove board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "thickness": {
               "type": "number",
@@ -509,6 +565,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -532,12 +595,26 @@
           "x-solidcraft-icon": "icons/housing.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "Shelf (empty = selection)"
+              "type": "array",
+              "title": "Shelf (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Side (empty = selection)"
+              "type": "array",
+              "title": "Side (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "depth": {
               "type": "number",
@@ -568,6 +645,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -591,12 +675,26 @@
           "x-solidcraft-icon": "icons/half-lap.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
+              "type": "array",
+              "title": "First board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
+              "type": "array",
+              "title": "Second board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "depth": {
               "type": "number",
@@ -617,6 +715,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -640,12 +745,26 @@
           "x-solidcraft-icon": "icons/miter.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
+              "type": "array",
+              "title": "First board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
+              "type": "array",
+              "title": "Second board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "spline": {
               "type": "number",
@@ -682,6 +801,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -705,12 +831,26 @@
           "x-solidcraft-icon": "icons/scarf.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
+              "type": "array",
+              "title": "First board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
+              "type": "array",
+              "title": "Second board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "flip": {
               "type": "boolean",
@@ -728,6 +868,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -751,12 +898,26 @@
           "x-solidcraft-icon": "icons/box-joint.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "Finger board (empty = selection)"
+              "type": "array",
+              "title": "Finger board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Socket board (empty = selection)"
+              "type": "array",
+              "title": "Socket board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "count": {
               "type": "integer",
@@ -771,6 +932,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -794,12 +962,26 @@
           "x-solidcraft-icon": "icons/dovetail.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "Tail board (empty = selection)"
+              "type": "array",
+              "title": "Tail board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Pin board (empty = selection)"
+              "type": "array",
+              "title": "Pin board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "count": {
               "type": "integer",
@@ -829,6 +1011,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -852,12 +1041,26 @@
           "x-solidcraft-icon": "icons/dowels.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
+              "type": "array",
+              "title": "First board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
+              "type": "array",
+              "title": "Second board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "diameter": {
               "type": "number",
@@ -892,6 +1095,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -915,12 +1125,26 @@
           "x-solidcraft-icon": "icons/biscuits.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "First board (empty = selection)"
+              "type": "array",
+              "title": "First board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Second board (empty = selection)"
+              "type": "array",
+              "title": "Second board (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "size": {
               "type": "string",
@@ -946,6 +1170,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }
@@ -969,12 +1200,26 @@
           "x-solidcraft-icon": "icons/screws.svg",
           "properties": {
             "first": {
-              "type": "string",
-              "title": "Board under the head (empty = selection)"
+              "type": "array",
+              "title": "Board under the head (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "second": {
-              "type": "string",
-              "title": "Board the screw bites (empty = selection)"
+              "type": "array",
+              "title": "Board the screw bites (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "diameter": {
               "type": "number",
@@ -1003,6 +1248,13 @@
             "align": {
               "type": "boolean",
               "title": "Align the boards first"
+            },
+            "replaces": {
+              "type": "string",
+              "title": "Joint being edited",
+              "x-solidcraft-enabled-when": {
+                "any": []
+              }
             }
           }
         }

@@ -33,6 +33,14 @@ def boards(rail_corner, rail_size=(360, 18, 45)):
 
 MEASURE = {"command": "inspect.measure", "params": {}}
 
+# The fields that pick a board. A form sends a picked board as a list of one reference; a script
+# gives a list of one name. The scenarios below type plain names, wrapped here.
+PICK_FIELDS = ("rail", "stile", "first", "second", "body")
+
+
+def picks(params):
+    return {k: [v] if k in PICK_FIELDS and isinstance(v, str) else v for k, v in params.items()}
+
 
 def select(*items):
     """Selects bodies (a name) and faces (a body name and a face index), in that order."""
@@ -61,7 +69,7 @@ class Check:
         print(f"{'PASS' if ok else 'FAIL'}  {text}")
 
     def run(self, entry, params):
-        return {"command": "plugin.run", "params": {"path": str(self.package), "approval": self.approval, "entry": entry, "params": params}}
+        return {"command": "plugin.run", "params": {"path": str(self.package), "approval": self.approval, "entry": entry, "params": picks(params)}}
 
     def joint(self, params):
         return self.run("mortise-tenon", params)
@@ -164,13 +172,14 @@ def main():
         dry = c.cli("install", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / "wood-joinery-en.zip"), "dry_run": True}}])
         c.report(dry[0]["id"] == "wood-joinery" and dry[0]["installed"] is False, "plugin.install accepts the .zip in a dry run")
 
-        # Every form must be one SolidCraft 0.46.0 can draw: its dialog knows numbers, whole numbers,
-        # checkboxes, text, `enum` lists and fields shown by condition, and refuses the whole entry for
-        # any other keyword. Before 0.46 the dialog refuses `x-solidcraft-visible-when` too, so the
-        # forms of the mortise and tenon and the miter need 0.46.
-        notes = {"type", "title", "description", "default", "unit", "x-solidcraft-visible-when"}
+        # Every form must be one the dialog can draw: numbers, whole numbers, checkboxes, text,
+        # `enum` lists, fields shown or greyed by condition, and fields that pick a board in the
+        # view (SolidCraft 0.48), which take exactly `maxItems` and the `x-solidcraft-selection`
+        # note. The dialog refuses the whole entry for any other keyword.
+        notes = {"type", "title", "description", "default", "unit", "x-solidcraft-visible-when", "x-solidcraft-enabled-when"}
         allowed = {"number": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf"},
-                   "integer": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"}, "boolean": set(), "string": {"minLength", "maxLength", "enum"}}
+                   "integer": {"minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum"}, "boolean": set(), "string": {"minLength", "maxLength", "enum"},
+                   "array": {"minItems", "maxItems", "x-solidcraft-selection"}}
         for package in [PLUGIN, *sorted((ROOT / "dist").glob("*/wood-joinery"))]:
             manifest = json.loads((package / "plugin.json").read_text())
             bad = [f"{e['name']}.{k}" for e in manifest["runtime"]["entries"] for k, prop in e["input_schema"]["properties"].items()
@@ -179,12 +188,13 @@ def main():
             # not; they ignore the icon that 0.44.0 draws and the field order that 0.49.1 follows.
             top = {"type", "properties", "required", "x-solidcraft-icon", "x-solidcraft-field-order"}
             bad += [e["name"] for e in manifest["runtime"]["entries"] if set(e["input_schema"]) - top]
-            c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by SolidCraft 0.46.0" + (f": not {bad}" if bad else ""))
+            c.report(not bad, f"every form of {package.parent.name}/{package.name} can be drawn by its dialog" + (f": not {bad}" if bad else ""))
             # From 0.49.1, a form shows its fields in the order the manifest lists them: the boards,
             # then the sizes, then the options, and "Align the boards first" last in every form.
             unordered = [e["name"] for e in manifest["runtime"]["entries"]
                          if e["input_schema"].get("x-solidcraft-field-order") != "declared"
-                         or ("align" in e["input_schema"]["properties"] and list(e["input_schema"]["properties"])[-1] != "align")]
+                         or ("align" in e["input_schema"]["properties"] and [k for k in e["input_schema"]["properties"] if k != "replaces"][-1] != "align")
+                         or ("replaces" in e["input_schema"]["properties"] and list(e["input_schema"]["properties"])[-1] != "replaces")]
             c.report(not unordered, f"every form of {package.parent.name}/{package.name} keeps its declared field order" + (f": not {unordered}" if unordered else ""))
             icons = [e["input_schema"].get("x-solidcraft-icon") for e in manifest["runtime"]["entries"]]
             missing = [i for i in icons if not i or not (package / i).is_file()]
@@ -198,7 +208,7 @@ def main():
             lang = package.parent.name
             dry = c.cli(f"install_{lang}", [{"command": "plugin.install", "params": {"path": str(ROOT / "dist" / f"wood-joinery-{lang}.zip"), "dry_run": True}}])
             approval = c.cli(f"inspect_{lang}", [{"command": "plugin.inspect", "params": {"path": str(package)}}])[0]["approval"]
-            run = {"command": "plugin.run", "params": {"path": str(package), "approval": approval, "entry": "mortise-tenon", "params": both}}
+            run = {"command": "plugin.run", "params": {"path": str(package), "approval": approval, "entry": "mortise-tenon", "params": picks(both)}}
             total = c.cli(f"run_{lang}", [*mid, run, MEASURE])[-1]["total"]["volume_mm3"]
             ok = dry[0]["id"] == "wood-joinery" and abs(total - (STILE + RAIL + 6 * 33 * 25 - 6 * 33 * 27)) < 0.5
             c.report(ok, f"the {lang} package installs in a dry run and makes the same joint ({dry[0]['name']})")
@@ -258,13 +268,11 @@ def main():
         # 3. Other directions: the rail on the -X side of the stile, then a rail along Y.
         c.expect("minus_x", "rail on the other side", boards([-360, 0, 400]), both, 6 * 33 * 25, 6 * 33 * 27)
         c.expect("along_y", "rail along Y", boards([0, 35, 400], (18, 360, 45)), both, 6 * 33 * 25, 6 * 33 * 27)
-        # A script may also give each body as a list with one name.
-        # Since 0.46, SolidCraft checks the input of an entry whose form has conditions against the
-        # form, so the mortise and tenon then takes names only.
-        if c.conditions:
-            c.refuse("lists", "bodies given as lists, which 0.46 checks against the form", mid, {"rail": ["Rail"], "stile": ["Stile"]}, "must be of type string")
-        else:
-            c.expect("lists", "bodies given as lists", mid, {"rail": ["Rail"], "stile": ["Stile"]}, 6 * 33 * 25, 6 * 33 * 27)
+        # The boards are picked: a script gives a list of one name, or the reference a pick sends.
+        # SolidCraft checks the input against the form, so a plain name is refused.
+        c.expect("picked", "boards given as picks", mid, {"rail": [{"type": "body", "name": "Rail"}], "stile": [{"type": "body", "name": "Stile"}]}, 6 * 33 * 25, 6 * 33 * 27)
+        code, output = c.cli("plain_name", [*mid, {"command": "plugin.run", "params": {"path": str(c.package), "approval": c.approval, "entry": "mortise-tenon", "params": {"rail": "Rail", "stile": "Stile"}}}], expect_error=True)
+        c.report(code != 0 and "must be of type array" in output, f"refused, a plain name in a pick field: {'ok' if 'must be of type array' in output else output.strip()[-300:]}")
         c.refuse("empty", "empty body name", mid, {"rail": " ", "stile": "Stile"}, "name of one body")
 
         # 4. One undo removes the whole joint, one redo brings it back.
@@ -293,7 +301,9 @@ def main():
         c.groove("groove_along", "groove along Z, as the default", {"body": "Stile", "face": "+x", "along": "z"}, 6 * 8 * 830)
         c.refuse_groove("groove_into", "groove along the axis that goes into the board", {"body": "Stile", "face": "+x", "along": "x"}, "Choose Y or Z")
         c.refuse_groove("groove_deep", "groove through the board", {"body": "Stile", "face": "+x", "depth": 35}, "cut through")
-        c.refuse_groove("groove_face", "unknown face", {"body": "Stile", "face": "up"}, "+x, -x, +y, -y, +z or -z")
+        # Every form has a condition (its greyed "Joint being edited" field), so SolidCraft checks
+        # the input against the form before the plugin does, and gives its own message.
+        c.refuse_groove("groove_face", "unknown face", {"body": "Stile", "face": "up"}, '"+x", "-x", "+y", "-y", "+z", "-z"' if c.conditions else "+x, -x, +y, -y, +z or -z")
 
         # Half laps: two 45 x 18 boards that cross flat. Each loses 45 x 45 x 9.
         two = {"first": "A", "second": "B"}
@@ -337,7 +347,7 @@ def main():
         thin = [box("A", [0, 0, 0], (300, 10, 200), first=True), box("B", [0, 10, 0], (300, 10, 200))]
         c.refuse_entry("dowel_thin", "dowels in 10 mm boards", thin, "dowels", two, "too thin for dowels")
         # More than one call can make before SolidCraft's 30 s limit: refused before any cut.
-        c.refuse_entry("dowels_too_many", "31 dowels, one over the limit", mid, "dowels", {**rs, "count": 31}, "30 or fewer")
+        c.refuse_entry("dowels_too_many", "31 dowels, one over the limit", mid, "dowels", {**rs, "count": 31}, "at most 30" if c.conditions else "30 or fewer")
 
         # A box joint at a drawer corner: 18 x 100 boards, five divisions of 20, two fingers on the side.
         drawer = [box("Side", [18, 0, 0], (300, 18, 100), first=True), box("Front", [0, 0, 0], (18, 300, 100))]

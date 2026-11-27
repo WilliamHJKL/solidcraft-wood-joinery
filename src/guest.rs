@@ -37,9 +37,12 @@ impl exports::craft::plugin::entry::Guest for Plugin {
             "edit-joint" => return edit_joint(&params),
             _ => {}
         }
+        // A form opened by "Edit a joint" names, in its greyed `replaces` field, the joint it
+        // replaces when it runs on the same boards. The field is not one of the joint's settings.
+        let (params, replaces) = without_replaces(&params);
         let mut kept = Joints::load()?;
-        // A form opened by "Edit a joint" replaces that joint when it runs on the same boards.
-        let editing = kept.take_editing();
+        // A design last saved by 0.14 may still hold the pending edit in its document.
+        let editing = replaces.map(|folder| json!({ "folder": folder })).or(kept.take_editing());
         let at = editing.and_then(|marker| kept.edited_by(&marker, &entry, &params));
         if let Some(i) = at {
             kept.unmake(&[i])?;
@@ -85,8 +88,8 @@ fn label(entry: &str) -> &str {
 /// features are plain boxes and cylinders at fixed sizes, so they do not follow the parameters.
 /// Each joint's features sit in a timeline folder of their own. Each joint is kept as
 /// `{entry, params, boards, folder, features, name}`; `boards` maps each field that names a
-/// board (or a face) to what the joint used. While a form opened by "Edit a joint" is pending,
-/// `editing` names that joint's folder and entry. An update that ran to its end leaves
+/// board (or a face) to what the joint used. Up to 0.14, a pending "Edit a joint" form was kept as
+/// `editing` (its folder and entry); a form now carries it in `replaces`. An update that ran to its end leaves
 /// `settled`, the fingerprint of what it made, so that the next one does nothing if nothing changed.
 struct Joints {
     document: Value,
@@ -429,6 +432,19 @@ fn update_joints(params: &str) -> Result<String, PluginError> {
     Ok(json!({ "updated": names.len(), "remaining": left.len(), "forgotten": forgotten, "joints": names }).to_string())
 }
 
+/// The params without the `replaces` field of an "Edit a joint" form, and the folder that field
+/// names: "Mortise and tenon: Rail / Stile [12]" names folder 12.
+fn without_replaces(params: &str) -> (String, Option<u64>) {
+    let Ok(mut p) = serde_json::from_str::<Value>(params) else { return (params.to_owned(), None) };
+    let Some(text) = p.as_object_mut().and_then(|o| o.remove("replaces")) else { return (params.to_owned(), None) };
+    let folder = text
+        .as_str()
+        .and_then(|t| t.trim().strip_suffix(']'))
+        .and_then(|t| t.rsplit_once('['))
+        .and_then(|(_, id)| id.trim().parse().ok());
+    (p.to_string(), folder)
+}
+
 /// Opens a joint's own form, filled with the settings it was made with. Run in that form, on the
 /// same boards, replaces the joint in place. A script cannot open a form: it gives the settings
 /// to change in `settings`, and the joint is made again with them at once.
@@ -456,32 +472,30 @@ fn edit_joint(params: &str) -> Result<String, PluginError> {
         kept.save()?;
         return Ok(json!({ "edited": now }).to_string());
     }
-    kept.document["editing"] = json!({ "folder": joint.get("folder"), "entry": entry });
-    kept.save()?;
-    as_picks(&entry, &mut stored);
+    // Nothing is written here: a form opened by a run that changed the design would ask to be
+    // checked, and applied twice. The form itself carries the joint it replaces.
+    if let Some(folder) = joint.get("folder").and_then(Value::as_u64) {
+        stored["replaces"] = json!(format!("{name} [{folder}]"));
+    }
+    as_picks(&mut stored);
     craft::plugin::forms::open(&entry, &stored.to_string())?;
     Ok(json!({ "editing": name }).to_string())
 }
 
-/// The fields of an entry whose form picks a board in the view, as Extrude picks its profiles.
-fn pick_fields(entry: &str) -> &'static [&'static str] {
-    match entry {
-        "mortise-tenon" => &["rail", "stile"],
-        _ => &[],
-    }
-}
+/// The fields of a joint's form that pick a board in the view, as Extrude picks its profiles.
+const PICK_FIELDS: [&str; 5] = ["rail", "stile", "first", "second", "body"];
 
 /// A joint keeps its boards by name. Its form takes a picked board, so the names go back into the
 /// form as picks; a joint made before the form picked is read the same way.
-fn as_picks(entry: &str, stored: &mut Value) {
-    for field in pick_fields(entry) {
-        let Some(name) = stored.get(*field).and_then(Value::as_str).map(str::trim).map(str::to_owned) else { continue };
+fn as_picks(stored: &mut Value) {
+    for field in PICK_FIELDS {
+        let Some(name) = stored.get(field).and_then(Value::as_str).map(str::trim).map(str::to_owned) else { continue };
         if name.is_empty() {
             if let Some(map) = stored.as_object_mut() {
-                map.remove(*field);
+                map.remove(field);
             }
         } else {
-            stored[*field] = json!([{ "type": "body", "name": name }]);
+            stored[field] = json!([{ "type": "body", "name": name }]);
         }
     }
 }
