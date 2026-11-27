@@ -12,8 +12,9 @@ undo step. A design made with the plugin opens and rebuilds without it.
 
 ## Install
 
-You need the SolidCraft desktop application, version 0.50.0 or later: from 0.14.0, the plugin
-groups its buttons on the ribbon, which older versions refuse. On SolidCraft 0.46 to 0.49, install
+You need the SolidCraft desktop application, version 0.51.0 or later for everything; on 0.50
+everything works but opening a joint's form from the Joints panel (see below). From 0.14.0, the
+plugin groups its buttons on the ribbon, which versions before 0.50 refuse. On SolidCraft 0.46 to 0.49, install
 [version 0.13.0](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.13.0).
 The web version runs no plugins. On SolidCraft 0.42 to 0.45, install
 [version 0.10.1](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.10.1) of
@@ -36,12 +37,12 @@ haunched tenon, for example), and SolidCraft 0.45 and earlier cannot draw such a
    `solid.cylinder`, `solid.cone`, `solid.move`, `solid.combine`), to keep each joint in its
    timeline folder (`timeline.group`, `timeline.delete`) and its settings in the design
    (`storage.get`, `storage.set`, with the `storage` capability). The `forms` capability lets
-   *Edit a joint* open a joint's form filled with its settings. It asks for no file, clock or
-   network access. Accept. A new version of the plugin asks again.
+   *Edit a joint* open a joint's form filled with its settings, and the `ui` capability adds the
+   docked *Joints* panel. It asks for no file, clock or network access. Accept. A new version of the plugin asks again.
 4. **Find the commands.** They are in the *Plugins* group of the *Model* tab: four buttons with a
    drop-down, *Grooves* (groove, tongue and groove, housing), *Corners* (miter, half lap, scarf,
    box joint, dovetails), *Dowels and screws* (dowels, biscuits, screws) and *Joints* (edit a
-   joint, update joints), then the two most used ones on their own, *Mortise and tenon* and
+   joint, update joints, refresh the Joints panel), then the two most used ones on their own, *Mortise and tenon* and
    *Loose tenon*. Open a design, select two boards, then choose a command.
 
 From SolidCraft 0.49.1, each form shows the boards first, then the sizes, then the options, with
@@ -471,11 +472,27 @@ nothing selected. All of it is one undo step.
 - Joints made with versions before 0.12.0 are not kept: delete them and make them again to
   update them.
 
+## The Joints panel
+
+The *Joints* panel, docked on the right, lists the joints of the open design: their kind, their
+boards and their state (*made*, *gone* when their folder was deleted by hand, *to update* when an
+update stopped before them). Its status line says whether the boards changed since the last
+update.
+
+- **Update joints** runs Update joints (see above).
+- **Refresh** reads the joints again. SolidCraft does not tell a panel when a design opens or
+  changes (tangency-labs/solidcraft#21824), so the list starts empty: Refresh fills it. Every
+  joint the plugin makes or edits refreshes it too.
+- **A double click on a row** opens that joint's form, as Edit a joint does (SolidCraft 0.51 and
+  later).
+
+Drag the panel's title to dock it at the bottom or on the left.
+
 ## Edit a joint
 
 **Edit joint** opens a joint's own form again, filled with the settings it was made with. Select
 the joint's boards first (one board is enough when it has only one joint), or type part of the
-joint's folder name, then Run. In the joint's form, change what you need and click Apply: the
+joint's folder name, then Run, or double-click the joint in the Joints panel. In the joint's form, change what you need and click Apply: the
 joint is made again in its place, and Update joints keeps its new settings.
 
 - The form shows, greyed at its foot, the joint it edits (*Joint being edited*). It replaces that

@@ -14,8 +14,10 @@ reconstruit sans lui.
 
 ## Installer
 
-Il faut l'application de bureau SolidCraft, en version 0.50.0 ou plus récente : depuis la 0.14.0,
-le plugin regroupe ses boutons sur le ruban, ce que les versions plus anciennes refusent. Avec
+Il faut l'application de bureau SolidCraft, en version 0.51.0 ou plus récente pour tout ; en 0.50,
+tout marche sauf l'ouverture de la fenêtre d'un assemblage depuis le panneau Assemblages (voir
+plus bas). Depuis la 0.14.0, le plugin regroupe ses boutons sur le ruban, ce que les versions
+avant la 0.50 refusent. Avec
 SolidCraft 0.46 à 0.49, installez la
 [version 0.13.0](https://github.com/WilliamHJKL/solidcraft-wood-joinery/releases/tag/v0.13.0).
 La version web n'exécute aucun plugin. Avec SolidCraft 0.42 à 0.45, installez la
@@ -41,13 +43,14 @@ pas dessiner un tel formulaire.
    chaque assemblage dans son dossier d'historique (`timeline.group`, `timeline.delete`) et
    garder ses réglages dans le fichier (`storage.get`, `storage.set`, avec la capacité
    `storage`). La capacité `forms` permet à *Modifier un assemblage* d'ouvrir la fenêtre d'un
-   assemblage remplie avec ses réglages. Il ne demande aucun accès aux fichiers, à l'horloge ou
+   assemblage remplie avec ses réglages, et la capacité `ui` ajoute le panneau *Assemblages*.
+   Il ne demande aucun accès aux fichiers, à l'horloge ou
    au réseau. Acceptez. Une nouvelle version du plugin redemande cet accord.
 4. **Trouver les commandes.** Elles sont dans le groupe *Plugins* de l'onglet *Modèle* : quatre
    boutons à liste déroulante, *Rainures* (rainure, rainure et languette, entaille d'étagère),
    *Angles* (coupe d'onglet, mi-bois, enture, queues droites, queues d'aronde), *Chevilles et vis*
    (tourillons, lamelles, vis) et *Assemblages* (modifier un assemblage, mettre à jour les
-   assemblages), puis les deux plus utilisés, seuls : *Tenon et mortaise* et *Faux tenon*. Ouvrez
+   assemblages, actualiser le panneau Assemblages), puis les deux plus utilisés, seuls : *Tenon et mortaise* et *Faux tenon*. Ouvrez
    un fichier, sélectionnez deux pièces, puis choisissez une commande.
 
 À partir de SolidCraft 0.49.1, chaque formulaire montre d'abord les pièces, puis les cotes, puis
@@ -504,11 +507,28 @@ en une fois.
 - Les assemblages faits avec une version antérieure à 0.12.0 ne sont pas gardés : supprimez-les
   et refaites-les pour pouvoir les mettre à jour.
 
+## Le panneau Assemblages
+
+Le panneau *Assemblages*, docké à droite, liste les assemblages du fichier ouvert : leur sorte,
+leurs pièces et leur état (*fait*, *supprimé* quand son dossier a été effacé à la main, *à mettre
+à jour* quand une mise à jour s'est arrêtée avant lui). Sa ligne d'état dit si les pièces ont
+changé depuis la dernière mise à jour.
+
+- **Mettre à jour les assemblages** lance la mise à jour (voir plus haut).
+- **Actualiser** relit les assemblages. SolidCraft ne prévient pas un panneau qu'un fichier
+  s'ouvre ou change (tangency-labs/solidcraft#21824) : la liste est vide au départ, Actualiser la
+  remplit. Chaque assemblage que le plugin fait ou modifie l'actualise aussi.
+- **Un double clic sur une ligne** ouvre la fenêtre de cet assemblage, comme Modifier un
+  assemblage (SolidCraft 0.51 et suivants).
+
+Faites glisser le titre du panneau pour le docker en bas ou à gauche.
+
 ## Modifier un assemblage
 
 **Modifier** rouvre la fenêtre d'un assemblage, remplie avec les réglages qui l'ont fait.
 Sélectionnez d'abord les pièces de l'assemblage (une seule suffit quand elle n'a qu'un
-assemblage), ou tapez une partie du nom de son dossier, puis Run. Dans la fenêtre de
+assemblage), ou tapez une partie du nom de son dossier, puis Run ; ou double-cliquez
+l'assemblage dans le panneau Assemblages. Dans la fenêtre de
 l'assemblage, changez ce qu'il faut et cliquez Appliquer : l'assemblage est refait à sa place, et
 la mise à jour garde ses nouveaux réglages.
 
