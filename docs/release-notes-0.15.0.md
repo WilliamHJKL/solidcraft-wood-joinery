@@ -28,4 +28,4 @@ Joints, sizes and results are the same as in 0.14.0.
 
 ## Tested
 
-On SolidCraft 0.51.0-nightly.20261127 and 0.50.0: 96 unit tests, 208 end-to-end checks and 13 joints in 12 orientations each, from the command line. In the 0.51 nightly app: a mortise and tenon picked with two clicks, a groove picked with one, Edit a joint applied at the first click, the Joints panel in French, its Refresh and Update joints buttons, and a double click on a row opening the joint's form.
+On SolidCraft 0.51.1 and 0.50.0: 96 unit tests, 208 end-to-end checks and 13 joints in 12 orientations each, from the command line. In the 0.51.1 app: a mortise and tenon picked with two clicks (one in the browser, one in the view) and made at the first Run, the Joints panel in French with its Refresh button, and a double click on its row opening the joint's form, filled, which replaced the joint at the first click.
