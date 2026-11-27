@@ -21,12 +21,26 @@
           "x-solidcraft-icon": "icons/mortise-tenon.svg",
           "properties": {
             "rail": {
-              "type": "string",
-              "title": "Rail (empty = selection)"
+              "type": "array",
+              "title": "Rail (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "stile": {
-              "type": "string",
-              "title": "Stile (empty = selection)"
+              "type": "array",
+              "title": "Stile (empty = selection)",
+              "maxItems": 1,
+              "x-solidcraft-selection": {
+                "version": 1,
+                "accept": [
+                  "body"
+                ]
+              }
             },
             "variant": {
               "type": "string",

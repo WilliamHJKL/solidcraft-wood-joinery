@@ -123,11 +123,7 @@ impl Joints {
         let same = joint.get("boards").and_then(Value::as_object).is_some_and(|boards| {
             !boards.is_empty()
                 && boards.iter().all(|(field, value)| {
-                    let given = match p.get(field) {
-                        Some(Value::String(name)) => Some(name.trim()),
-                        Some(Value::Array(names)) if names.len() == 1 => names[0].as_str().map(str::trim),
-                        _ => None,
-                    };
+                    let given = p.get(field).and_then(one_board).map(str::trim);
                     given.is_some_and(|given| value.as_str().is_some_and(|v| choice(v) == choice(given)))
                 })
         });
@@ -462,8 +458,32 @@ fn edit_joint(params: &str) -> Result<String, PluginError> {
     }
     kept.document["editing"] = json!({ "folder": joint.get("folder"), "entry": entry });
     kept.save()?;
+    as_picks(&entry, &mut stored);
     craft::plugin::forms::open(&entry, &stored.to_string())?;
     Ok(json!({ "editing": name }).to_string())
+}
+
+/// The fields of an entry whose form picks a board in the view, as Extrude picks its profiles.
+fn pick_fields(entry: &str) -> &'static [&'static str] {
+    match entry {
+        "mortise-tenon" => &["rail", "stile"],
+        _ => &[],
+    }
+}
+
+/// A joint keeps its boards by name. Its form takes a picked board, so the names go back into the
+/// form as picks; a joint made before the form picked is read the same way.
+fn as_picks(entry: &str, stored: &mut Value) {
+    for field in pick_fields(entry) {
+        let Some(name) = stored.get(*field).and_then(Value::as_str).map(str::trim).map(str::to_owned) else { continue };
+        if name.is_empty() {
+            if let Some(map) = stored.as_object_mut() {
+                map.remove(*field);
+            }
+        } else {
+            stored[*field] = json!([{ "type": "body", "name": name }]);
+        }
+    }
 }
 
 /// Runs one joint again, and names it in the error when it no longer fits.
@@ -511,17 +531,26 @@ fn invalid(field: &str, reason: impl Into<String>) -> PluginError {
     PluginError::InvalidInput(FieldFailure { field: field.into(), reason: reason.into() })
 }
 
-/// One body name. The form sends plain text; a script may also send a list with one name.
-fn body(p: &Value, field: &str) -> Result<String, PluginError> {
-    let name = match p.get(field) {
-        Some(Value::String(name)) => Some(name),
-        Some(Value::Array(names)) => match names.as_slice() {
+/// The one board a field gives: a name, a list of one name, or what a selection field sends when
+/// a board is picked in the view (a body by its name, a face or an edge by the body it belongs to).
+fn one_board(v: &Value) -> Option<&str> {
+    match v {
+        Value::String(name) => Some(name),
+        Value::Array(items) => match items.as_slice() {
             [Value::String(name)] => Some(name),
+            [Value::Object(pick)] => {
+                let key = if pick.get("type").and_then(Value::as_str) == Some("body") { "name" } else { "body" };
+                pick.get(key).and_then(Value::as_str)
+            }
             _ => None,
         },
         _ => None,
-    };
-    match name.map(|n| n.trim()) {
+    }
+}
+
+/// One body name, typed or picked (see `one_board`).
+fn body(p: &Value, field: &str) -> Result<String, PluginError> {
+    match p.get(field).and_then(one_board).map(str::trim) {
         Some(name) if !name.is_empty() => Ok(name.to_owned()),
         _ => Err(invalid(field, "expected the name of one body")),
     }
