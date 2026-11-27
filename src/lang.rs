@@ -52,8 +52,9 @@ pub struct Language {
 
 impl Language {
     pub fn new(mut templates: Vec<Template>, decimal: char) -> Self {
-        // Templates with too little fixed text ("{} {}") would take any message.
-        templates.retain(|t| t.fixed() >= 8);
+        // Templates with values but too little fixed text ("{} {}") would take any message; a
+        // text with no value ("made") is matched whole, whatever its length.
+        templates.retain(|t| t.english.len() == 1 || t.fixed() >= 8);
         templates.sort_by_key(|t| std::cmp::Reverse(t.fixed()));
         Self { templates, decimal }
     }

@@ -10,6 +10,9 @@ cargo build --release --target wasm32-unknown-unknown -p wood-joinery
 rm -rf dist
 mkdir -p dist/wood-joinery
 cargo run --release -q -p packager -- target/wasm32-unknown-unknown/release/wood_joinery.wasm dist/wood-joinery/plugin.wasm
+# The docked "Joints" panel joins the manifest here: plugin/panel.json is also what the
+# component's `describe` returns, so the two cannot differ.
+python3 tools/panel_manifest.py plugin/plugin.json plugin/panel.json target/plugin-full.json
 # The packed manifest is compact: SolidCraft refuses one over 64 KiB (16 KiB before 0.45).
 python3 -c "
 import json, sys
@@ -17,7 +20,7 @@ data = json.dumps(json.load(open(sys.argv[1], encoding='utf-8')), ensure_ascii=F
 if len(data.encode()) > 64 * 1024:
     raise SystemExit('the manifest is over the 64 KiB limit of SolidCraft')
 open(sys.argv[2], 'w', encoding='utf-8').write(data)
-" plugin/plugin.json dist/wood-joinery/plugin.json
+" target/plugin-full.json dist/wood-joinery/plugin.json
 # The command icons (SolidCraft 0.44 and later draw them; older versions ignore them).
 cp -r plugin/icons dist/wood-joinery/icons
 pack() { # pack <folder> <zip>
@@ -34,7 +37,7 @@ pack dist/wood-joinery dist/wood-joinery-en.zip
 for locale in plugin/locales/*.json; do
     lang=$(basename "$locale" .json)
     mkdir -p "dist/$lang/wood-joinery"
-    python3 tools/localize.py plugin/plugin.json "$locale" "dist/$lang/wood-joinery/plugin.json"
+    python3 tools/localize.py target/plugin-full.json "$locale" "dist/$lang/wood-joinery/plugin.json"
     # A language with its feature in Cargo.toml has the plugin's messages translated too: its
     # package carries a component of its own, built with that feature.
     if grep -q "^$lang = " Cargo.toml; then

@@ -18,7 +18,12 @@ use crate::screw;
 use crate::slant::Tool;
 use crate::tongue;
 
-wit_bindgen::generate!({ world: "command-plugin", path: "wit" });
+// The panel world (capability ui@0.1) brings the docked "Joints" panel. A panel action that opens
+// a form needs SolidCraft 0.51 (tangency-labs/solidcraft#22044).
+wit_bindgen::generate!({ world: "panel-plugin", path: "wit" });
+
+#[path = "panel.rs"]
+mod panel;
 
 use craft::plugin::commands;
 use craft::plugin::types::{CommandFailure, FieldFailure, PluginError};
@@ -43,6 +48,34 @@ fn run_entry(entry: String, params: String) -> Result<String, PluginError> {
     // Each run starts its own count of host calls, with no body names known yet.
     CALLS.with(|c| c.set(0));
     NAMES.with(|n| *n.borrow_mut() = None);
+    if entry == "panel-refresh" {
+        return panel::refresh().map(panel::reply);
+    }
+    let out = joint_entry(entry, params)?;
+    // Every entry that changes the joints shows the change in the panel at once.
+    panel::refresh()?;
+    Ok(out)
+}
+
+impl exports::craft::plugin::ui_provider::Guest for Plugin {
+    fn describe() -> craft::plugin::ui::Declarations {
+        panel::declarations()
+    }
+    // A panel click runs the entry plugin/panel.json names, after this: a double click on a row
+    // runs Edit a joint, which takes the joint of that row.
+    fn on_event(event: craft::plugin::ui::UiEvent) -> Result<(), PluginError> {
+        panel::clicked(event.row);
+        Ok(())
+    }
+    fn on_enter(_workspace: String) -> Result<(), PluginError> {
+        Ok(())
+    }
+    fn on_exit(_workspace: String) -> Result<(), PluginError> {
+        Ok(())
+    }
+}
+
+fn joint_entry(entry: String, params: String) -> Result<String, PluginError> {
     match entry.as_str() {
         "update-joints" => return update_joints(&params),
         "edit-joint" => return edit_joint(&params),
@@ -463,7 +496,12 @@ fn edit_joint(params: &str) -> Result<String, PluginError> {
     let mut kept = Joints::load()?;
     kept.take_editing();
     let text = p.get("joint").and_then(Value::as_str).map(str::trim).filter(|t| !t.is_empty());
-    let i = kept.find(text)?;
+    // From the panel: the joint of the row that was double clicked.
+    let row = if text.is_none() { panel::clicked_joint(&mut kept)? } else { None };
+    let i = match row {
+        Some(i) => i,
+        None => kept.find(text)?,
+    };
     let joint = kept.list()[i].clone();
     let entry = joint.get("entry").and_then(Value::as_str).unwrap_or_default().to_owned();
     let name = kept.name(i);

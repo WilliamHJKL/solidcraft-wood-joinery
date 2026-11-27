@@ -6,7 +6,8 @@
   "capabilities": [
     "commands@0.2",
     "storage@0.1",
-    "forms@0.1"
+    "forms@0.1",
+    "ui@0.1"
   ],
   "runtime": {
     "module": "plugin.wasm",
@@ -1314,6 +1315,26 @@
             }
           }
         }
+      },
+      {
+        "name": "panel-refresh",
+        "effect": "read",
+        "slots": [
+          {
+            "kind": "menu",
+            "name": "Refresh the Joints panel"
+          },
+          {
+            "kind": "ribbon",
+            "name": "Refresh the Joints panel"
+          }
+        ],
+        "input_schema": {
+          "type": "object",
+          "x-solidcraft-field-order": "declared",
+          "x-solidcraft-icon": "icons/update-joints.svg",
+          "properties": {}
+        }
       }
     ],
     "commands": [
@@ -1371,7 +1392,8 @@
         "icon": "icons/update-joints.svg",
         "entries": [
           "edit-joint",
-          "update-joints"
+          "update-joints",
+          "panel-refresh"
         ]
       }
     ]

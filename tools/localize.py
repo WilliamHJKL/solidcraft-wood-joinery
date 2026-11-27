@@ -21,10 +21,22 @@ def texts(manifest):
     # The ribbon's grouped buttons (SolidCraft 0.50 and later).
     for group in manifest["runtime"].get("ribbon_groups", []):
         yield group, "label"
+    # The docked panel (SolidCraft 0.51 and later): its title, buttons, columns and fields. The
+    # plugin's `describe` translates them from the same locale file, so the two stay equal.
+    for panel in manifest["runtime"].get("ui", {}).get("panels", []):
+        yield panel, "title"
+        for node in panel["layout"]["nodes"]:
+            widget = node["widget"]
+            for button in widget.get("toolbar", []):
+                yield button, "label"
+            for column in widget.get("table", {}).get("columns", []):
+                yield column, "label"
+            for field in widget.get("form", {}).get("fields", []):
+                yield field, "label"
     for entry in manifest["runtime"]["entries"]:
         for slot in entry.get("slots", []):
             yield slot, "name"
-        for prop in entry["input_schema"]["properties"].values():
+        for prop in entry["input_schema"].get("properties", {}).values():
             for key in ("title", "description"):
                 if key in prop:
                     yield prop, key
@@ -67,7 +79,7 @@ def main():
         else:
             missing.append(english)
     for entry in manifest["runtime"]["entries"]:
-        for prop in entry["input_schema"]["properties"].values():
+        for prop in entry["input_schema"].get("properties", {}).values():
             for i, value in enumerate(prop.get("enum", [])):
                 if value not in words:
                     missing.append(value)
@@ -80,7 +92,7 @@ def main():
                 prop["enum"][i] = words[value]
     # A field shown only for some choices names the choice's value, which is translated above.
     for entry in manifest["runtime"]["entries"]:
-        props = entry["input_schema"]["properties"]
+        props = entry["input_schema"].get("properties", {})
         for prop in props.values():
             translate_condition(prop.get("x-solidcraft-visible-when"), props, words)
     unused = sorted(set(words) - used)

@@ -148,5 +148,10 @@
   "Grooves": "Rainures",
   "Corners": "Angles",
   "Joints": "Assemblages",
-  "Joint being edited": "Assemblage modifié"
+  "Joint being edited": "Assemblage modifié",
+  "Refresh": "Actualiser",
+  "Boards": "Pièces",
+  "State": "État",
+  "Status": "État",
+  "Refresh the Joints panel": "Actualiser le panneau Assemblages"
 }

@@ -148,7 +148,7 @@ def main():
         for path in sorted((ROOT / "dist").glob("**/plugin.json")):
             bad = []
             for e in json.loads(path.read_text(encoding="utf-8"))["runtime"]["entries"]:
-                props = e["input_schema"]["properties"]
+                props = e["input_schema"].get("properties", {})
 
                 def walk(cond, field):
                     for inner in cond.get("all", []) + cond.get("any", []) + ([cond["not"]] if "not" in cond else []):
@@ -182,6 +182,9 @@ def main():
                    "array": {"minItems", "maxItems", "x-solidcraft-selection"}}
         for package in [PLUGIN, *sorted((ROOT / "dist").glob("*/wood-joinery"))]:
             manifest = json.loads((package / "plugin.json").read_text())
+            # The docked panel's own entries (panel-refresh, panel-update, panel-edit) have no
+            # button and no form: the panel runs them.
+            manifest["runtime"]["entries"] = [e for e in manifest["runtime"]["entries"] if e.get("slots")]
             bad = [f"{e['name']}.{k}" for e in manifest["runtime"]["entries"] for k, prop in e["input_schema"]["properties"].items()
                    if prop.get("type") not in allowed or set(prop) - notes - allowed[prop["type"]]]
             # At the top of a schema, 0.42.0 to 0.49.0 refuse only $ref, oneOf, anyOf, allOf, if and

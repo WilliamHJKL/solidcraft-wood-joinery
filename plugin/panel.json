@@ -1,0 +1,89 @@
+{
+  "ui_version": 1,
+  "panels": [
+    {
+      "id": "joints",
+      "title": "Joints",
+      "zones": [
+        "right",
+        "bottom",
+        "left"
+      ],
+      "layout": {
+        "root": 0,
+        "nodes": [
+          {
+            "widget": {
+              "group": [
+                1,
+                3,
+                2
+              ]
+            }
+          },
+          {
+            "widget": {
+              "toolbar": [
+                {
+                  "label": "Update joints",
+                  "icon": null,
+                  "entry": "update-joints"
+                },
+                {
+                  "label": "Refresh",
+                  "icon": null,
+                  "entry": "panel-refresh"
+                }
+              ]
+            }
+          },
+          {
+            "widget": {
+              "table": {
+                "bind": "/joints",
+                "row_id": "id",
+                "columns": [
+                  {
+                    "key": "kind",
+                    "label": "Joint",
+                    "unit": null
+                  },
+                  {
+                    "key": "boards",
+                    "label": "Boards",
+                    "unit": null
+                  },
+                  {
+                    "key": "state",
+                    "label": "State",
+                    "unit": null
+                  }
+                ],
+                "select": "single",
+                "on_select": null,
+                "on_edit": "edit-joint"
+              }
+            }
+          },
+          {
+            "widget": {
+              "form": {
+                "bind": "/status",
+                "fields": [
+                  {
+                    "key": "text",
+                    "label": "Status",
+                    "kind": "text",
+                    "choices": [],
+                    "on_change": null
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "workspaces": []
+}
